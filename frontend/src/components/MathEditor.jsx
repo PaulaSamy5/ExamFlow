@@ -177,14 +177,17 @@ export default function MathEditor({ value, onChange }) {
     return () => window.removeEventListener('keydown', handleGlobalKey);
   }, [undo, redo]);
 
-  // Compile and sync data backend
+  // Compile and sync data backend with DEBOUNCE
   useEffect(() => {
-    const stepsString = lines.map(l => l.text).join('\n');
-    onChange(JSON.stringify({ 
-      steps: stepsString, 
-      finalAnswer: finalAnswer,
-      lines: lines 
-    }));
+    const timer = setTimeout(() => {
+      const stepsString = lines.map(l => l.text).join('\n');
+      onChange(JSON.stringify({ 
+        steps: stepsString, 
+        finalAnswer: finalAnswer,
+        lines: lines 
+      }));
+    }, 500); // 500ms debounce
+    return () => clearTimeout(timer);
   }, [lines, finalAnswer, onChange]);
 
   const updateLine = React.useCallback((id, newText) => {
