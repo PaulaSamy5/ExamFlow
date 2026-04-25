@@ -1,0 +1,244 @@
+import { useState, useEffect } from 'react'
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
+import { Sun, Moon, LogOut, Layout, User, BookOpen, PlusCircle, Sparkles } from 'lucide-react'
+import { useAuth } from './store/AuthContext'
+import { useTheme } from './store/ThemeContext'
+import { Toaster } from 'react-hot-toast'
+
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Dashboard from './pages/Dashboard'
+import HomePage from './pages/HomePage'
+import CreateExam from './pages/instructor/CreateExam'
+import ExamDetail from './pages/student/ExamDetail'
+import ExamSession from './pages/student/ExamSession'
+import ExamResult from './pages/student/ExamResult'
+import ExamSubmissions from './pages/instructor/ExamSubmissions'
+import ExamJoin from './pages/student/ExamJoin'
+
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
+function DevPanel() {
+  const { devLogin, user } = useAuth();
+  
+  if (!import.meta.env.DEV) return null;
+
+  return (
+    <div className="fixed bottom-4 left-4 z-[9999] bg-slate-50 dark:bg-slate-900 border border-indigo-500/50 p-3 rounded-xl shadow-2xl shadow-indigo-500/20 flex flex-col gap-2 backdrop-blur-md opacity-30 hover:opacity-100 transition-opacity duration-300">
+      <div className="text-[10px] font-mono text-indigo-400 uppercase tracking-widest text-center border-b border-indigo-500/20 pb-1 mb-1">Dev Switch</div>
+      <div className="flex gap-2">
+        <button 
+          onClick={() => devLogin('INSTRUCTOR')}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${user?.role === 'INSTRUCTOR' ? 'bg-indigo-600 text-slate-900 dark:text-white shadow-md shadow-indigo-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-700 hover:text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700'}`}
+        >
+          Login as Instructor
+        </button>
+        <button 
+          onClick={() => devLogin('STUDENT')}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${user?.role === 'STUDENT' ? 'bg-emerald-600 text-slate-900 dark:text-white shadow-md shadow-emerald-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-700 hover:text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700'}`}
+        >
+          Login as Student
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const { user, logout, loading } = useAuth()
+  const { theme, toggleTheme } = useTheme()
+  const location = useLocation()
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  const isHomePage = location.pathname === '/';
+
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col selection:bg-indigo-500/30">
+      <ScrollToTop />
+      <Toaster position="top-right" reverseOrder={false} 
+        toastOptions={{
+          duration: 4000,
+          style: theme === 'dark' ? {
+            background: '#1e293b',
+            color: '#fff',
+            border: '1px solid #334155',
+          } : {
+            background: '#ffffff',
+            color: '#0f172a',
+            border: '1px solid #e2e8f0',
+          },
+        }}
+      />
+      
+      {/* Top Navbar */}
+      {!location.pathname.includes('/session') && (
+        <nav className="sticky top-0 z-50 w-full bg-slate-50/70 dark:bg-[#040814]/70 border-b border-slate-200/50 dark:border-indigo-500/10 backdrop-blur-xl transition-all duration-300">
+          <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-6 lg:px-8">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <div className="bg-indigo-600 p-1.5 rounded-lg group-hover:rotate-6 transition-transform duration-300 shadow-md shadow-indigo-500/20">
+                <Layout className="h-5 w-5 text-white" />
+              </div>
+              <span className="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white">ExamFlow</span>
+            </Link>
+
+            <div className="flex items-center gap-4 sm:gap-6">
+              {user ? (
+                <div className="flex items-center gap-4 sm:gap-6">
+                  {/* Dashboard Link for logged-in users */}
+                  <Link 
+                    to="/dashboard" 
+                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all px-4 py-2 rounded-xl border ${location.pathname === '/dashboard' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500' : 'text-slate-500 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    Control Panel
+                  </Link>
+
+                  {/* Role Indicator */}
+                  <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 rounded-full border border-slate-200 dark:border-white/5 shadow-inner">
+                    <div className={`h-1.5 w-1.5 rounded-full animate-pulse ${user.role === 'INSTRUCTOR' ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'}`}></div>
+                    <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                      {user.role}
+                    </span>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block mx-1"></div>
+
+                  {/* User Profile Hook */}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right hidden sm:block">
+                      <p className="text-[11px] font-black text-slate-900 dark:text-white leading-tight uppercase tracking-wide">{user.name}</p>
+                      <p className="text-[9px] font-bold text-slate-400 leading-tight">Verified Academic</p>
+                    </div>
+                    <div className="bg-slate-100 dark:bg-slate-800 h-10 w-10 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+                      <User className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-4 sm:pl-6">
+                    <button
+                      onClick={toggleTheme}
+                      className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                    >
+                      {theme === 'dark' ? <Sun className="h-5 w-5 transition-transform group-hover:rotate-45" /> : <Moon className="h-5 w-5" />}
+                    </button>
+                    <button 
+                      onClick={logout}
+                      className="p-2.5 rounded-xl text-slate-500 hover:bg-rose-500/10 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-all group"
+                      title="Secure Sign Out"
+                    >
+                      <LogOut className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 sm:gap-4">
+                  <button
+                    onClick={toggleTheme}
+                    className="p-2 rounded-lg text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                  >
+                    {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                  </button>
+                  <Link to="/login" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 px-3 py-2 transition-colors">Log in</Link>
+                  <Link to="/register" className="text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 px-5 py-2.5 rounded-full transition-all active:scale-95">
+                    Get Started Free
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </nav>
+      )}
+
+      <main className={`flex-1 w-full ${isHomePage ? 'pt-0 pb-0' : 'max-w-7xl mx-auto px-6 lg:px-8 pt-8 pb-32'}`}>
+
+
+
+
+        <Routes>
+          <Route path="/" element={!user ? <HomePage /> : <Navigate to="/dashboard" />} />
+          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+          <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
+          <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
+          
+          {/* Protected Routes */}
+          <Route path="/exams/new" element={user && user.role === 'INSTRUCTOR' ? <CreateExam /> : <Navigate to="/login" />} />
+          <Route path="/exams/:id/edit" element={user && user.role === 'INSTRUCTOR' ? <CreateExam /> : <Navigate to="/login" />} />
+          <Route path="/exams/:id" element={user ? <ExamDetail /> : <Navigate to="/login" />} />
+          <Route path="/session/:id" element={user ? <ExamSession /> : <Navigate to="/login" />} />
+          <Route path="/exams/:id/submissions" element={user && user.role === 'INSTRUCTOR' ? <ExamSubmissions /> : <Navigate to="/login" />} />
+          <Route path="/submissions/:id" element={user ? <ExamResult /> : <Navigate to="/login" />} />
+          <Route path="/exams/join/:code" element={user ? <ExamJoin /> : <Navigate to="/login" />} />
+
+          
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+
+
+      </main>
+      
+      {/* ─── Unified Premium Footer ─── */}
+      {!location.pathname.includes('/session') && (
+        <footer className="border-t border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-[#111827]/50 backdrop-blur-md mt-auto">
+          <div className="max-w-7xl mx-auto px-6 py-12 lg:px-8">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-10">
+              
+              <div className="flex flex-col items-center md:items-start gap-4 max-w-sm">
+                <Link to="/" className="flex items-center gap-2.5 group">
+                  <div className="bg-indigo-600 p-1.5 rounded-lg shadow-md shadow-indigo-500/20 group-hover:rotate-6 transition-transform">
+                    <Layout className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="font-extrabold tracking-tight text-xl text-slate-900 dark:text-white">ExamFlow</span>
+                </Link>
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center md:text-left leading-relaxed">
+                  Leading the future of academic evaluation with AI-powered semantic grading and seamless instructor workflows.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center md:items-end gap-4 text-center md:text-right">
+                <div className="flex items-center gap-1.5 text-indigo-500/80 dark:text-indigo-400/80">
+                  <Sparkles className="h-4 w-4" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Next-Gen Learning</span>
+                </div>
+                <div className="h-px w-12 bg-slate-200 dark:bg-white/10 hidden md:block" />
+                <p className="text-xs text-slate-400 dark:text-slate-500 max-w-[200px]">
+                  Engineered for excellence in modern educational environments.
+                </p>
+              </div>
+
+            </div>
+
+            <div className="mt-12 pt-8 border-t border-slate-200/50 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              <p>© {new Date().getFullYear()} ExamFlow Platform. All rights reserved.</p>
+              <div className="flex gap-8">
+                <a href="#" className="hover:text-indigo-500 transition-colors">Privacy</a>
+                <a href="#" className="hover:text-indigo-500 transition-colors">Terms</a>
+                <a href="#" className="hover:text-indigo-500 transition-colors">Support</a>
+              </div>
+            </div>
+          </div>
+        </footer>
+      )}
+
+      {/* Dev Only Features */}
+      <DevPanel />
+    </div>
+  )
+}
+
+export default App

@@ -1,0 +1,949 @@
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import api from '../../lib/api';
+import { 
+  ChevronLeft, ChevronRight, Save, Send, AlertTriangle, 
+  Clock, CheckCircle2, Circle, LayoutList, Loader2, Sparkles, BookOpen, ShieldCheck, Timer, Code, AlertCircle, Info, CircleX, CheckSquare, Sigma
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
+import UMLCanvas from '../../components/UMLCanvas';
+import MathEditor from '../../components/MathEditor';
+import FormattedText from '../../components/FormattedText';
+
+const LANGUAGES = [
+  { id: 'javascript', label: 'JavaScript', color: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-500/30' },
+  { id: 'python', label: 'Python', color: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-500/30' },
+  { id: 'cpp', label: 'C++', color: 'text-sky-400', bg: 'bg-sky-400/10', border: 'border-sky-500/30' },
+];
+
+const detectCodeLanguage = (code) => {
+  if (!code || code.trim().length < 5) return null;
+  const c = code.toLowerCase();
+  
+  const patterns = {
+    javascript: [
+      'console.log', 'const ', 'let ', 'require(', 'await ', 'function', '=>',
+      'import {', 'document.get', 'export ', 'Object.keys'
+    ],
+    python: [
+      'print(', 'def ', 'import ', 'if __name__', 'elif ', 'class ', 'range(', 
+      'for i in', 'lambda ', 'try:', 'except ', 'with open'
+    ],
+    cpp: [
+      '#include', 'iostream', 'std::', 'using namespace', 'cout <<', 'cin >>', 
+      'int main()', 'vector<', 'template <', 'public:', 'private:', 'endl;'
+    ]
+  };
+
+  let counts = { javascript: 0, python: 0, cpp: 0 };
+  
+  for (const [lang, ps] of Object.entries(patterns)) {
+    ps.forEach(p => {
+      if (c.includes(p.toLowerCase())) counts[lang]++;
+    });
+  }
+
+  const maxVal = Math.max(...Object.values(counts));
+  if (maxVal === 0) return null;
+  
+  // Return the first one with max matches if more than 0
+  return Object.keys(counts).find(lang => counts[lang] === maxVal);
+};
+
+const parseOptions = (options) => {
+  if (!options) return {};
+  if (typeof options === 'object') return options;
+  try {
+    return JSON.parse(options);
+  } catch (e) {
+    return {};
+  }
+};
+
+const ExamSession = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [submission, setSubmission] = useState(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [answers, setAnswers] = useState({}); 
+  const [timeLeft, setTimeLeft] = useState(0); 
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [selectedLangs, setSelectedLangs] = useState({}); // Stores selected language per coding question
+  const autoSaveTimerRef = useRef(null);
+
+  // ── Prevent back-button re-entry after exam submission ──
+  useEffect(() => {
+    // Push a guard state so pressing back triggers popstate instead of leaving
+    const guardBackNavigation = () => {
+      window.history.pushState({ examGuard: true }, '');
+    };
+
+    const handlePopState = (e) => {
+      // If user presses back while in exam, push state again to trap them
+      // They can only leave via the submit flow
+      if (!submission || submission.status === 'IN_PROGRESS') {
+        guardBackNavigation();
+      }
+    };
+
+    guardBackNavigation();
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [submission]);
+
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const { data } = await api.get(`/submissions/${id}`);
+
+        // ── CRITICAL: Block re-entry if exam is already submitted ──
+        if (data.status === 'SUBMITTED') {
+          toast('You have already submitted this exam.', { icon: '🔒', duration: 4000 });
+          navigate('/', { replace: true });
+          return;
+        }
+
+        setSubmission(data);
+        
+        const initialAnswers = {};
+        const initialLangs = {};
+        data.answers.forEach(a => {
+            try {
+              const parsed = JSON.parse(a.studentAnswer);
+              if (parsed && typeof parsed === 'object' && 'code' in parsed) {
+                initialAnswers[a.questionId] = parsed.code;
+                initialLangs[a.questionId] = parsed.language;
+              } else {
+                initialAnswers[a.questionId] = a.studentAnswer;
+              }
+            } catch(e) {
+              initialAnswers[a.questionId] = a.studentAnswer;
+            }
+        });
+
+        // Set mandatory languages based on question requirements
+        data.exam.questions.forEach(q => {
+          if (q.type === 'CODING') {
+            const ops = parseOptions(q.options);
+            if (ops.requiredLanguage && ops.requiredLanguage !== 'any') {
+              initialLangs[q.id] = ops.requiredLanguage;
+            }
+          }
+        });
+
+        setAnswers(initialAnswers);
+        setSelectedLangs(initialLangs);
+
+        const examDate = new Date(data.createdAt);
+        const serverNowDate = new Date(data.serverNow);
+        const durationSeconds = data.exam.duration * 60;
+        
+        // Use EXACT backend timeline to bypass any Windows/Browser timezone differences 
+        // (SQL Server GETDATE() diff against the specific GETDATE() it used on creation)
+        const elapsed = Math.floor((serverNowDate - examDate) / 1000);
+        let remainingTime = durationSeconds - elapsed;
+
+        // If the exam has a globally set end time, ensure the session cannot exceed it
+        if (data.exam.endTime) {
+            const closingDate = new Date(data.exam.endTime);
+            const timeUntilClose = Math.floor((closingDate - serverNowDate) / 1000);
+            if (timeUntilClose > 0) {
+               remainingTime = Math.min(remainingTime, timeUntilClose);
+            } else {
+               remainingTime = 0; // Exam has ended entirely
+            }
+        }
+
+        setTimeLeft(Math.max(0, remainingTime));
+
+        setLoading(false);
+      } catch (err) {
+        toast.error('Session access denied');
+        navigate('/', { replace: true });
+      }
+    };
+    initSession();
+    return () => clearInterval(autoSaveTimerRef.current);
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (timeLeft <= 0 || loading) return;
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          handleAutoSubmit();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timeLeft, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    autoSaveTimerRef.current = setInterval(async () => {
+        await handleSave(true);
+    }, 30000);
+    return () => clearInterval(autoSaveTimerRef.current);
+  }, [loading, answers]);
+
+  const handleSave = async (isAuto = false) => {
+    if (!submission) return;
+    setSaving(true);
+    try {
+      const answerArray = Object.entries(answers).map(([qId, ans]) => {
+        const q = submission.exam.questions.find(x => x.id === parseInt(qId));
+        let studentAnswer = ans;
+        if (q?.type === 'CODING') {
+           studentAnswer = JSON.stringify({
+             code: ans,
+             language: selectedLangs[qId] || 'javascript'
+           });
+        }
+        if (q?.type === 'UML' || q?.type === 'MATH') {
+           // UML and MATH answers are already JSON strings
+           studentAnswer = ans;
+        }
+        return {
+          questionId: parseInt(qId),
+          studentAnswer
+        };
+      });
+      await api.patch(`/submissions/${submission.id}/save`, { answers: answerArray });
+      if (!isAuto) toast.success('Progress cached');
+    } catch (err) {
+      if (!isAuto) toast.error('Sync failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateAnswer = (qId, value) => {
+    setAnswers(prev => ({ ...prev, [qId]: value }));
+  };
+
+  const handleAutoSubmit = async () => {
+    toast('Time is up! Submitting active response...', { icon: '⏳' });
+    await processSubmission();
+  };
+
+  const processSubmission = async () => {
+    if (!submission || isSubmitting) return;
+
+    // Check language requirements 
+    const codingQs = (submission.exam?.questions || []).filter(q => q.type === 'CODING');
+    for (let q of codingQs) {
+       const codingOpts = parseOptions(q.options);
+       const studentCode = answers[q.id] || '';
+       const studentLang = selectedLangs[q.id] || 'javascript';
+
+       const detected = detectCodeLanguage(studentCode);
+       
+       const req = (codingOpts.requiredLanguage || 'any').toLowerCase();
+       
+       if (req !== 'any') {
+          if (detected && detected.toLowerCase() !== req) {
+             toast.error(`SUBMISSION BLOCKED! You used ${detected.toUpperCase()} syntax but this question REQUIRES ${req.toUpperCase()}.`, {
+               duration: 6000,
+               icon: '🚫'
+             });
+             return;
+          }
+       }
+    }
+
+    setIsSubmitting(true);
+    try {
+      await handleSave(true);
+      await api.post(`/submissions/${submission.id}/submit`);
+      
+      const showResults = submission.exam.showResults; // 0=Hidden, 1=Immediate, 2=Scheduled
+      
+      // ── Use replace: true to remove the exam session from browser history ──
+      // This prevents the user from pressing back to return to the exam page
+      if (showResults === 1) {
+        toast.success('Assessment submitted! View your results.');
+        navigate(`/submissions/${submission.id}`, { replace: true });
+      } else {
+        const message = showResults === 2 
+          ? 'Exam submitted! Results will be available at the scheduled time.'
+          : 'Exam submitted! Your instructor will release the results soon.';
+        
+        toast.success(message, { duration: 6000 });
+        navigate('/', { replace: true });
+      }
+    } catch (err) {
+      toast.error('Submission protocol failure');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center space-y-6">
+      <div className="relative">
+        <div className="h-24 w-24 rounded-full border-4 border-slate-900 border-t-indigo-600 animate-spin"></div>
+        <div className="absolute inset-0 flex items-center justify-center">
+            <ShieldCheck className="h-8 w-8 text-indigo-500 animate-pulse" />
+        </div>
+      </div>
+      <p className="text-slate-500 font-black uppercase tracking-widest text-xs animate-pulse">Establishing Secure Socket...</p>
+    </div>
+  );
+
+  const questions = submission?.exam?.questions || [];
+  if (questions.length === 0 && !loading) return (
+     <div className="min-h-screen flex flex-col items-center justify-center text-slate-500">
+        <AlertTriangle className="h-12 w-12 mb-4 text-rose-500" />
+        <h2 className="text-xl font-black uppercase tracking-widest">Assessment Empty</h2>
+        <p className="text-sm opacity-60">No questions found in this assessment.</p>
+        <button onClick={() => navigate('/')} className="mt-8 px-6 py-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-xs font-bold hover:text-slate-900 dark:text-white transition-all">Return to Dashboard</button>
+     </div>
+  );
+
+  const currentQuestion = questions[activeIdx] || questions[0] || {};
+
+  // Helper to check if any question has a language mismatch
+  const hasLanguageError = questions.some(q => {
+    if (q.type !== 'CODING') return false;
+    const ops = parseOptions(q.options);
+    const req = ops.requiredLanguage || 'any';
+    if (req === 'any') return false;
+    const sel = selectedLangs[q.id] || 'javascript';
+    return sel !== req;
+  });
+  const answeredCount = Object.keys(answers).filter(id => answers[id] !== '').length;
+  const progress = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
+
+  return (
+    <div className="flex h-screen w-screen overflow-hidden text-slate-700 dark:text-slate-200 fixed inset-0 z-[100]">
+      
+      {/* Sidebar - Navigation Hub */}
+      <aside className="hidden lg:flex flex-col w-[320px] glass border-r border-slate-200 dark:border-slate-800/40 relative z-20">
+        <div className="p-8 border-b border-slate-200 dark:border-slate-800/40 bg-slate-50 dark:bg-slate-900/40">
+           <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
+                 <BookOpen className="h-5 w-5 text-slate-900 dark:text-white" />
+              </div>
+              <div>
+                <h4 className="font-black text-sm tracking-tighter text-slate-900 dark:text-white uppercase italic">Assessment Map</h4>
+                <p className="text-[10px] font-bold text-slate-500 tracking-widest">Question {(activeIdx || 0) + 1} of {(questions || []).length}</p>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-5 gap-2.5">
+              {(questions || []).map((q, idx) => {
+                if (!q) return null;
+                const isAnswered = answers[q.id] && answers[q.id] !== '';
+                const isActive = activeIdx === idx;
+                return (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={(e) => {
+                       e.stopPropagation();
+                       setActiveIdx(idx);
+                    }}
+                    className={`h-11 w-11 flex items-center justify-center rounded-xl font-black text-xs transition-all duration-300 border ${
+                      isActive ? 'bg-indigo-600 border-indigo-500 text-slate-900 dark:text-white shadow-xl shadow-indigo-600/30 scale-110' : 
+                      isAnswered ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 
+                      'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500 hover:border-slate-600'
+                    }`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
+           </div>
+        </div>
+
+        <div className="p-8 flex-1 flex flex-col justify-end space-y-8">
+           <div className="space-y-4">
+              <div className="flex justify-between items-end">
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Completion Progress</p>
+                <p className="text-xl font-black text-slate-900 dark:text-white">{progress}%</p>
+              </div>
+              <div className="h-2 w-full bg-slate-50 dark:bg-slate-900 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800">
+                 <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.5)]" />
+              </div>
+           </div>
+
+           <div className={`p-6 rounded-[2rem] border transition-all duration-300 ${timeLeft < 300 ? 'bg-rose-500/10 border-rose-500/30 text-rose-500 animate-pulse' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-indigo-400'}`}>
+              <div className="flex items-center gap-4">
+                 <Timer className="h-8 w-8" />
+                 <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-60">System Countdown</p>
+                    <p className="text-3xl font-black tabular-nums leading-none tracking-tighter">{formatTime(timeLeft)}</p>
+                 </div>
+              </div>
+           </div>
+        </div>
+      </aside>
+
+      {/* Main Experience Area */}
+      <main className="flex-1 flex flex-col relative overflow-hidden">
+        {/* Top Floating Header */}
+        <header className="glass-hover border-b border-slate-900/50 px-8 py-5 flex items-center justify-between backdrop-blur-3xl z-30">
+           <div className="flex items-center gap-4">
+              <div className="h-10 w-10 glass rounded-full flex items-center justify-center border-slate-200 dark:border-slate-800">
+                <Sparkles className="h-5 w-5 text-indigo-500" />
+              </div>
+              <div>
+                <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-widest uppercase">{submission?.exam?.title || 'Assessment'}</h1>
+                <div className="flex items-center gap-2">
+                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Secure Active Tunnel</p>
+                </div>
+              </div>
+           </div>
+
+            <div className="flex items-center gap-6">
+               <div className={`flex items-center gap-2 text-[10px] font-black transition-opacity ${saving ? 'opacity-100' : 'opacity-0'}`}>
+                  <Save className="h-3 w-3 animate-bounce" /> AUTO-CACHING...
+               </div>
+               <button 
+                 type="button"
+                 onClick={(e) => { e.stopPropagation(); handleSubmit(); }} 
+                 disabled={isSubmitting}
+                 className="px-8 py-3 rounded-xl text-xs font-black uppercase tracking-tighter shadow-2xl transition-all active:scale-95 bg-white hover:bg-indigo-50 text-indigo-950"
+               >
+                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Final Submit'}
+               </button>
+            </div>
+        </header>
+
+        {/* Question Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-12 md:px-20 lg:py-20 relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeIdx}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="max-w-3xl mx-auto space-y-12"
+            >
+               <div className="space-y-8 relative">
+                  <div className="flex items-center justify-between pb-4 border-b border-white/5">
+                     <div className="flex items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black shadow-[0_0_20px_-5px_rgba(99,102,241,0.3)]">
+                           {activeIdx + 1}
+                        </div>
+                        <div className="flex flex-col">
+                           <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] leading-none mb-1">Inquiry Index</span>
+                           <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{currentQuestion?.type} assessment</span>
+                              <span className="text-slate-700 font-medium opacity-50 px-1">|</span>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Weight: {currentQuestion?.points} pts</span>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="relative pl-0 md:pl-8 group">
+                     {/* Decorative line */}
+                     <div className="hidden md:block absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 via-fuchsia-500 to-transparent rounded-full opacity-30 group-hover:opacity-100 transition-opacity" />
+                     
+                     <div className="space-y-8">
+                        <div className="space-y-4">
+                           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-white/[0.03] border border-white/5 text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest shadow-lg shadow-black/20">
+                              <Sparkles size={10} className="text-indigo-400" />
+                              Primary Objective
+                           </div>
+                           
+                           {(() => {
+                              const text = currentQuestion?.text || 'Untitled Question Requirement';
+                              let umlTitle = '';
+                              if (currentQuestion.type === 'UML') {
+                                 try {
+                                    const opts = typeof currentQuestion.options === 'string' ? JSON.parse(currentQuestion.options) : currentQuestion.options;
+                                    umlTitle = opts?.title || '';
+                                 } catch(e) {}
+                              }
+
+                              return (
+                                 <div className="space-y-8">
+                                    {umlTitle && (
+                                       <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-700">
+                                          <div className="h-6 w-1 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+                                          <h3 className="text-xl font-black text-cyan-400 tracking-wider uppercase drop-shadow-md">
+                                             {umlTitle}
+                                          </h3>
+                                       </div>
+                                    )}
+
+                                    <div className="relative group/text">
+                                       {/* Vertical accent for the paragraph */}
+                                       <div className="absolute -left-6 top-0 bottom-0 w-0.5 bg-indigo-500/20 group-hover/text:bg-indigo-500 transition-colors hidden md:block" />
+                                       
+                                       <FormattedText 
+                                          text={text}
+                                          className="text-xl md:text-2xl font-medium text-slate-100 leading-[1.8] tracking-tight !font-outfit animate-in fade-in slide-in-from-left duration-700 whitespace-pre-wrap"
+                                       />
+                                    </div>
+                                 </div>
+                              );
+                           })()}
+                        </div>
+                     </div>
+                  </div>
+               </div>
+
+              {/* Interaction Elements */}
+              <div className="space-y-4 pt-4">
+                {currentQuestion.type === 'MCQ' && (
+                  <div className="grid grid-cols-1 gap-4">
+                    {currentQuestion.isMultiple === 1 && (
+                      <div className="flex items-center gap-3 mb-2 animate-bounce">
+                         <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center gap-2">
+                           <Sparkles className="h-3 w-3 text-amber-500" />
+                           <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Multiple Choices Allowed</span>
+                         </div>
+                      </div>
+                    )}
+                    {Array.isArray(currentQuestion.options) && currentQuestion.options.map((option, idx) => {
+                      const ans = answers[currentQuestion.id];
+                      const isSelected = (() => {
+                        if (currentQuestion.isMultiple !== 1) return ans === option;
+                        try { return JSON.parse(ans || '[]').includes(option); } 
+                        catch(e) { return ans === option; }
+                      })();
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (currentQuestion.isMultiple === 1) {
+                              let current = [];
+                              try { current = JSON.parse(ans || '[]'); } 
+                              catch(e) { if (ans) current = [ans]; }
+                              if (!Array.isArray(current)) current = [];
+                              
+                              const next = current.includes(option) ? current.filter(x => x !== option) : [...current, option];
+                              handleUpdateAnswer(currentQuestion.id, JSON.stringify(next));
+                            } else {
+                              handleUpdateAnswer(currentQuestion.id, option);
+                            }
+                          }}
+                          className={`group flex items-center justify-between w-full p-6 h-20 rounded-[1.8rem] border-2 transition-all duration-500 ${
+                            isSelected 
+                              ? 'bg-indigo-600/10 border-indigo-600 text-slate-900 dark:text-white shadow-2xl scale-[1.02]' 
+                              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 hover:border-slate-300 dark:border-slate-700 hover:text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-6">
+                            <div className={`h-8 w-8 rounded-xl border-2 flex items-center justify-center transition-all ${
+                              isSelected ? 'bg-indigo-600 border-indigo-500 rotate-[360deg]' : 'border-slate-200 dark:border-slate-800/50 group-hover:border-slate-300 dark:border-slate-700'
+                            }`}>
+                              {isSelected ? <CheckSquare className="h-4 w-4 text-slate-900 dark:text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-slate-100 dark:bg-slate-800" />}
+                            </div>
+                            <span className="text-lg font-bold tracking-tight leading-none">{option}</span>
+                          </div>
+                          {isSelected && (
+                            <div className="h-7 w-7 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+                               <Sparkles className="h-3 w-3 text-indigo-400" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {currentQuestion.type === 'TRUE_FALSE' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {['True', 'False'].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleUpdateAnswer(currentQuestion.id, val); }}
+                        className={`flex flex-col items-center justify-center p-12 rounded-[2.5rem] border-2 group transition-all duration-500 ${
+                          answers[currentQuestion.id] === val 
+                            ? 'bg-indigo-600/10 border-indigo-600 text-indigo-400 shadow-2xl' 
+                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'
+                        }`}
+                      >
+                        {val === 'True' ? <CheckCircle2 className="h-16 w-16 mb-4 group-hover:scale-110 transition-transform" /> : <Circle className="h-16 w-16 mb-4" />}
+                        <span className="text-sm font-black uppercase tracking-[0.3em] font-sans">{val} Selection</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {currentQuestion.type === 'FILL_BLANKS' && (
+                  <div className="space-y-4">
+                     <label className="text-[10px] font-bold uppercase text-slate-600 tracking-widest ml-2">Text Input Response</label>
+                     <input 
+                       autoFocus
+                       className="w-full bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-800/80 rounded-2xl px-6 py-4 text-lg font-bold text-indigo-400 focus:border-indigo-600 outline-none transition-all placeholder:text-slate-800 shadow-inner"
+                       placeholder="Submit Answer Pattern..."
+                       value={answers[currentQuestion.id] || ''}
+                       onChange={(e) => handleUpdateAnswer(currentQuestion.id, e.target.value)}
+                     />
+                  </div>
+                )}
+
+                {currentQuestion.type === 'ESSAY' && (
+                  <div className="space-y-4">
+                     <label className="text-xs font-black uppercase text-slate-600 tracking-widest ml-2">Open Response Lab</label>
+                     <textarea 
+                       className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-200 dark:border-slate-800/80 rounded-[2.5rem] px-10 py-10 min-h-[350px] text-lg font-medium leading-relaxed focus:border-indigo-600 outline-none transition-all placeholder:text-slate-800 shadow-inner"
+                       placeholder="Synthesize your comprehensive response..."
+                       value={answers[currentQuestion.id] || ''}
+                       onChange={(e) => handleUpdateAnswer(currentQuestion.id, e.target.value)}
+                     />
+                  </div>
+                )}
+
+                {currentQuestion.type === 'UML' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                       <p className="text-xs text-slate-500 italic flex items-center gap-2 bg-slate-50 dark:bg-slate-900/50 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+                         <Info className="h-4 w-4 text-cyan-400" />
+                         Complete the <strong>{parseOptions(currentQuestion.options).diagramType || 'UML'}</strong> diagram below.
+                       </p>
+                       {parseOptions(currentQuestion.options).useAI && (
+                          <div className="flex items-center gap-2 px-4 py-2 bg-cyan-500/10 border border-cyan-500/20 rounded-xl animate-pulse">
+                             <Sparkles className="h-4 w-4 text-cyan-400" />
+                             <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">AI Grading Active</span>
+                          </div>
+                       )}
+                    </div>
+                    
+                      <div className="bg-slate-50 dark:bg-slate-900 h-[550px] rounded-[2.5rem] border-4 border-slate-200 dark:border-slate-800/80 overflow-hidden relative shadow-inner">
+                       <UMLCanvas 
+                         value={answers[currentQuestion.id]} 
+                         onChange={(val) => handleUpdateAnswer(currentQuestion.id, val)}
+                         diagramType={parseOptions(currentQuestion.options).diagramType}
+                         isEditable={true}
+                       />
+                     </div>
+                   </div>
+                 )}
+
+                 {currentQuestion.type === 'MATH' && (
+                    <div className="animate-fade-in">
+                       <MathEditor 
+                         value={answers[currentQuestion.id] || ""} 
+                         onChange={(val) => handleUpdateAnswer(currentQuestion.id, val)} 
+                       />
+                    </div>
+                 )}
+
+                 {currentQuestion.type === 'CODING' && (() => {
+                   const codingOpts = parseOptions(currentQuestion.options);
+                   return (
+                     <div className="space-y-6">
+                        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4">
+                           <div className="flex flex-col gap-1 mb-6 border-b border-slate-200 dark:border-slate-800/50 pb-5">
+                               <div className="flex items-center gap-3">
+                                  <Code className="h-5 w-5 text-fuchsia-400" />
+                                  <h3 className="text-sm md:text-base font-black uppercase tracking-[0.2em] text-slate-900 dark:text-white">
+                                     {codingOpts.title || 'Coding Challenge'}
+                                  </h3>
+                               </div>
+                               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pl-8">Problem Configuration Overview</span>
+                           </div>
+                           
+                           {codingOpts.inputDescription && (
+                             <div>
+                               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Input Format</h4>
+                               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{codingOpts.inputDescription}</p>
+                             </div>
+                           )}
+                           
+                           {codingOpts.outputDescription && (
+                             <div>
+                               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Output Format</h4>
+                               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{codingOpts.outputDescription}</p>
+                             </div>
+                           )}
+
+                           {(codingOpts.sampleInput || codingOpts.sampleOutput) && (
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                {codingOpts.sampleInput && (
+                                  <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Sample Input</h4>
+                                     <pre className="text-xs font-mono text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{codingOpts.sampleInput}</pre>
+                                  </div>
+                                )}
+                                {codingOpts.sampleOutput && (
+                                  <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Sample Output</h4>
+                                     <pre className="text-xs font-mono text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{codingOpts.sampleOutput}</pre>
+                                  </div>
+                                )}
+                             </div>
+                           )}
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                          <div className="flex items-center justify-between px-2">
+                             <label className="text-[10px] font-black uppercase tracking-widest text-fuchsia-500 flex items-center gap-2">
+                                 <Code className="h-4 w-4" /> Code Architecture Editor
+                             </label>
+                             
+                             <div className="flex items-center gap-3">
+                                {(() => {
+                                    const requiredLangId = codingOpts.requiredLanguage || 'any';
+                                    const selectedLangId = selectedLangs[currentQuestion.id] || 'javascript';
+                                    const isLocked = requiredLangId !== 'any';
+                                    
+                                    if (isLocked) {
+                                      const lang = LANGUAGES.find(l => l.id === requiredLangId) || LANGUAGES[0];
+                                      return (
+                                        <div className={`flex items-center gap-2 px-4 py-2 ${lang?.bg || 'bg-slate-100 dark:bg-slate-800'} ${lang?.color || 'text-slate-900 dark:text-white'} rounded-xl border ${lang?.border || 'border-slate-300 dark:border-slate-700'} shadow-lg shadow-indigo-500/10`}>
+                                           <div className="flex flex-col">
+                                              <span className="text-[8px] font-black uppercase text-slate-900 dark:text-white/50 tracking-widest leading-none mb-1">Mandatory Language</span>
+                                              <span className="text-[11px] font-black uppercase tracking-tighter">{(lang?.label || requiredLangId).toUpperCase()} ONLY</span>
+                                           </div>
+                                           <ShieldCheck className="h-4 w-4 opacity-80" />
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                       <div className="flex items-center gap-2">
+                                          <div className="flex bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl shadow-inner">
+                                             {LANGUAGES.map(l => (
+                                               <button
+                                                  key={l.id}
+                                                  type="button"
+                                                  onClick={() => setSelectedLangs(prev => ({...prev, [currentQuestion.id]: l.id}))}
+                                                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${selectedLangId === l.id ? `${l.bg} ${l.color} shadow-lg shadow-${l.id}/10` : 'text-slate-600 hover:text-slate-500 dark:text-slate-400'}`}
+                                               >
+                                                  {l.label}
+                                               </button>
+                                             ))}
+                                          </div>
+                                       </div>
+                                    );
+                                 })()}
+                             </div>
+                          </div>
+
+                          {(() => {
+                              const code = answers[currentQuestion.id] || '';
+                              const detected = detectCodeLanguage(code);
+                              const requiredLangId = codingOpts.requiredLanguage || 'any';
+                              const selectedLangId = selectedLangs[currentQuestion.id] || 'javascript';
+                              const requiredLang = LANGUAGES.find(l => l.id === requiredLangId);
+                              
+                              const isLocked = requiredLangId !== 'any';
+                              const mismatchWithRequired = isLocked && selectedLangId !== requiredLangId;
+                              
+                              return (
+                                <div className="space-y-3">
+                                   {/* Real-time Requirement Banner */}
+                                   <div className={`flex items-center justify-between px-6 py-4 rounded-2xl border transition-all ${mismatchWithRequired ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400'}`}>
+                                      <div className="flex items-center gap-3">
+                                         {mismatchWithRequired ? <AlertCircle className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+                                         <div>
+                                            <p className="text-[11px] font-black uppercase tracking-widest leading-none mb-1">
+                                               Requirement: {isLocked ? (requiredLang?.label || requiredLangId) : 'Any Language'}
+                                            </p>
+                                            <p className="text-[10px] opacity-70 font-medium">
+                                               {mismatchWithRequired 
+                                                 ? `⚠️ Submissions using ${LANGUAGES.find(l=>l.id===selectedLangId)?.label} will be rejected.`
+                                                 : isLocked 
+                                                   ? `✅ Language policy compliance verified.`
+                                                   : `✅ Students can choose their preferred compiler.`}
+                                            </p>
+                                         </div>
+                                      </div>
+                                      <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${mismatchWithRequired ? 'border-rose-500/30' : 'border-emerald-500/30'}`}>
+                                         {requiredLangId.toUpperCase()} MODE
+                                      </div>
+                                   </div>
+
+                                  {/* AI Smart Detection Hint - STRICT ENFORCEMENT */}
+                                  {detected && (
+                                    <motion.div 
+                                      initial={{opacity:0, scale:0.95}} 
+                                      animate={{opacity:1, scale:1}} 
+                                      className={`flex items-center justify-between gap-3 border-2 rounded-2xl px-6 py-4 transition-all shadow-lg ${
+                                        isLocked && detected !== requiredLangId 
+                                          ? 'bg-rose-500/15 border-rose-500/40 text-rose-400 animate-pulse' 
+                                          : detected !== selectedLangId 
+                                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                      }`}
+                                    >
+                                       <div className="flex items-center gap-4">
+                                          {isLocked && detected !== requiredLangId ? <AlertTriangle className="h-5 w-5 shrink-0" /> : <Sparkles className="h-5 w-5 shrink-0" />}
+                                          <div>
+                                             <p className="text-[12px] font-black uppercase tracking-widest leading-none mb-1">
+                                                {isLocked && detected !== requiredLangId ? 'Verification Sync' : 'Syntax Recognition'}
+                                             </p>
+                                             <p className="text-[10px] font-bold opacity-80">
+                                                Identified Profile: <span className="uppercase text-slate-900 dark:text-white underline">{detected}</span>
+                                                {isLocked && detected !== requiredLangId && (
+                                                  <span> — Please use <span className="uppercase text-slate-900 dark:text-white">{requiredLangId}</span> for this task.</span>
+                                                )}
+                                              </p>
+                                          </div>
+                                       </div>
+                                       {detected === (isLocked ? requiredLangId : selectedLangId) && (
+                                          <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-lg">
+                                             <ShieldCheck className="h-3.5 w-3.5" /> Validated
+                                          </span>
+                                       )}
+                                    </motion.div>
+                                  )}
+
+                                  <div className="relative group">
+                                     <textarea 
+                                       className={`w-full bg-[#1e1e1e] border-4 rounded-[2.5rem] px-10 py-12 min-h-[450px] text-lg font-mono text-slate-600 dark:text-slate-300 outline-none transition-all placeholder:text-slate-700 shadow-2xl ${isLocked && detected && detected !== requiredLangId ? 'border-rose-600 focus:border-rose-400' : 'border-slate-200 dark:border-slate-800/80 focus:border-fuchsia-600'}`}
+                                       placeholder={`// Write your ${selectedLangId} solution here...`}
+                                       spellCheck="false"
+                                       value={answers[currentQuestion.id] || ''}
+                                       onChange={(e) => {
+                                           const newVal = e.target.value;
+                                           handleUpdateAnswer(currentQuestion.id, newVal);
+                                           // Quick check for toast alert
+                                           const newDetected = detectCodeLanguage(newVal);
+                                           if (isLocked && newDetected && newDetected !== requiredLangId) {
+                                              toast.error(`Wrong Language! Detected ${newDetected.toUpperCase()} instead of ${requiredLangId.toUpperCase()}.`, { id: 'lang-mismatch' });
+                                           }
+                                       }}
+                                     />
+                                     
+                                     {mismatchWithRequired && (
+                                       <div className="absolute inset-0 bg-rose-950/20 rounded-[2.5rem] pointer-events-none ring-1 ring-inset ring-rose-500/20" />
+                                     )}
+
+                                     <div className="absolute bottom-6 right-8 flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900/80 backdrop-blur border border-slate-300 dark:border-slate-700 rounded-xl text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                                        {mismatchWithRequired ? <CircleX className="h-3 w-3 text-rose-500" /> : <ShieldCheck className="h-3 w-3 text-emerald-500" />}
+                                        {mismatchWithRequired ? 'Invalid Syntax Mode' : 'Validated Protocol'}
+                                     </div>
+                                  </div>
+                               </div>
+                             );
+                          })()}
+                        </div>
+                     </div>
+                   );
+                 })()}
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Global Control Bar */}
+        <footer className="glass border-t border-slate-900 px-8 py-6 flex items-center justify-between z-30">
+            <button 
+              type="button"
+              disabled={activeIdx === 0}
+              onClick={(e) => { e.stopPropagation(); setActiveIdx(prev => prev - 1); }}
+              className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-6 py-3 rounded-xl glass glass-hover text-slate-500 hover:text-slate-900 dark:text-white disabled:opacity-20"
+            >
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </button>
+            
+            <div className="flex lg:hidden items-center gap-3 p-4 glass rounded-2xl">
+               <Timer className="h-5 w-5 text-indigo-500" />
+               <span className="text-xl font-black tabular-nums text-slate-900 dark:text-white leading-none">{formatTime(timeLeft)}</span>
+            </div>
+
+            {activeIdx >= questions.length - 1 ? (
+              <button 
+                key="submit-btn"
+                type="button"
+                disabled={isSubmitting}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowConfirmModal(true);
+                }}
+                className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-8 py-3 rounded-xl bg-emerald-600 text-slate-900 dark:text-white shadow-xl shadow-emerald-900/40 hover:bg-emerald-500 transition-all active:scale-95 group animate-in fade-in zoom-in duration-300"
+              >
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin text-slate-900 dark:text-white" /> : <Send className="h-4 w-4 group-hover:translate-x-1 transition-transform" />}
+                Final Submit
+              </button>
+            ) : (
+              <button 
+                key="next-btn"
+                type="button"
+                onClick={() => {
+                  setActiveIdx(prev => prev + 1);
+                  handleSave(true);
+                }}
+                className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-8 py-3 rounded-xl bg-indigo-600 text-slate-900 dark:text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95"
+              >
+                Next Step <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
+        </footer>
+      </main>
+
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {showConfirmModal && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center px-4 bg-white dark:bg-slate-950/80 backdrop-blur-md">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[#0b1328]/95 border border-emerald-500/20 shadow-[-10px_-10px_30px_4px_rgba(0,0,0,0.1),_10px_10px_30px_4px_rgba(16,185,129,0.1)] rounded-3xl p-8 max-w-md w-full relative overflow-hidden backdrop-blur-xl"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+              
+              <div className="flex flex-col items-center text-center space-y-5 relative z-10">
+                <div className="h-16 w-16 bg-gradient-to-br from-emerald-500/20 to-emerald-900/40 rounded-full flex items-center justify-center text-emerald-400 border border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)]">
+                  <CheckSquare size={28} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Confirm Submission</h3>
+                  <p className="text-[13px] text-slate-600 dark:text-slate-300/80 leading-relaxed font-medium">
+                    Are you ready to finalize your work? Once submitted, your answers will be evaluated and further modifications will be disabled.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mt-8 flex gap-3 relative z-10">
+                <button 
+                  onClick={() => setShowConfirmModal(false)}
+                  disabled={isSubmitting}
+                  className="flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-white/[0.03] hover:bg-white/[0.08] hover:text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700/50 transition-all outline-none"
+                >
+                  Review Again
+                </button>
+                <button 
+                  onClick={() => {
+                     setShowConfirmModal(false);
+                     processSubmission();
+                  }}
+                  disabled={isSubmitting}
+                  className="flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-white bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_20px_-5px_rgba(16,185,129,0.5)] transition-all outline-none flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+    </div>
+  );
+};
+
+export default ExamSession;

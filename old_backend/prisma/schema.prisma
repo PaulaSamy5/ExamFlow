@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  INSTRUCTOR
+  STUDENT
+}
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  FILL_BLANKS
+  MATCHING
+  DEFINITION
+  ESSAY
+  CODING
+  UML
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      Role     @default(STUDENT)
+  exams     Exam[]   // for instructors
+  submissions Submission[] // for students
+  createdAt DateTime @default(now())
+}
+
+model Exam {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  totalGrade  Int
+  duration    Int      // in minutes
+  startTime   DateTime
+  endTime     DateTime
+  instructorId String
+  instructor  User     @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  questions   Question[]
+  submissions Submission[]
+  createdAt   DateTime @default(now())
+}
+
+model Question {
+  id              String      @id @default(uuid())
+  examId          String
+  exam            Exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  type            QuestionType
+  score           Int
+  content         String      // Question text or description
+  language        String?     // For coding
+  options         String?     // JSON string for MCQ/Matching
+  correctAnswer   String?     // Expected answer format (or JSON for exact match)
+  hiddenTestCases String?     // JSON for coding tests
+  modelAnswer     String?     // Optional model answer
+  createdAt       DateTime    @default(now())
+  answers         Answer[]
+}
+
+model Submission {
+  id          String   @id @default(uuid())
+  examId      String
+  exam        Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score       Float?   // Total score obtained
+  status      String   @default("IN_PROGRESS") // IN_PROGRESS, SUBMITTED, GRADED
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  answers     Answer[]
+  createdAt   DateTime @default(now())
+}
+
+model Answer {
+  id           String     @id @default(uuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  content      String?    // User's answer
+  isCorrect    Boolean?   // Auto-graded
+  scoreObtained Float?    // Score given
+  feedback     String?    // Optional feedback
+}
