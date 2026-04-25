@@ -26,12 +26,15 @@ const MathRenderer = ({ tex, displayMode = false, className = "" }) => {
 const MathInputField = ({ value, id, updateLine, handleKeyDown }) => {
   const mfRef = useRef(null);
 
+  const isTypingRef = useRef(false);
+
   // Sync value safely without blowing up MathLive's internal shadow DOM
   useEffect(() => {
     const mf = mfRef.current;
     if (mf && value !== undefined && mf.value !== value) {
-      // Only sync if not focused to avoid cursor jumping
-      if (document.activeElement !== mf) {
+      // Only skip sync if we are actively typing in THIS field
+      // If the change comes from Undo/Redo or Toolbar, we MUST sync even if focused
+      if (!isTypingRef.current) {
         mf.value = value;
       }
     }
@@ -42,8 +45,12 @@ const MathInputField = ({ value, id, updateLine, handleKeyDown }) => {
     if (!mf) return;
     
     const onInput = (e) => {
-      // Direct call to updateLine to ensure immediate state update
+      isTypingRef.current = true;
       if (updateLine) updateLine(id, e.target.value);
+      // Reset after a tick so that the next prop update (if any) is considered "external"
+      // or at least allowed if it's not a direct consequence of this typing.
+      // But actually, we want to stay true as long as we are typing.
+      setTimeout(() => { isTypingRef.current = false; }, 0);
     };
     
     const onKey = (e) => {
