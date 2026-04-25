@@ -6,11 +6,10 @@ import {
   HelpCircle, Type, CheckSquare, AlignLeft,
   Calendar, Clock, Award, Loader2, AlertCircle,
   FolderPlus, GripVertical, ChevronDown, ChevronUp,
-  Eye, EyeOff, Sparkles, CheckCircle2, Circle, XCircle, PlusCircle, Code, ShieldCheck, Sigma
+  EyeOff, Sparkles, CheckCircle2, Circle, XCircle, PlusCircle, Code, ShieldCheck, Sigma
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import UMLCanvas from '../../components/UMLCanvas';
-import FormattedText from '../../components/FormattedText';
 import RichTextEditor from '../../components/RichTextEditor';
 
 const MathRenderer = ({ tex, displayMode = false }) => {
@@ -240,15 +239,6 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                     : "Write your question here..."
                   }
                 />
-                
-                {q.text && q.text.trim().length > 0 && (
-                  <div className="mt-3 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl animate-fade-in">
-                    <p className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mb-2 flex items-center gap-2">
-                      <Eye size={12} /> Rendered View
-                    </p>
-                    <FormattedText text={q.text} className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed" />
-                  </div>
-                )}
               </div>
               <div className="col-span-3">
                 <label className="text-[10px] block mb-1 opacity-0 pointer-events-none hidden sm:block">Pts</label>
