@@ -26,13 +26,20 @@ const MathRenderer = ({ tex, displayMode = false, className = "" }) => {
 const MathInputField = ({ value, id, updateLine, handleKeyDown }) => {
   const mfRef = useRef(null);
 
-  const lastSentValueRef = useRef(value);
+  const lastInputTimeRef = useRef(0);
 
   // Sync value safely without blowing up MathLive's internal shadow DOM
   useEffect(() => {
     const mf = mfRef.current;
-    if (mf && value !== undefined && mf.value !== value && value !== lastSentValueRef.current) {
-      mf.value = value;
+    if (mf && value !== undefined && mf.value !== value) {
+      // If focused, only sync if it's been a while since the last manual input
+      // This prevents stale React state from overwriting active typing (race conditions)
+      const isFocused = document.activeElement === mf;
+      const timeSinceLastInput = Date.now() - lastInputTimeRef.current;
+      
+      if (!isFocused || timeSinceLastInput > 500) {
+        mf.value = value;
+      }
     }
   }, [value]);
 
@@ -41,9 +48,8 @@ const MathInputField = ({ value, id, updateLine, handleKeyDown }) => {
     if (!mf) return;
     
     const onInput = (e) => {
-      const val = e.target.value;
-      lastSentValueRef.current = val;
-      if (updateLine) updateLine(id, val);
+      lastInputTimeRef.current = Date.now();
+      if (updateLine) updateLine(id, e.target.value);
     };
     
     const onKey = (e) => {
