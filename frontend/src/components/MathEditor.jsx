@@ -28,8 +28,12 @@ const MathInputField = ({ value, id, updateLine, handleKeyDown }) => {
 
   // Sync value safely without blowing up MathLive's internal shadow DOM
   useEffect(() => {
-    if (mfRef.current && value !== undefined && mfRef.current.value !== value) {
-      mfRef.current.value = value;
+    const mf = mfRef.current;
+    if (mf && value !== undefined && mf.value !== value) {
+      // Only sync if not focused to avoid cursor jumping
+      if (document.activeElement !== mf) {
+        mf.value = value;
+      }
     }
   }, [value]);
 
@@ -37,22 +41,29 @@ const MathInputField = ({ value, id, updateLine, handleKeyDown }) => {
     const mf = mfRef.current;
     if (!mf) return;
     
-    const onInput = (e) => updateLine && updateLine(id, e.target.value);
+    const onInput = (e) => {
+      // Direct call to updateLine to ensure immediate state update
+      if (updateLine) updateLine(id, e.target.value);
+    };
     
     const onKey = (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
-        e.stopImmediatePropagation(); // Unconditionally block MathLive from swallowing Enter
+        e.stopImmediatePropagation();
         if (handleKeyDown) handleKeyDown({ key: 'Enter', preventDefault: ()=>{}, stopPropagation: ()=>{} }, id);
       } else if (e.key === 'Backspace') {
-        if (handleKeyDown) handleKeyDown(e, id);
+        // Only trigger special behavior if the field is empty
+        if (mf.value === '' && handleKeyDown) {
+          handleKeyDown(e, id);
+        }
       }
     };
     
     mf.addEventListener('input', onInput);
     mf.addEventListener('keydown', onKey, { capture: true });
     
+    // Initial sync
     if (value && mf.value !== value) {
       mf.value = value;
     }
@@ -61,7 +72,7 @@ const MathInputField = ({ value, id, updateLine, handleKeyDown }) => {
       mf.removeEventListener('input', onInput);
       mf.removeEventListener('keydown', onKey, { capture: true });
     };
-  }, [id, updateLine, handleKeyDown]);
+  }, [id, updateLine, handleKeyDown]); // value omitted to avoid re-binding listeners on every character
 
   useEffect(() => {
     const mf = mfRef.current;
@@ -298,10 +309,15 @@ export default function MathEditor({ value, onChange }) {
            </div>
            <div className="flex-1 bg-white dark:bg-slate-900 border border-amber-500/30 shadow-inner rounded-xl px-2">
               <MathInputField 
-                 id="final-result-mf"
+                 id="final-answer"
                  value={finalAnswer}
                  updateLine={(_, val) => setFinalAnswer(val)}
-                 handleKeyDown={() => {}} 
+                 handleKeyDown={(e) => {
+                   // Allow standard backspace/delete in final answer
+                   if (e.key === 'Backspace' || e.key === 'Delete') {
+                     return; // Let MathLive handle it
+                   }
+                 }} 
               />
            </div>
         </div>
