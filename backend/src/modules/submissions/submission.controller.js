@@ -667,25 +667,48 @@ const submitExam = async (req, res) => {
            } else {
              // Fallback to basic logic if AI failed
              const normalizeMath = (str) => {
-               if (!str) return "";
-               let s = str.toLowerCase().replace(/\s+/g, '');
-               s = s.replace(/^[a-z]=/, ''); 
-               return s;
-             };
+                if (!str) return "";
+                let s = str.replace(/\\frac\{([\s\S]*?)\}\{([\s\S]*?)\}/g, '($1)/($2)')
+                           .replace(/\\times/g, '*')
+                           .replace(/\\[a-z]+/g, ' ')
+                           .replace(/[{]/g, '(')
+                           .replace(/[}]/g, ')')
+                           .toLowerCase();
+                
+                // Remove prefixes loop
+                let oldS;
+                do {
+                  oldS = s;
+                  s = s.replace(/^(x|y|z|ans|result|answer|value|val)\s*[:=]\s*/, '')
+                       .replace(/^[:=]\s*/, '')
+                       .trim();
+                } while (s !== oldS);
+                
+                return s.replace(/\s+/g, '');
+              };
 
-             const evalFinal = (student, correct) => {
-               const s = normalizeMath(student);
-               const c = normalizeMath(correct);
-               if (s === c && s !== '') return 1.0;
-               try {
-                 const sNum = eval(s.replace(/[^0-9./*-+()]/g, ''));
-                 const cNum = eval(c.replace(/[^0-9./*-+()]/g, ''));
-                 if (!isNaN(sNum) && !isNaN(cNum)) {
-                   if (Math.abs(sNum - cNum) <= tolerance) return 1.0;
-                 }
-               } catch(e) {}
-               return 0;
-             };
+              const evalFinal = (student, correct) => {
+                const s = normalizeMath(student);
+                const c = normalizeMath(correct);
+                if (s === c && s !== '') return 1.0;
+                
+                const safeEval = (expr) => {
+                  try {
+                    // Filter for safe math chars
+                    const clean = expr.replace(/[^0-9./*\-+()e]/g, '').replace(/\^/g, '**');
+                    if (!clean) return NaN;
+                    // Using a simple Function instead of eval for slight safety boost
+                    return new Function(`return ${clean}`)();
+                  } catch(e) { return NaN; }
+                };
+
+                const sNum = safeEval(s);
+                const cNum = safeEval(c);
+                if (!isNaN(sNum) && !isNaN(cNum)) {
+                  if (Math.abs(sNum - cNum) <= tolerance) return 1.0;
+                }
+                return 0;
+              };
 
              const finalScoreRatio = evalFinal(studentData.finalAnswer, q.correctAnswer);
              let stepScoreRatio = finalScoreRatio > 0 ? 0.3 : 0;
