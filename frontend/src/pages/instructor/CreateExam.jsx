@@ -231,7 +231,7 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                 </label>
                 
                 <RichTextEditor
-                  value={q.text}
+                  value={q.text || ''}
                   onChange={val => onUpdate('text', val)}
                   placeholder={
                     q.type === 'CODING' ? "Explain the algorithm requirements..." 
@@ -537,7 +537,10 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                     <select 
                       className="input-field w-full text-xs font-bold h-[42px] bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300"
                       value={(() => {
-                        try { return JSON.parse(q.options).gradingMode || 'final_answer'; } catch(e) { return 'final_answer'; }
+                        try { 
+                          const opts = typeof q.options === 'string' ? JSON.parse(q.options || '{}') : (q.options || {});
+                          return opts.gradingMode || 'final_answer'; 
+                        } catch(e) { return 'final_answer'; }
                       })()}
                       onChange={e => {
                         try {
@@ -722,14 +725,20 @@ const CreateExam = () => {
               questions: data.questions.map(q => {
                  let initialCorrect = q.correctAnswer;
                  if (q.type === 'MCQ' && q.isMultiple !== 1 && q.correctAnswer) {
-                    const idx = (q.options || []).indexOf(q.correctAnswer);
+                    const idx = (q.options && Array.isArray(q.options)) ? q.options.indexOf(q.correctAnswer) : -1;
                     if (idx !== -1) initialCorrect = `idx:${idx}`;
                  }
                  let opts = q.options;
-                 if (q.type === 'CODING' && typeof opts === 'object' && opts !== null) {
+                 if (opts && typeof opts === 'object') {
                     opts = JSON.stringify(opts);
                  }
-                 return { ...q, correctAnswer: initialCorrect, options: opts, _uid: q.id || Math.random() };
+                 return { 
+                   ...q, 
+                   text: q.text || '',
+                   correctAnswer: initialCorrect || '', 
+                   options: opts || '', 
+                   _uid: q.id || `q-${Math.random().toString(36).substr(2, 9)}` 
+                 };
               })
             }]);
           }
