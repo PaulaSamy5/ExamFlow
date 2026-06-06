@@ -4,7 +4,7 @@ const examController = require('./exam.controller');
 const { authMiddleware, instructorOnly } = require('../../middleware/auth.middleware');
 
 router.post('/', authMiddleware, instructorOnly, examController.createExam);
-router.get('/', authMiddleware, examController.getExams);
+router.get('/', authMiddleware, instructorOnly, examController.getExams);
 router.get('/access/:code', authMiddleware, examController.getExamByCode);
 router.get('/:id', authMiddleware, examController.getExamById);
 router.put('/:id', authMiddleware, instructorOnly, examController.updateExam);

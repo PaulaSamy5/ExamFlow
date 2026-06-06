@@ -29,6 +29,7 @@ const ExamResult = () => {
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState({});
+  const [saveStatus, setSaveStatus] = useState({});
   
   const formatScore = (val) => {
     if (val === undefined || val === null) return '0';
@@ -68,6 +69,8 @@ const ExamResult = () => {
         score: data.totalScore,
         answers: prev.answers.map(a => a.id === answerId ? { ...a, scoreEarned: parseFloat(newScore) } : a)
       }));
+      setSaveStatus(prev => ({ ...prev, [answerId]: 'success' }));
+      setTimeout(() => setSaveStatus(prev => ({ ...prev, [answerId]: null })), 2000);
       toast.success('Grade finalized successfully');
     } catch (err) {
       toast.error('Failed to commit Grade');
@@ -87,6 +90,8 @@ const ExamResult = () => {
         score: data.totalScore,
         answers: prev.answers.map(a => a.id === answerId ? { ...a, isAIGradeApproved: 1, scoreEarned: manualScore !== null ? parseFloat(manualScore) : a.scoreEarned } : a)
       }));
+      setSaveStatus(prev => ({ ...prev, [answerId]: 'success' }));
+      setTimeout(() => setSaveStatus(prev => ({ ...prev, [answerId]: null })), 2000);
       toast.success('AI Grade released to student');
     } catch (err) {
       toast.error('Approval failed');
@@ -133,7 +138,7 @@ const ExamResult = () => {
                  {config.icon}
                  <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">{config.title}</h2>
                  <p className="text-xs font-bold text-slate-500 leading-relaxed max-w-sm mx-auto">{config.desc}</p>
-                 <button onClick={() => navigate('/')} className="mt-8 px-10 py-4 font-black uppercase tracking-widest text-[10px] bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-100 dark:bg-slate-800 transition-all border border-slate-300 dark:border-slate-700/50 rounded-xl w-full">
+                 <button onClick={() => navigate(user?.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard')} className="mt-8 px-10 py-4 font-black uppercase tracking-widest text-[10px] bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-slate-300 dark:border-slate-700/50 rounded-xl w-full btn-lift">
                    Return to Dashboard
                  </button>
                </div>
@@ -145,7 +150,7 @@ const ExamResult = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-12 animate-fade-in pb-24 mt-8 px-2">
       {/* Back Button */}
-      <button onClick={() => navigate('/')} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-indigo-500 transition-all group w-fit">
+      <button onClick={() => navigate(user?.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard')} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-indigo-500 transition-all group w-fit btn-lift">
         <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 group-hover:bg-indigo-500/10 border border-slate-200 dark:border-slate-800 group-hover:border-indigo-500/30 transition-all">
            <ArrowLeft className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400 group-hover:text-indigo-500 group-hover:-translate-x-0.5 transition-all" />
         </div>
@@ -353,7 +358,7 @@ const ExamResult = () => {
                                              link.download = `Diagram_${submission.studentName}_Q${idx+1}.png`;
                                              link.click();
                                            }}
-                                           className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-slate-900 dark:text-white transition-all backdrop-blur-md shadow-xl"
+                                           className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-slate-900 dark:text-white transition-all backdrop-blur-md shadow-xl btn-lift"
                                          >
                                            <Download className="h-3.5 w-3.5 text-cyan-400" /> Export PNG
                                          </button>
@@ -492,10 +497,10 @@ const ExamResult = () => {
                                                       <div className="absolute inset-0 bg-cyan-400/5 opacity-0 group-hover/score:opacity-100 transition-opacity blur-2xl" />
                                                       <div className="relative">
                                                          <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-2 shadow-sm">Blended Metric</div>
-                                                         <div className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter drop-shadow-2xl">{studentAns.score || r.blendedScore || 0}%</div>
+                                                         <div className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter drop-shadow-2xl">{studentAns.scoreEarned || r.blendedScore || 0}%</div>
                                                          <div className="mt-4 flex items-center justify-center gap-1">
                                                             {[1,2,3,4,5].map(s => (
-                                                               <div key={s} className={`w-3 h-1 rounded-full ${s <= Math.ceil((studentAns.score || r.blendedScore || 0) / 20) ? 'bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-white/10'}`} />
+                                                               <div key={s} className={`w-3 h-1 rounded-full ${s <= Math.ceil((studentAns.scoreEarned || r.blendedScore || 0) / 20) ? 'bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-white/10'}`} />
                                                             ))}
                                                          </div>
                                                       </div>
@@ -506,19 +511,14 @@ const ExamResult = () => {
                                          })()}
                                       </div>
                                       <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-                                         <p className="text-[9px] text-slate-600 font-medium leading-relaxed uppercase tracking-wider">Certification Level: {studentAns.score >= 90 ? 'Master Architect' : studentAns.score >= 70 ? 'Advanced' : 'Standard Implementation'}</p>
+                                         <p className="text-[9px] text-slate-600 font-medium leading-relaxed uppercase tracking-wider">Certification Level: {studentAns.scoreEarned >= 90 ? 'Master Architect' : studentAns.scoreEarned >= 70 ? 'Advanced' : 'Standard Implementation'}</p>
                                       </div>
                                    </div>
                                 </div>
                              </div>
                           </div>
                         ) : q.type === 'MATH' ? (
-                          <div className="md:col-span-2 mt-4 space-y-6">
-                            <div className="flex items-center gap-3 mb-2 px-2">
-                               <Sigma className="h-4 w-4 text-amber-500 opacity-50" />
-                               <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">Mathematical Logic Review</h5>
-                            </div>
-
+                          <div className="md:col-span-2 mt-4 space-y-5">
                             {(() => {
                                let studentData = { steps: '', finalAnswer: '' };
                                try { 
@@ -532,40 +532,210 @@ const ExamResult = () => {
                                  testRes = parsedRes[0] || {}; 
                                } catch(e) {}
 
-                               return (
-                                 <div className="space-y-4">
-                                   <div className="grid md:grid-cols-2 gap-4">
-                                      <div className="space-y-2">
-                                         <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-2">Student Solution Steps</p>
-                                         <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl min-h-[100px] flex items-center justify-center">
-                                            <MathRenderer tex={studentData.steps || "No steps provided."} displayMode={true} />
-                                         </div>
-                                      </div>
-                                      <div className="space-y-2">
-                                         <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-2">Student Final Result</p>
-                                         <div className="h-[100px] flex items-center justify-center bg-amber-500/5 border border-amber-500/20 rounded-2xl text-2xl">
-                                            <MathRenderer tex={studentData.finalAnswer || "Empty"} displayMode={true} />
-                                         </div>
-                                      </div>
-                                   </div>
+                               const isCorrect = testRes.finalAnswerCorrect === true;
+                               const stepQuality = testRes.stepQuality || 0;
+                               const isPartial = !isCorrect && stepQuality > 30;
+                               const statusColor = isCorrect ? 'emerald' : isPartial ? 'amber' : 'rose';
+                               const statusLabel = isCorrect ? 'Correct' : isPartial ? 'Partially Correct' : 'Incorrect';
+                               const statusIcon = isCorrect ? '✓' : isPartial ? '◐' : '✗';
 
-                                   {testRes.feedback && (
-                                     <div className={`p-5 rounded-2xl border flex items-center gap-4 ${testRes.finalAnswerCorrect ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500' : 'bg-amber-500/5 border-amber-500/20 text-amber-500'}`}>
-                                        <Sparkles className="h-6 w-6 shrink-0" />
-                                        <div className="space-y-1">
-                                           <p className="text-[10px] font-black uppercase tracking-widest">Diagnostic Feedback</p>
-                                           <p className="text-xs font-bold leading-relaxed">{testRes.feedback}</p>
-                                           <div className="flex items-center gap-4 mt-1">
-                                              <span className="text-[9px] font-black uppercase opacity-60">Final Correct: {testRes.finalAnswerCorrect ? 'Yes' : 'No'}</span>
-                                              <span className="text-[9px] font-black uppercase opacity-60">Step Quality: {testRes.stepQuality}%</span>
-                                           </div>
+                               return (
+                                 <div className="space-y-5">
+                                   {/* ── Header with Status Badge ── */}
+                                   <div className="flex items-center justify-between">
+                                     <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-xl bg-${statusColor}-500/10 border border-${statusColor}-500/20`}>
+                                          <Sigma className={`h-5 w-5 text-${statusColor}-500`} />
+                                        </div>
+                                        <div>
+                                          <h5 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mathematical Analysis</h5>
+                                          <p className="text-[9px] text-slate-500 font-bold">AI-powered solution evaluation</p>
                                         </div>
                                      </div>
+                                     <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl bg-${statusColor}-500/10 border border-${statusColor}-500/20`}>
+                                        <span className={`text-sm font-black text-${statusColor}-500`}>{statusIcon}</span>
+                                        <span className={`text-[10px] font-black uppercase tracking-widest text-${statusColor}-500`}>{statusLabel}</span>
+                                     </div>
+                                   </div>
+
+                                   {/* ── Final Answer Comparison Box ── */}
+                                   <div className={`rounded-2xl border-2 overflow-hidden ${isCorrect ? 'border-emerald-500/30' : 'border-rose-500/30'}`}>
+                                     <div className="grid md:grid-cols-2 divide-x divide-slate-200 dark:divide-slate-800">
+                                       {/* Student Answer */}
+                                       <div className={`p-6 ${isCorrect ? 'bg-emerald-500/5' : 'bg-rose-500/5'}`}>
+                                         <div className="flex items-center gap-2 mb-3">
+                                           <div className={`w-2 h-2 rounded-full ${isCorrect ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Your Final Answer</p>
+                                         </div>
+                                         <div className="flex items-center justify-center min-h-[60px] text-2xl">
+                                           <MathRenderer tex={studentData.finalAnswer || "—"} displayMode={true} />
+                                         </div>
+                                       </div>
+                                       {/* Correct Answer */}
+                                       <div className="p-6 bg-emerald-500/5">
+                                         <div className="flex items-center gap-2 mb-3">
+                                           <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Expected Answer</p>
+                                         </div>
+                                         <div className="flex items-center justify-center min-h-[60px] text-2xl text-emerald-600 dark:text-emerald-400">
+                                           <MathRenderer tex={q.correctAnswer || "—"} displayMode={true} />
+                                         </div>
+                                       </div>
+                                     </div>
+                                     {!isCorrect && (
+                                       <div className="px-6 py-3 bg-rose-500/5 border-t border-rose-500/10 flex items-center gap-3">
+                                         <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
+                                         <p className="text-[11px] font-bold text-rose-400">
+                                           Your answer does not match the expected result. Review the step-by-step analysis below.
+                                         </p>
+                                       </div>
+                                     )}
+                                   </div>
+
+                                   {/* ── Solution Steps ── */}
+                                   {studentData.steps && (
+                                     <div className="space-y-2">
+                                       <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-2">Your Solution Steps</p>
+                                       <div className="p-5 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-x-auto">
+                                         <MathRenderer tex={studentData.steps} displayMode={true} />
+                                       </div>
+                                     </div>
                                    )}
-                                   
+
+                                   {/* ── AI Diagnostic Feedback Panel ── */}
+                                   {(testRes.feedback || testRes.finalAnswerCorrect !== undefined) && (
+                                     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-950/40">
+                                       {/* Diagnostics Header */}
+                                       <div className="px-6 py-4 bg-gradient-to-r from-indigo-500/5 via-transparent to-transparent border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                                         <Sparkles className="h-4 w-4 text-indigo-400" />
+                                         <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">AI Diagnostic Report</span>
+                                       </div>
+
+                                       <div className="p-6 space-y-5">
+                                         {/* Status Grid */}
+                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center">
+                                             <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Final Answer</p>
+                                             <p className={`text-xs font-black ${isCorrect ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                               {isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                                             </p>
+                                           </div>
+                                           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center">
+                                             <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Step Quality</p>
+                                             <p className={`text-xs font-black ${stepQuality >= 80 ? 'text-emerald-500' : stepQuality >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>
+                                               {stepQuality}%
+                                             </p>
+                                           </div>
+                                           {testRes.checkpointsMatched !== undefined && (
+                                             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center">
+                                               <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Checkpoints</p>
+                                               <p className="text-xs font-black text-indigo-400">
+                                                 {testRes.checkpointsMatched}/{testRes.checkpointsTotal || '?'}
+                                               </p>
+                                             </div>
+                                           )}
+                                           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center">
+                                             <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Score</p>
+                                             <p className="text-xs font-black text-indigo-400">
+                                               {studentAns?.scoreEarned ?? '—'} / {q.points}
+                                             </p>
+                                           </div>
+                                         </div>
+
+                                         {/* Main Feedback Text */}
+                                         {testRes.feedback && (
+                                           <div className="space-y-2">
+                                             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Detailed Analysis</p>
+                                             <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
+                                               <p className="text-sm font-medium text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{testRes.feedback}</p>
+                                             </div>
+                                           </div>
+                                         )}
+
+                                         {/* Error Source */}
+                                         {testRes.errorSource && (
+                                           <div className="flex items-start gap-3 p-4 bg-rose-500/5 border border-rose-500/15 rounded-xl">
+                                             <XCircle className="h-4 w-4 text-rose-400 mt-0.5 shrink-0" />
+                                             <div>
+                                               <p className="text-[9px] font-black uppercase tracking-widest text-rose-400 mb-1">Error Source Identified</p>
+                                               <p className="text-xs font-bold text-rose-300 leading-relaxed">{testRes.errorSource}</p>
+                                             </div>
+                                           </div>
+                                         )}
+
+                                         {/* Missing Steps */}
+                                         {testRes.missingSteps && (
+                                           <div className="flex items-start gap-3 p-4 bg-amber-500/5 border border-amber-500/15 rounded-xl">
+                                             <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                                             <div>
+                                               <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-1">Missing Steps</p>
+                                               <p className="text-xs font-bold text-amber-300 leading-relaxed">{testRes.missingSteps}</p>
+                                             </div>
+                                           </div>
+                                         )}
+
+                                         {/* Suggestion */}
+                                         {testRes.suggestion && (
+                                           <div className="flex items-start gap-3 p-4 bg-indigo-500/5 border border-indigo-500/15 rounded-xl">
+                                             <Sparkles className="h-4 w-4 text-indigo-400 mt-0.5 shrink-0" />
+                                             <div>
+                                               <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">Improvement Suggestion</p>
+                                               <p className="text-xs font-bold text-indigo-300 leading-relaxed">{testRes.suggestion}</p>
+                                             </div>
+                                           </div>
+                                         )}
+
+                                         {/* Correct Step (shown when wrong) */}
+                                         {testRes.correctStep && !isCorrect && (
+                                           <div className="space-y-2">
+                                             <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500 ml-1">Correct Approach</p>
+                                             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl overflow-x-auto">
+                                               <MathRenderer tex={testRes.correctStep} displayMode={true} />
+                                             </div>
+                                           </div>
+                                         )}
+                                       </div>
+                                     </div>
+                                   )}
+
+                                   {/* ── Instructor-Only Panel ── */}
                                    {isInstructor && (
-                                     <div className="p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">
-                                        <RefreshCw className="h-3 w-3" /> Correct Key: {q.correctAnswer}
+                                     <div className="rounded-2xl border border-dashed border-indigo-500/30 overflow-hidden">
+                                       <div className="px-5 py-3 bg-indigo-500/5 border-b border-indigo-500/10 flex items-center gap-2">
+                                         <RefreshCw className="h-3.5 w-3.5 text-indigo-400" />
+                                         <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Instructor Grading Panel</span>
+                                       </div>
+                                       <div className="p-5 space-y-4 bg-slate-50/50 dark:bg-slate-900/30">
+                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                           <div className="space-y-1">
+                                             <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Correct Answer Key</p>
+                                             <div className="p-2 bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 overflow-x-auto">
+                                               <MathRenderer tex={q.correctAnswer || '—'} displayMode={false} />
+                                             </div>
+                                           </div>
+                                           <div className="space-y-1">
+                                             <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">AI Score Given</p>
+                                             <p className="text-lg font-black text-indigo-400">{studentAns?.aiScore ?? studentAns?.scoreEarned ?? '—'} / {q.points}</p>
+                                           </div>
+                                           {testRes.confidence !== undefined && (
+                                             <div className="space-y-1">
+                                               <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Grading Confidence</p>
+                                               <div className="flex items-center gap-2">
+                                                 <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                   <div className={`h-full rounded-full ${testRes.confidence >= 80 ? 'bg-emerald-500' : testRes.confidence >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{width: `${testRes.confidence}%`}} />
+                                                 </div>
+                                                 <span className="text-xs font-black text-slate-500">{testRes.confidence}%</span>
+                                               </div>
+                                             </div>
+                                           )}
+                                         </div>
+                                         {testRes.gradingReason && (
+                                           <div className="p-3 bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
+                                             <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">AI Grading Rationale</p>
+                                             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{testRes.gradingReason}</p>
+                                           </div>
+                                         )}
+                                       </div>
                                      </div>
                                    )}
                                  </div>
@@ -853,7 +1023,7 @@ const ExamResult = () => {
                             <button 
                               disabled={grading[studentAns.id]}
                               onClick={() => handleApproveAIGrade(studentAns.id)}
-                              className="w-full h-12 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 disabled:opacity-50 text-[10px] font-black uppercase tracking-widest rounded-xl flex flex-col items-center justify-center gap-1 transition-all shadow-lg shadow-cyan-500/20 text-white transform active:scale-95"
+                              className="w-full h-12 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 disabled:opacity-50 text-[10px] font-black uppercase tracking-widest rounded-xl flex flex-col items-center justify-center gap-1 transition-all shadow-lg shadow-cyan-500/20 text-white transform active:scale-95 btn-lift"
                             >
                               {grading[studentAns.id] ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                               <span>Accept AI ({formatScore(studentAns.aiScore)})</span>
@@ -867,11 +1037,32 @@ const ExamResult = () => {
                                max={q.points}
                                min={0}
                                step="0.01"
-                               className="w-full h-12 bg-transparent border-2 border-slate-200 dark:border-slate-800 rounded-xl text-sm text-center font-black text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-sm"
+                               onKeyDown={(e) => {
+                                 if (e.key === 'Enter') {
+                                   e.preventDefault();
+                                   if (e.target.value !== '') {
+                                     if (studentAns?.isAIGradeApproved === 0) {
+                                        handleApproveAIGrade(studentAns.id, e.target.value);
+                                     } else {
+                                        handleUpdateScore(studentAns.id, e.target.value);
+                                     }
+                                   }
+                                 }
+                               }}
+                               className={`w-full h-12 bg-transparent border-2 rounded-xl text-sm text-center font-black outline-none transition-all duration-300 shadow-sm ${
+                                 saveStatus[studentAns.id] === 'success' 
+                                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-emerald-500/5'
+                                  : 'border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
+                               }`}
                                placeholder="Score"
                                id={`grade-${studentAns.id}`}
                                defaultValue={studentAns?.isAIGradeApproved === 0 ? studentAns.aiScore : studentAns?.scoreEarned}
                             />
+                            {saveStatus[studentAns.id] === 'success' && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 animate-in fade-in zoom-in duration-300">
+                                <CheckCircle2 className="h-5 w-5" />
+                              </div>
+                            )}
                           </div>
                           
                           <button 
@@ -886,11 +1077,14 @@ const ExamResult = () => {
                                 }
                               }
                             }}
-                            className="w-full h-12 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 disabled:opacity-50 text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all transform active:scale-95 shadow-md"
+                            className="w-full h-12 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 disabled:opacity-50 text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all transform active:scale-95 shadow-md btn-lift"
                           >
                             {grading[studentAns.id] ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             Commit
                           </button>
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 text-center">
+                            Press <strong className="text-indigo-500 dark:text-indigo-400">Enter</strong> or click <strong className="text-slate-700 dark:text-slate-300">Commit</strong> to save
+                          </p>
                         </div>
                       )}
                    </div>

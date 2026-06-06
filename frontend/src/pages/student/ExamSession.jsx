@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import { 
   ChevronLeft, ChevronRight, Save, Send, AlertTriangle, 
-  Clock, CheckCircle2, Circle, LayoutList, Loader2, Sparkles, BookOpen, ShieldCheck, Timer, Code, AlertCircle, Info, CircleX, CheckSquare, Sigma
+  Clock, CheckCircle2, Circle, XCircle, LayoutList, Loader2, Sparkles, BookOpen, ShieldCheck, Timer, Code, AlertCircle, Info, CircleX, CheckSquare, Sigma
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -73,7 +73,15 @@ const ExamSession = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedLangs, setSelectedLangs] = useState({}); // Stores selected language per coding question
+  const [tabViolations, setTabViolations] = useState(0);
+  const [showTabWarning, setShowTabWarning] = useState(false);
   const autoSaveTimerRef = useRef(null);
+  const answersRef = useRef({});
+  const submissionRef = useRef(null);
+  const isSubmittingRef = useRef(false);
+  const selectedLangsRef = useRef({});
+  const autoSubmitTriggeredRef = useRef(false);
+  const MAX_TAB_VIOLATIONS = 3;
 
   // ── Prevent back-button re-entry after exam submission ──
   useEffect(() => {
@@ -173,13 +181,21 @@ const ExamSession = () => {
     return () => clearInterval(autoSaveTimerRef.current);
   }, [id, navigate]);
 
+  // ── Keep refs synced with state for stale-closure-safe callbacks ──
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { submissionRef.current = submission; }, [submission]);
+  useEffect(() => { isSubmittingRef.current = isSubmitting; }, [isSubmitting]);
+  useEffect(() => { selectedLangsRef.current = selectedLangs; }, [selectedLangs]);
+
+  // ── Countdown timer ──
   useEffect(() => {
     if (timeLeft <= 0 || loading) return;
     const interval = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          handleAutoSubmit();
+          // Defer auto-submit out of setState updater to avoid stale closure
+          setTimeout(() => handleAutoSubmit(), 0);
           return 0;
         }
         return prev - 1;
@@ -188,29 +204,120 @@ const ExamSession = () => {
     return () => clearInterval(interval);
   }, [timeLeft, loading]);
 
+  // ── Tab/Window focus detection (anti-cheat) ──
   useEffect(() => {
-    if (loading) return;
-    autoSaveTimerRef.current = setInterval(async () => {
-        await handleSave(true);
-    }, 30000);
-    return () => clearInterval(autoSaveTimerRef.current);
-  }, [loading, answers]);
+    if (loading || !submission || submission.status !== 'IN_PROGRESS') return;
 
-  const handleSave = async (isAuto = false) => {
-    if (!submission) return;
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabViolations(prev => {
+          const next = prev + 1;
+          if (next >= MAX_TAB_VIOLATIONS) {
+            toast.error('Maximum tab switches reached. Auto-submitting your exam.', { duration: 5000, icon: '🚫' });
+            setTimeout(() => {
+              if (!autoSubmitTriggeredRef.current) {
+                autoSubmitTriggeredRef.current = true;
+                processSubmission(true);
+              }
+            }, 800);
+          } else {
+            setShowTabWarning(true);
+            toast(`Tab switch detected (${next}/${MAX_TAB_VIOLATIONS}). Please stay on the exam.`, {
+              icon: '⚠️', duration: 4000
+            });
+          }
+          return next;
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loading, submission]);
+
+  // ── Copy/Paste/Cut/Right-click prevention ──
+  // UX-001: paste is allowed in textarea/input so students can paste their code answers
+  useEffect(() => {
+    if (loading || !submission || submission.status !== 'IN_PROGRESS') return;
+
+    const isAnswerField = (target) => {
+      const tag = target?.tagName?.toLowerCase();
+      return tag === 'textarea' || tag === 'input';
+    };
+
+    const preventCopyOrCut = (e) => {
+      e.preventDefault();
+      toast('Copying is disabled during the exam.', { icon: '🔒', id: 'anti-cheat-block', duration: 2000 });
+    };
+
+    const preventPasteOutsideInputs = (e) => {
+      if (isAnswerField(e.target)) return; // allow paste in answer fields
+      e.preventDefault();
+      toast('This action is disabled during the exam.', { icon: '🔒', id: 'anti-cheat-block', duration: 2000 });
+    };
+
+    const preventContextMenu = (e) => { e.preventDefault(); };
+
+    const preventKeyShortcuts = (e) => {
+      if ((e.ctrlKey || e.metaKey) && ['c', 'x'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        toast('Copying is disabled during the exam.', { icon: '🔒', id: 'anti-cheat-key', duration: 2000 });
+      }
+      // Allow Ctrl+V inside answer textarea/input fields
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        if (isAnswerField(e.target)) return;
+        e.preventDefault();
+        toast('Pasting outside answer fields is disabled.', { icon: '🔒', id: 'anti-cheat-key', duration: 2000 });
+      }
+    };
+
+    document.addEventListener('copy', preventCopyOrCut);
+    document.addEventListener('cut', preventCopyOrCut);
+    document.addEventListener('paste', preventPasteOutsideInputs);
+    document.addEventListener('contextmenu', preventContextMenu);
+    document.addEventListener('keydown', preventKeyShortcuts, true);
+
+    return () => {
+      document.removeEventListener('copy', preventCopyOrCut);
+      document.removeEventListener('cut', preventCopyOrCut);
+      document.removeEventListener('paste', preventPasteOutsideInputs);
+      document.removeEventListener('contextmenu', preventContextMenu);
+      document.removeEventListener('keydown', preventKeyShortcuts, true);
+    };
+  }, [loading, submission]);
+
+  // ── Prevent accidental page close/refresh ──
+  useEffect(() => {
+    if (loading || !submission || submission.status !== 'IN_PROGRESS') return;
+
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Your exam is still in progress. Leaving may result in lost answers.';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [loading, submission]);
+
+  // ── Auto-save interval — BUG-007: use refs so the interval is not reset on every keystroke ──
+  const handleSave = useCallback(async (isAuto = false) => {
+    const sub = submissionRef.current;
+    if (!sub) return;
     setSaving(true);
     try {
-      const answerArray = Object.entries(answers).map(([qId, ans]) => {
-        const q = submission.exam.questions.find(x => x.id === parseInt(qId));
+      const currentAnswers = answersRef.current;
+      const currentLangs = selectedLangsRef.current;
+      const answerArray = Object.entries(currentAnswers).map(([qId, ans]) => {
+        const q = sub.exam.questions.find(x => x.id === parseInt(qId));
         let studentAnswer = ans;
         if (q?.type === 'CODING') {
            studentAnswer = JSON.stringify({
              code: ans,
-             language: selectedLangs[qId] || 'javascript'
+             language: currentLangs[qId] || 'javascript'
            });
         }
         if (q?.type === 'UML' || q?.type === 'MATH') {
-           // UML and MATH answers are already JSON strings
            studentAnswer = ans;
         }
         return {
@@ -218,74 +325,125 @@ const ExamSession = () => {
           studentAnswer
         };
       });
-      await api.patch(`/submissions/${submission.id}/save`, { answers: answerArray });
+      await api.patch(`/submissions/${sub.id}/save`, { answers: answerArray });
       if (!isAuto) toast.success('Progress cached');
     } catch (err) {
       if (!isAuto) toast.error('Sync failed');
     } finally {
       setSaving(false);
     }
-  };
+  }, []); // stable — reads state through refs, no deps needed
+
+  // Auto-save interval — BUG-007: depends only on [loading, handleSave] so timer never resets on keystroke
+  useEffect(() => {
+    if (loading) return;
+    autoSaveTimerRef.current = setInterval(() => {
+      handleSave(true);
+    }, 30000);
+    return () => clearInterval(autoSaveTimerRef.current);
+  }, [loading, handleSave]);
 
   const handleUpdateAnswer = (qId, value) => {
     setAnswers(prev => ({ ...prev, [qId]: value }));
   };
 
   const handleAutoSubmit = async () => {
-    toast('Time is up! Submitting active response...', { icon: '⏳' });
-    await processSubmission();
+    // Guard: prevent double auto-submit
+    if (autoSubmitTriggeredRef.current) return;
+    autoSubmitTriggeredRef.current = true;
+    toast('Time is up! Submitting your exam...', { icon: '⏳', duration: 5000 });
+    await processSubmission(true);
   };
 
-  const processSubmission = async () => {
-    if (!submission || isSubmitting) return;
+  const processSubmission = async (force = false) => {
+    // Use refs for force-mode (timer/anti-cheat) to guarantee latest data
+    const sub = force ? submissionRef.current : submission;
+    const currentAnswers = force ? answersRef.current : answers;
+    const currentLangs = force ? selectedLangsRef.current : selectedLangs;
 
-    // Check language requirements 
-    const codingQs = (submission.exam?.questions || []).filter(q => q.type === 'CODING');
-    for (let q of codingQs) {
-       const codingOpts = parseOptions(q.options);
-       const studentCode = answers[q.id] || '';
-       const studentLang = selectedLangs[q.id] || 'javascript';
+    if (!sub) return;
+    // Prevent double submission via ref (works across stale closures)
+    if (isSubmittingRef.current) return;
 
-       const detected = detectCodeLanguage(studentCode);
-       
-       const req = (codingOpts.requiredLanguage || 'any').toLowerCase();
-       
-       if (req !== 'any') {
-          if (detected && detected.toLowerCase() !== req) {
-             toast.error(`SUBMISSION BLOCKED! You used ${detected.toUpperCase()} syntax but this question REQUIRES ${req.toUpperCase()}.`, {
-               duration: 6000,
-               icon: '🚫'
-             });
-             return;
-          }
-       }
+    // Language check only for manual submissions — auto-submit always goes through
+    if (!force) {
+      const codingQs = (sub.exam?.questions || []).filter(q => q.type === 'CODING');
+      for (let q of codingQs) {
+         const codingOpts = parseOptions(q.options);
+         const studentCode = currentAnswers[q.id] || '';
+
+         const detected = detectCodeLanguage(studentCode);
+         const req = (codingOpts.requiredLanguage || 'any').toLowerCase();
+
+         if (req !== 'any') {
+            if (detected && detected.toLowerCase() !== req) {
+               toast.error(`SUBMISSION BLOCKED! You used ${detected.toUpperCase()} syntax but this question REQUIRES ${req.toUpperCase()}.`, {
+                 duration: 6000,
+                 icon: '🚫'
+               });
+               return;
+            }
+         }
+      }
     }
 
     setIsSubmitting(true);
+    isSubmittingRef.current = true;
     try {
-      await handleSave(true);
-      await api.post(`/submissions/${submission.id}/submit`);
-      
-      const showResults = submission.exam.showResults; // 0=Hidden, 1=Immediate, 2=Scheduled
-      
+      // Build answer payload from the correct data source
+      const answerArray = Object.entries(currentAnswers).map(([qId, ans]) => {
+        const q = sub.exam.questions.find(x => x.id === parseInt(qId));
+        let studentAnswer = ans;
+        if (q?.type === 'CODING') {
+           studentAnswer = JSON.stringify({
+             code: ans,
+             language: currentLangs[qId] || 'javascript'
+           });
+        }
+        if (q?.type === 'UML' || q?.type === 'MATH') {
+           studentAnswer = ans;
+        }
+        return { questionId: parseInt(qId), studentAnswer };
+      });
+
+      // Save first, then submit — ensures no answer loss
+      await api.patch(`/submissions/${sub.id}/save`, { answers: answerArray });
+      await api.post(`/submissions/${sub.id}/submit`);
+
+      const showResults = parseInt(sub.exam.showResults); // FLOW-002: coerce to int (API may return string)
+
       // ── Use replace: true to remove the exam session from browser history ──
-      // This prevents the user from pressing back to return to the exam page
       if (showResults === 1) {
         toast.success('Assessment submitted! View your results.');
-        navigate(`/submissions/${submission.id}`, { replace: true });
+        navigate(`/submissions/${sub.id}`, { replace: true });
       } else {
-        const message = showResults === 2 
+        const message = showResults === 2
           ? 'Exam submitted! Results will be available at the scheduled time.'
           : 'Exam submitted! Your instructor will release the results soon.';
-        
         toast.success(message, { duration: 6000 });
         navigate('/', { replace: true });
       }
     } catch (err) {
-      toast.error('Submission protocol failure');
+      toast.error('Submission failed. Retrying...');
+      // Retry once for critical auto-submit
+      if (force) {
+        try {
+          await api.post(`/submissions/${sub.id}/submit`);
+          toast.success('Exam submitted on retry.');
+          navigate('/', { replace: true });
+        } catch (retryErr) {
+          toast.error('Submission failed after retry. Please contact your instructor.');
+        }
+      }
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
+  };
+
+  // ── The global submit handler (called by header button) ──
+  const handleSubmit = () => {
+    setShowConfirmModal(true);
   };
 
   const formatTime = (seconds) => {
@@ -318,6 +476,22 @@ const ExamSession = () => {
 
   const currentQuestion = questions[activeIdx] || questions[0] || {};
 
+  // Parse section metadata from exam if the instructor organized questions into sections
+  const sectionsMeta = (() => {
+    try {
+      const m = submission?.exam?.examMeta;
+      const meta = typeof m === 'string' ? JSON.parse(m) : m;
+      return Array.isArray(meta?.sections) && meta.sections.length > 1 ? meta.sections : null;
+    } catch(e) { return null; }
+  })();
+
+  const getSectionForIdx = (idx) => {
+    if (!sectionsMeta) return null;
+    return sectionsMeta.find(s => idx >= s.start && idx < s.start + s.count) || null;
+  };
+
+  const currentSection = getSectionForIdx(activeIdx);
+
   // Helper to check if any question has a language mismatch
   const hasLanguageError = questions.some(q => {
     if (q.type !== 'CODING') return false;
@@ -346,29 +520,60 @@ const ExamSession = () => {
               </div>
            </div>
 
-           <div className="grid grid-cols-5 gap-2.5">
-              {(questions || []).map((q, idx) => {
-                if (!q) return null;
-                const isAnswered = answers[q.id] && answers[q.id] !== '';
-                const isActive = activeIdx === idx;
-                return (
-                  <button
-                    key={q.id}
-                    type="button"
-                    onClick={(e) => {
-                       e.stopPropagation();
-                       setActiveIdx(idx);
-                    }}
-                    className={`h-11 w-11 flex items-center justify-center rounded-xl font-black text-xs transition-all duration-300 border ${
-                      isActive ? 'bg-indigo-600 border-indigo-500 text-slate-900 dark:text-white shadow-xl shadow-indigo-600/30 scale-110' : 
-                      isAnswered ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 
-                      'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500 hover:border-slate-600'
-                    }`}
-                  >
-                    {idx + 1}
-                  </button>
-                );
-              })}
+           <div className="space-y-3">
+              {sectionsMeta ? (
+                sectionsMeta.map((sec, secIdx) => (
+                  <div key={secIdx} className="space-y-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 truncate px-0.5">
+                      {sec.title || `Section ${secIdx + 1}`}
+                    </p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(questions || []).slice(sec.start, sec.start + sec.count).map((q, relIdx) => {
+                        const idx = sec.start + relIdx;
+                        if (!q) return null;
+                        const isAnswered = answers[q.id] && answers[q.id] !== '';
+                        const isActive = activeIdx === idx;
+                        return (
+                          <button
+                            key={q.id}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setActiveIdx(idx); }}
+                            className={`h-10 w-10 flex items-center justify-center rounded-xl font-black text-xs transition-all duration-300 border ${
+                              isActive ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/30 scale-110' :
+                              isAnswered ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+                              'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500 hover:border-slate-600'
+                            }`}
+                          >
+                            {idx + 1}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="grid grid-cols-5 gap-2.5">
+                  {(questions || []).map((q, idx) => {
+                    if (!q) return null;
+                    const isAnswered = answers[q.id] && answers[q.id] !== '';
+                    const isActive = activeIdx === idx;
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setActiveIdx(idx); }}
+                        className={`h-11 w-11 flex items-center justify-center rounded-xl font-black text-xs transition-all duration-300 border ${
+                          isActive ? 'bg-indigo-600 border-indigo-500 text-white shadow-xl shadow-indigo-600/30 scale-110' :
+                          isAnswered ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+                          'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500 hover:border-slate-600'
+                        }`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
            </div>
         </div>
 
@@ -398,29 +603,29 @@ const ExamSession = () => {
       {/* Main Experience Area */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Top Floating Header */}
-        <header className="glass-hover border-b border-slate-900/50 px-8 py-5 flex items-center justify-between backdrop-blur-3xl z-30">
-           <div className="flex items-center gap-4">
-              <div className="h-10 w-10 glass rounded-full flex items-center justify-center border-slate-200 dark:border-slate-800">
-                <Sparkles className="h-5 w-5 text-indigo-500" />
+        <header className="glass-hover border-b border-slate-900/50 px-4 sm:px-8 py-3 sm:py-5 flex items-center justify-between backdrop-blur-3xl z-30">
+           <div className="flex items-center gap-3 min-w-0">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 glass rounded-full flex items-center justify-center border-slate-200 dark:border-slate-800 shrink-0">
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-500" />
               </div>
-              <div>
-                <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-widest uppercase">{submission?.exam?.title || 'Assessment'}</h1>
-                <div className="flex items-center gap-2">
+              <div className="min-w-0">
+                <h1 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-widest uppercase truncate max-w-[130px] sm:max-w-xs lg:max-w-sm">{submission?.exam?.title || 'Assessment'}</h1>
+                <div className="hidden sm:flex items-center gap-2">
                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Secure Active Tunnel</p>
                 </div>
               </div>
            </div>
 
-            <div className="flex items-center gap-6">
-               <div className={`flex items-center gap-2 text-[10px] font-black transition-opacity ${saving ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+               <div className={`hidden sm:flex items-center gap-2 text-[10px] font-black transition-opacity ${saving ? 'opacity-100' : 'opacity-0'}`}>
                   <Save className="h-3 w-3 animate-bounce" /> AUTO-CACHING...
                </div>
-               <button 
+               <button
                  type="button"
-                 onClick={(e) => { e.stopPropagation(); handleSubmit(); }} 
+                 onClick={(e) => { e.stopPropagation(); handleSubmit(); }}
                  disabled={isSubmitting}
-                 className="px-8 py-3 rounded-xl text-xs font-black uppercase tracking-tighter shadow-2xl transition-all active:scale-95 bg-white hover:bg-indigo-50 text-indigo-950"
+                 className="px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl text-xs font-black uppercase tracking-tighter shadow-2xl transition-all active:scale-95 bg-white hover:bg-indigo-50 text-indigo-950"
                >
                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Final Submit'}
                </button>
@@ -428,7 +633,7 @@ const ExamSession = () => {
         </header>
 
         {/* Question Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-12 md:px-20 lg:py-20 relative">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-12 md:px-20 lg:py-20 relative">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeIdx}
@@ -439,15 +644,25 @@ const ExamSession = () => {
               className="max-w-3xl mx-auto space-y-12"
             >
                <div className="space-y-8 relative">
+                  {/* Section label — only shown when exam has named sections */}
+                  {currentSection && (
+                    <div className="flex items-center gap-2 -mb-2">
+                      <div className="h-5 w-1 rounded-full bg-indigo-500/40" />
+                      <span className="text-[10px] font-bold text-indigo-400/70 dark:text-indigo-400/60 uppercase tracking-widest">
+                        {currentSection.title}
+                        {currentSection.description && <span className="ml-2 font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">— {currentSection.description}</span>}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between pb-4 border-b border-white/5">
                      <div className="flex items-center gap-4">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black shadow-[0_0_20px_-5px_rgba(99,102,241,0.3)]">
                            {activeIdx + 1}
                         </div>
                         <div className="flex flex-col">
-                           <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] leading-none mb-1">Inquiry Index</span>
+                           <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] leading-none mb-1">Question {activeIdx + 1}</span>
                            <div className="flex items-center gap-1.5">
-                              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{currentQuestion?.type} assessment</span>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{currentQuestion?.type}</span>
                               <span className="text-slate-700 font-medium opacity-50 px-1">|</span>
                               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Weight: {currentQuestion?.points} pts</span>
                            </div>
@@ -528,14 +743,17 @@ const ExamSession = () => {
                         <button
                           key={idx}
                           type="button"
+                          role={currentQuestion.isMultiple === 1 ? 'checkbox' : 'radio'}
+                          aria-checked={isSelected}
+                          aria-label={`Option ${String.fromCharCode(65 + idx)}: ${option}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (currentQuestion.isMultiple === 1) {
                               let current = [];
-                              try { current = JSON.parse(ans || '[]'); } 
+                              try { current = JSON.parse(ans || '[]'); }
                               catch(e) { if (ans) current = [ans]; }
                               if (!Array.isArray(current)) current = [];
-                              
+
                               const next = current.includes(option) ? current.filter(x => x !== option) : [...current, option];
                               handleUpdateAnswer(currentQuestion.id, JSON.stringify(next));
                             } else {
@@ -568,19 +786,19 @@ const ExamSession = () => {
                 )}
 
                 {currentQuestion.type === 'TRUE_FALSE' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     {['True', 'False'].map((val) => (
                       <button
                         key={val}
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleUpdateAnswer(currentQuestion.id, val); }}
-                        className={`flex flex-col items-center justify-center p-12 rounded-[2.5rem] border-2 group transition-all duration-500 ${
-                          answers[currentQuestion.id] === val 
-                            ? 'bg-indigo-600/10 border-indigo-600 text-indigo-400 shadow-2xl' 
+                        className={`flex flex-col items-center justify-center p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] border-2 group transition-all duration-500 ${
+                          answers[currentQuestion.id] === val
+                            ? 'bg-indigo-600/10 border-indigo-600 text-indigo-400 shadow-2xl'
                             : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'
                         }`}
                       >
-                        {val === 'True' ? <CheckCircle2 className="h-16 w-16 mb-4 group-hover:scale-110 transition-transform" /> : <Circle className="h-16 w-16 mb-4" />}
+                        {val === 'True' ? <CheckCircle2 className="h-10 w-10 sm:h-16 sm:w-16 mb-3 sm:mb-4 group-hover:scale-110 transition-transform" /> : <XCircle className="h-10 w-10 sm:h-16 sm:w-16 mb-3 sm:mb-4 group-hover:scale-110 transition-transform" />}
                         <span className="text-sm font-black uppercase tracking-[0.3em] font-sans">{val} Selection</span>
                       </button>
                     ))}
@@ -603,8 +821,8 @@ const ExamSession = () => {
                 {currentQuestion.type === 'ESSAY' && (
                   <div className="space-y-4">
                      <label className="text-xs font-black uppercase text-slate-600 tracking-widest ml-2">Open Response Lab</label>
-                     <textarea 
-                       className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-200 dark:border-slate-800/80 rounded-[2.5rem] px-10 py-10 min-h-[350px] text-lg font-medium leading-relaxed focus:border-indigo-600 outline-none transition-all placeholder:text-slate-800 shadow-inner"
+                     <textarea
+                       className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-200 dark:border-slate-800/80 rounded-2xl sm:rounded-[2.5rem] px-4 sm:px-10 py-4 sm:py-10 min-h-[250px] sm:min-h-[350px] text-base sm:text-lg font-medium leading-relaxed focus:border-indigo-600 outline-none transition-all placeholder:text-slate-800 shadow-inner"
                        placeholder="Synthesize your comprehensive response..."
                        value={answers[currentQuestion.id] || ''}
                        onChange={(e) => handleUpdateAnswer(currentQuestion.id, e.target.value)}
@@ -846,6 +1064,33 @@ const ExamSession = () => {
           </AnimatePresence>
         </div>
 
+        {/* Mobile Question Navigation — UX-004: visible only below lg breakpoint */}
+        <div className="lg:hidden border-t border-slate-800/60 bg-slate-950/80 backdrop-blur-md px-4 py-2.5 z-30">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
+            {questions.map((q, idx) => {
+              const isAnswered = answers[q.id] && answers[q.id] !== '';
+              const isActive = activeIdx === idx;
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => setActiveIdx(idx)}
+                  aria-label={`Question ${idx + 1}${isAnswered ? ' — answered' : ''}`}
+                  className={`shrink-0 h-8 w-8 flex items-center justify-center rounded-lg font-black text-[10px] transition-all border ${
+                    isActive
+                      ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/30'
+                      : isAnswered
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                      : 'bg-slate-800/80 border-slate-700 text-slate-500'
+                  }`}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Global Control Bar */}
         <footer className="glass border-t border-slate-900 px-8 py-6 flex items-center justify-between z-30">
             <button 
@@ -935,6 +1180,57 @@ const ExamSession = () => {
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
                   Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Tab Switch Warning Modal */}
+      <AnimatePresence>
+        {showTabWarning && (
+          <div className="fixed inset-0 z-[99998] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowTabWarning(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#0b1328]/95 border border-amber-500/30 shadow-[0_0_40px_-10px_rgba(245,158,11,0.3)] rounded-3xl p-8 max-w-md w-full relative overflow-hidden backdrop-blur-xl"
+            >
+              <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+
+              <div className="flex flex-col items-center text-center space-y-5 relative z-10">
+                <div className="h-16 w-16 bg-gradient-to-br from-amber-500/20 to-red-900/30 rounded-full flex items-center justify-center text-amber-400 border border-amber-500/30 shadow-[0_0_30px_-5px_rgba(245,158,11,0.3)] animate-pulse">
+                  <AlertTriangle size={28} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-white mb-2">Stay on This Tab</h3>
+                  <p className="text-[13px] text-slate-300/80 leading-relaxed font-medium">
+                    Leaving the exam tab has been detected. Repeated violations will result in automatic submission of your exam.
+                  </p>
+                  <div className="mt-4 flex items-center justify-center gap-2">
+                    <div className="flex gap-1.5">
+                      {Array.from({ length: MAX_TAB_VIOLATIONS }).map((_, i) => (
+                        <div key={i} className={`h-2.5 w-8 rounded-full transition-all duration-500 ${i < tabViolations ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-slate-700'}`} />
+                      ))}
+                    </div>
+                    <span className="text-[10px] font-black text-amber-400/80 uppercase tracking-widest ml-2">
+                      {tabViolations}/{MAX_TAB_VIOLATIONS}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 relative z-10">
+                <button
+                  onClick={() => setShowTabWarning(false)}
+                  className="w-full py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-white bg-amber-600 hover:bg-amber-500 shadow-[0_0_20px_-5px_rgba(245,158,11,0.4)] transition-all outline-none"
+                >
+                  I Understand — Return to Exam
                 </button>
               </div>
             </motion.div>

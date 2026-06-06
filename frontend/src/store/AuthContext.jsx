@@ -7,6 +7,7 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [onboardingInProgress, setOnboardingInProgress] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,6 +19,13 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  // ─── Role-based redirect helper ───
+  const getRedirectPath = (role) => {
+    if (role === 'ADMIN') return '/admin';
+    if (role === 'INSTRUCTOR') return '/instructor/dashboard';
+    return '/student/dashboard';
+  };
+
   const login = async (email, password) => {
     try {
       const { data } = await api.post('/auth/login', { email, password });
@@ -27,7 +35,7 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
       localStorage.setItem('token', data.token);
-      navigate('/');
+      navigate(getRedirectPath(data.user.role));
       return { success: true };
     } catch (err) {
       const errorMessage = err.response?.data?.error || (err.request ? 'Connection refused. Ensure the backend on port 5000 is spinning.' : 'Login session failed: ' + err.message);
@@ -35,16 +43,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (email, password, name, role) => {
+  const register = async (email, password, name, role, username, profileImage) => {
     try {
-      const { data } = await api.post('/auth/register', { email, password, name, role });
+      const { data } = await api.post('/auth/register', { email, password, name, role, username, profileImage });
       if (data.requiresVerification) {
         return { success: true, verificationRequired: true, email: data.email };
       }
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
       localStorage.setItem('token', data.token);
-      navigate('/');
+      navigate(getRedirectPath(data.user.role));
       return { success: true };
     } catch (err) {
       const errorMessage = err.response?.data?.error || (err.request ? 'Server is unreachable. Please check your connection or port 5000 status.' : 'Registration failed: ' + err.message);
@@ -52,14 +60,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const verifyOTP = async (email, code) => {
+  const updateProfile = async (name, username, profileImage, newPassword) => {
+    try {
+      const { data } = await api.patch('/auth/profile', { name, username, profileImage, newPassword });
+      setUser(data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('token', data.token);
+      return { success: true, user: data.user };
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'Profile update failed';
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const verifyOTP = async (email, code, skipNavigation = false) => {
     try {
       const { data } = await api.post('/auth/verify', { email, code });
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
       localStorage.setItem('token', data.token);
-      navigate('/');
-      return { success: true };
+      if (!skipNavigation) {
+        navigate(getRedirectPath(data.user.role));
+      }
+      return { success: true, user: data.user };
     } catch (err) {
       const errorMessage = err.response?.data?.error || 'Verification Failed';
       return { success: false, error: errorMessage };
@@ -73,30 +96,10 @@ export const AuthProvider = ({ children }) => {
     navigate('/login');
   };
 
-  const devLogin = async (role) => {
-    if (!import.meta.env.DEV) return;
-    
-    const targetEmail = role === 'INSTRUCTOR' ? 'paulasamy52@gmail.com' : 'paulasamy344@gmail.com';
-    
-    try {
-      const { data } = await api.post('/auth/dev-login', { email: targetEmail });
-      
-      setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('token', data.token);
-      
-      // Force a full reload to ensure app fully resets state for the new user
-      window.location.href = '/';
-    } catch (err) {
-      alert('Dev login failed: ' + (err.response?.data?.error || err.message) + '. Is the user in the database?');
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, verifyOTP, logout, devLogin }}>
+    <AuthContext.Provider value={{ user, loading, onboardingInProgress, setOnboardingInProgress, login, register, updateProfile, verifyOTP, logout }}>
       {!loading && children}
     </AuthContext.Provider>
-
   );
 };
 

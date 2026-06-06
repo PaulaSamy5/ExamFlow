@@ -1,10 +1,92 @@
 const { run, query, get } = require('../../config/db');
 const { detectLanguage } = require('../../utils/languageDetector');
-const { 
-  evaluateDiagramWithAI, 
+const {
+  evaluateDiagramWithAI,
   evaluateEssayWithAI,
   evaluateMathWithAI
 } = require('../../services/aiEvaluation');
+
+// ─── Sandbox Security: Blocked Python modules (SEC-003) ───
+const PYTHON_BLOCKED_MODULES = [
+  'os', 'sys', 'subprocess', 'socket', 'pathlib', 'shutil', 'glob',
+  'tempfile', 'pty', 'signal', 'ctypes', 'mmap', 'importlib', 'io',
+  'pickle', 'shelve', 'threading', 'multiprocessing', 'asyncio',
+  'ftplib', 'http', 'urllib', 'requests', 'smtplib', 'telnetlib',
+  'xmlrpc', 'webbrowser', 'winreg', 'msvcrt'
+];
+
+function validatePythonCode(code) {
+  const lines = code.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    for (const mod of PYTHON_BLOCKED_MODULES) {
+      if (new RegExp(`^import\\s+${mod}(\\s|$|,|;)`, 'i').test(trimmed) ||
+          new RegExp(`^from\\s+${mod}(\\.|\\s|$)`, 'i').test(trimmed)) {
+        return { blocked: true, reason: `Module '${mod}' is not permitted in exam submissions` };
+      }
+    }
+    // Block __import__, exec, eval, compile, open, input (file access)
+    if (/\b(__import__|exec|compile)\s*\(/.test(trimmed)) {
+      const fn = trimmed.match(/\b(__import__|exec|compile)\s*\(/)[1];
+      return { blocked: true, reason: `Built-in '${fn}' is not permitted in exam submissions` };
+    }
+    // Block open() used to access files (but allow in string literals by checking context)
+    if (/(?<!['"#])\bopen\s*\(/.test(trimmed) && !/^\s*#/.test(trimmed)) {
+      return { blocked: true, reason: `File I/O (open) is not permitted in exam submissions` };
+    }
+  }
+  return { blocked: false };
+}
+
+// ─── Sandbox Security: C++ validation (HIGH-001) ───
+const CPP_BLOCKED_PATTERNS = [
+  { re: /\bsystem\s*\(/, name: 'system()' },
+  { re: /\bpopen\s*\(/, name: 'popen()' },
+  { re: /\bexecv[pe]?\s*\(/, name: 'exec family' },
+  { re: /\bfork\s*\(/, name: 'fork()' },
+  { re: /\bpthread_create\s*\(/, name: 'thread creation' },
+  { re: /#include\s*[<"]\s*cstdlib\s*[>"]/, name: '<cstdlib>' },
+  { re: /#include\s*[<"]\s*stdlib\.h\s*[>"]/, name: '<stdlib.h>' },
+  { re: /#include\s*[<"]\s*unistd\.h\s*[>"]/, name: '<unistd.h>' },
+  { re: /#include\s*[<"]\s*sys\//, name: 'sys/ headers' },
+  { re: /#include\s*[<"]\s*netinet\//, name: 'network headers' },
+  { re: /#include\s*[<"]\s*arpa\//, name: 'network headers' },
+  { re: /#include\s*[<"]\s*windows\.h\s*[>"]/, name: '<windows.h>' },
+  { re: /#include\s*[<"]\s*winsock/, name: 'winsock headers' },
+  { re: /\bWriteFile\s*\(/, name: 'WriteFile()' },
+  { re: /\bCreateFile\s*\(/, name: 'CreateFile()' },
+];
+
+function validateCppCode(code) {
+  for (const { re, name } of CPP_BLOCKED_PATTERNS) {
+    if (re.test(code)) {
+      return { blocked: true, reason: `Restricted pattern '${name}' is not permitted in exam submissions` };
+    }
+  }
+  return { blocked: false };
+}
+
+// ─── Sandbox Security: Blocked JS patterns (SEC-004) ───
+const BLOCKED_JS_PATTERNS = [
+  { re: /constructor\s*\.\s*constructor/, name: 'constructor chain escape' },
+  { re: /\bprocess\s*[\.\[]/, name: 'process object access' },
+  { re: /\brequire\s*\(/, name: 'require()' },
+  { re: /__proto__/, name: '__proto__ manipulation' },
+  { re: /prototype\s*\[/, name: 'prototype access' },
+  { re: /\bFunction\s*\(/, name: 'Function constructor' },
+  { re: /\beval\s*\(/, name: 'eval()' },
+  { re: /globalThis/, name: 'globalThis access' },
+  { re: /\bimport\s*\(/, name: 'dynamic import' },
+];
+
+function validateJsCode(code) {
+  for (const { re, name } of BLOCKED_JS_PATTERNS) {
+    if (re.test(code)) {
+      return { blocked: true, reason: `Restricted pattern '${name}' is not permitted in exam submissions` };
+    }
+  }
+  return { blocked: false };
+}
 
 const semanticNormCache = new Map();
 const semanticTokensCache = new Map();
@@ -30,12 +112,26 @@ const startSubmission = async (req, res) => {
        if (now > end) return res.status(403).json({ error: 'The access window for this exam has already closed.' });
     }
 
-    const existing = await get('SELECT * FROM Submissions WHERE examId = ? AND studentId = ? AND status = ?', [examId, studentId, 'IN_PROGRESS']);
+    // EDGE-001: Check for any existing submission (IN_PROGRESS or SUBMITTED) to prevent duplicates
+    const existing = await get('SELECT * FROM Submissions WHERE examId = ? AND studentId = ?', [examId, studentId]);
     if (existing) {
+      if (existing.status === 'SUBMITTED') {
+        return res.status(409).json({ error: 'You have already submitted this exam.' });
+      }
       return res.json(existing);
     }
 
-    const result = await run('INSERT INTO Submissions (examId, studentId, status) VALUES (?, ?, ?)', [examId, studentId, 'IN_PROGRESS']);
+    let result;
+    try {
+      result = await run('INSERT INTO Submissions (examId, studentId, status) VALUES (?, ?, ?)', [examId, studentId, 'IN_PROGRESS']);
+    } catch (insertErr) {
+      // Handle unique constraint violation (race condition where two requests inserted simultaneously)
+      if (insertErr.message && insertErr.message.includes('UQ_Submissions_StudentExam')) {
+        const race = await get('SELECT * FROM Submissions WHERE examId = ? AND studentId = ?', [examId, studentId]);
+        if (race) return res.json(race);
+      }
+      throw insertErr;
+    }
     const submission = await get('SELECT * FROM Submissions WHERE id = ?', [result.lastID]);
 
     res.status(201).json(submission);
@@ -49,13 +145,22 @@ const saveDraft = async (req, res) => {
   const { id } = req.params;
   const { answers } = req.body;
 
+  // VAL-005: Validate answers payload
+  if (!Array.isArray(answers)) {
+    return res.status(400).json({ error: 'answers must be an array' });
+  }
+
   try {
     const submission = await get('SELECT * FROM Submissions WHERE id = ?', [id]);
     if (!submission || submission.status !== 'IN_PROGRESS') {
       return res.status(400).json({ error: 'Invalid submission session' });
     }
+    if (submission.studentId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     for (const ans of answers) {
+      if (!ans || ans.questionId == null) continue;
       const existingAns = await get('SELECT id FROM Answers WHERE submissionId = ? AND questionId = ?', [id, ans.questionId]);
 
       if (existingAns) {
@@ -77,7 +182,26 @@ const submitExam = async (req, res) => {
 
   try {
     const submission = await get('SELECT * FROM Submissions WHERE id = ?', [id]);
-    if (!submission || submission.status !== 'IN_PROGRESS') {
+    if (!submission) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+
+    if (submission.studentId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Idempotent: if already submitted, return success (handles retries/race conditions)
+    if (submission.status === 'SUBMITTED') {
+      const existing = await get(`
+        SELECT s.*, e.showResults 
+        FROM Submissions s 
+        JOIN Exams e ON s.examId = e.id 
+        WHERE s.id = ?
+      `, [id]);
+      return res.json({ ...existing, success: true, alreadySubmitted: true });
+    }
+
+    if (submission.status !== 'IN_PROGRESS') {
       return res.status(400).json({ error: 'Invalid submission session' });
     }
 
@@ -210,17 +334,35 @@ const submitExam = async (req, res) => {
             testRunDetails.push({ status: 'pass', message: 'No test cases defined.' });
           } else {
             if (studentLang === 'javascript') {
+              // SEC-004: Validate JS code before running in vm sandbox
+              const jsCheck = validateJsCode(studentCode);
+              if (jsCheck.blocked) {
+                isCorrect = 0; earned = 0;
+                testRunDetails.push({ status: 'fail', message: `Security Policy Violation: ${jsCheck.reason}` });
+              } else {
               const vm = require('vm');
               for (let tc of testCases) {
                 try {
                   let output = [];
                   const inputLines = (tc.input || "").split(/\r?\n/);
                   let lineCursor = 0;
-                  const context = vm.createContext({
-                    console: { log: (...args) => output.push(args.join(' ')) },
-                    input: tc.input || "",
-                    readline: () => lineCursor < inputLines.length ? inputLines[lineCursor++] : null
-                  });
+                  // Create a clean, frozen context to resist prototype escapes
+                  const sandbox = Object.create(null);
+                  sandbox.console = Object.freeze({ log: (...args) => output.push(args.join(' ')), error: () => {}, warn: () => {} });
+                  sandbox.input = tc.input || "";
+                  sandbox.readline = () => lineCursor < inputLines.length ? inputLines[lineCursor++] : null;
+                  sandbox.Math = Math;
+                  sandbox.JSON = JSON;
+                  sandbox.parseInt = parseInt;
+                  sandbox.parseFloat = parseFloat;
+                  sandbox.isNaN = isNaN;
+                  sandbox.isFinite = isFinite;
+                  sandbox.String = String;
+                  sandbox.Number = Number;
+                  sandbox.Boolean = Boolean;
+                  sandbox.Array = Array;
+                  sandbox.Object = Object;
+                  const context = vm.createContext(sandbox);
                   new vm.Script(studentCode).runInContext(context, { timeout: 1000 });
                   const actualOut = output.join('\n').trim();
                   const expectedOut = (tc.expectedOutput || '').trim();
@@ -232,15 +374,28 @@ const submitExam = async (req, res) => {
               }
               isCorrect = passedCases === totalCases ? 1 : 0;
               earned = Math.round(((passedCases / (totalCases || 1)) * q.points) * 100) / 100;
+              } // end jsCheck
             } else if (studentLang === 'python') {
-              const { execSync } = require('child_process');
-              const fs = require('fs'), path = require('path');
-              const tmpFile = path.join(process.cwd(), `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}.py`);
+              // SEC-003: Validate Python code before execution
+              const pyCheck = validatePythonCode(studentCode);
+              if (pyCheck.blocked) {
+                isCorrect = 0; earned = 0;
+                testRunDetails.push({ status: 'fail', message: `Security Policy Violation: ${pyCheck.reason}` });
+              } else {
+              const { execFileSync } = require('child_process');
+              const fs = require('fs'), path = require('path'), crypto = require('crypto');
+              const tmpFile = path.join(process.cwd(), `tmp_${crypto.randomBytes(8).toString('hex')}.py`);
               fs.writeFileSync(tmpFile, studentCode);
               try {
                 for (let tc of testCases) {
                   try {
-                    const actualOut = execSync(`python "${tmpFile}"`, { input: tc.input || "", timeout: 2000, encoding: 'utf8' }).trim();
+                    const rawOut = execFileSync('python', [tmpFile], {
+                      input: tc.input || "",
+                      timeout: 3000,
+                      encoding: 'utf8',
+                      maxBuffer: 512 * 1024, // 512 KB output limit
+                    });
+                    const actualOut = rawOut.trim();
                     const normalize = str => str.replace(/\r\n/g, '\n').split('\n').map(s=>s.trim()).filter(s=>s!=='').join('\n');
                     const isMatch = normalize(actualOut) === normalize((tc.expectedOutput || '').trim());
                     if (isMatch) passedCases++;
@@ -250,23 +405,38 @@ const submitExam = async (req, res) => {
                 isCorrect = passedCases === totalCases ? 1 : 0;
                 earned = Math.round(((passedCases / (totalCases || 1)) * q.points) * 100) / 100;
               } finally { if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile); }
+              } // end pyCheck
             } else if (studentLang === 'cpp' || studentLang === 'cc') {
-              const { execSync } = require('child_process');
-              const fs = require('fs'), path = require('path');
-              const base = `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+              // HIGH-001: Validate C++ code before compilation
+              const cppCheck = validateCppCode(studentCode);
+              if (cppCheck.blocked) {
+                isCorrect = 0; earned = 0;
+                testRunDetails.push({ status: 'fail', message: `Security Policy Violation: ${cppCheck.reason}` });
+              } else {
+              const { execFileSync } = require('child_process');
+              const fs = require('fs'), path = require('path'), crypto = require('crypto');
+              const base = `tmp_${crypto.randomBytes(8).toString('hex')}`;
               const src = path.join(process.cwd(), `${base}.cpp`), exe = path.join(process.cwd(), `${base}.exe`);
               fs.writeFileSync(src, studentCode);
               try {
+                const mingwGpp = 'C:\\msys64\\mingw64\\bin\\g++.exe';
                 const mingw = 'C:\\msys64\\mingw64\\bin';
                 const env = { ...process.env, PATH: `${mingw};${process.env.PATH}` };
-                try { execSync(`"C:\\msys64\\mingw64\\bin\\g++.exe" -o "${exe}" "${src}"`, { timeout: 15000, env }); }
-                catch (e) { 
+                try { execFileSync(mingwGpp, ['-o', exe, src], { timeout: 15000, env, maxBuffer: 512 * 1024 }); }
+                catch (e) {
                   testRunDetails.push({ status: 'fail', message: `Compilation Error: ${e.stderr || e.message}` });
-                  throw new Error('compilation_failed'); 
+                  throw new Error('compilation_failed');
                 }
                 for (let tc of testCases) {
                   try {
-                    const actualOut = execSync(`"${exe}"`, { input: tc.input || "", timeout: 2000, encoding: 'utf8', env }).trim();
+                    const rawOut = execFileSync(exe, [], {
+                      input: tc.input || "",
+                      timeout: 3000,
+                      encoding: 'utf8',
+                      env,
+                      maxBuffer: 512 * 1024,
+                    });
+                    const actualOut = rawOut.trim();
                     const normalize = str => str.replace(/\r\n/g, '\n').split('\n').map(s=>s.trim()).filter(s=>s!=='').join('\n');
                     const isMatch = normalize(actualOut) === normalize((tc.expectedOutput || '').trim());
                     if (isMatch) passedCases++;
@@ -280,6 +450,7 @@ const submitExam = async (req, res) => {
                 else { testRunDetails.push({ status: 'fail', message: `Unexpected Error: ${e.message}` }); }
                 isCorrect = 0; earned = 0;
               } finally { if (fs.existsSync(src)) fs.unlinkSync(src); if (fs.existsSync(exe)) fs.unlinkSync(exe); }
+              } // end cppCheck
             } else {
               isCorrect = 0; earned = 0;
               testRunDetails.push({ status: 'manual_pending', message: `Automated testing for ${studentLang.toUpperCase()} is not available because the required compiler is missing. Reviewing manually.` });
@@ -730,8 +901,9 @@ const submitExam = async (req, res) => {
          }
        }
       
-      earned = Math.round(earned * 100) / 100;
-      let finalAiScore = aiScoreValue !== null ? Math.round(aiScoreValue * 100) / 100 : null;
+      // BUG-002: Guard against NaN when earned is null (AI failure path)
+      earned = earned !== null && !isNaN(earned) ? Math.round(earned * 100) / 100 : null;
+      let finalAiScore = aiScoreValue !== null && !isNaN(aiScoreValue) ? Math.round(aiScoreValue * 100) / 100 : null;
       let testRunDetailsStr = JSON.stringify(testRunDetails);
 
       console.log(`Answer Persistence: QType=${q.type} | scoreEarned=${earned} | aiScore=${finalAiScore} | isApproved=${isApproved}`);
@@ -740,7 +912,7 @@ const submitExam = async (req, res) => {
         [isCorrect, earned, finalAiScore, testRunDetailsStr, isApproved, studentAns.id]);
       
       // Total score should only reflect visible/approved grades for the final submission snapshot
-      if (isApproved === 1) {
+      if (isApproved === 1 && earned !== null) {
          totalScore += earned;
       }
     }
@@ -767,6 +939,11 @@ const getSubmission = async (req, res) => {
   try {
     const submission = await get('SELECT s.*, u.name as studentName FROM Submissions s JOIN Users u ON s.studentId = u.id WHERE s.id = ?', [id]);
     if (!submission) return res.status(404).json({ error: 'Not found' });
+
+    // CRIT-001: Ownership check — students can only view their own submission; instructors/admins can view any
+    if (req.user.role === 'STUDENT' && submission.studentId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     submission.exam = await get('SELECT * FROM Exams WHERE id = ?', [submission.examId]);
     if (submission.exam) {

@@ -1,0 +1,13 @@
+{
+  "name": "examflow-tests",
+  "version": "1.0.0",
+  "description": "Playwright E2E test suite for ExamFlow",
+  "scripts": {
+    "test": "npx playwright test --reporter=list",
+    "test:headed": "npx playwright test --headed",
+    "test:report": "npx playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}

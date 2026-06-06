@@ -7,15 +7,15 @@
     "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run ai\"",
     "server": "nodemon backend/server.js",
     "client": "npm run dev --prefix frontend",
-    "ai": "python ai-service/main.py"
-
-
+    "ai": "python ai-service/main.py",
+    "build": "npm run build --prefix frontend"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "docx": "^9.6.1"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

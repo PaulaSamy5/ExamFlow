@@ -8,6 +8,9 @@ const Dashboard = () => {
 
   if (!user) return <Navigate to="/login" replace />;
 
+  // Admin users are redirected to the dedicated admin route
+  if (user.role === 'ADMIN') return <Navigate to="/admin" replace />;
+
   return user.role === 'INSTRUCTOR' ? <InstructorDashboard /> : <StudentDashboard />;
 };
 

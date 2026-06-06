@@ -2,7 +2,7 @@ const { run, query, get } = require('../../config/db');
 const crypto = require('crypto');
 
 const generateAccessCode = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString(); // Pure 6-digit number
+  return crypto.randomInt(100000, 1000000).toString();
 };
 
 const formatSqlDate = (dateStr) => {
@@ -28,8 +28,26 @@ const formatSqlDate = (dateStr) => {
 };
 
 const createExam = async (req, res) => {
-  const { title, description, totalGrade, duration, startTime, endTime, questions, showResults, requireAIGradeApproval } = req.body;
+  const { title, description, totalGrade, duration, startTime, endTime, questions, showResults, requireAIGradeApproval, examType, examMeta } = req.body;
   const instructorId = parseInt(req.user.id);
+
+  // ─── VAL-002: Server-side exam field validation ───
+  if (!title || !title.trim()) return res.status(400).json({ error: 'Exam title is required.' });
+  if (title.trim().length > 500) return res.status(400).json({ error: 'Title must be 500 characters or fewer.' });
+  const parsedGrade = parseFloat(totalGrade);
+  if (isNaN(parsedGrade) || parsedGrade <= 0) return res.status(400).json({ error: 'Total grade must be a positive number.' });
+  const parsedDuration = parseInt(duration);
+  if (isNaN(parsedDuration) || parsedDuration <= 0) return res.status(400).json({ error: 'Duration must be a positive number of minutes.' });
+  if (!questions || !Array.isArray(questions) || questions.length === 0) {
+    return res.status(400).json({ error: 'At least one question is required.' });
+  }
+  const finalExamTypeCheck = examType === 'PRINTABLE_ONLY' ? 'PRINTABLE_ONLY' : 'ONLINE';
+  if (finalExamTypeCheck === 'ONLINE') {
+    if (!startTime) return res.status(400).json({ error: 'Start time is required for online exams.' });
+    if (!endTime) return res.status(400).json({ error: 'End time is required for online exams.' });
+    if (new Date(startTime) >= new Date(endTime)) return res.status(400).json({ error: 'End time must be after start time.' });
+  }
+
   const accessCode = generateAccessCode();
 
   try {
@@ -43,14 +61,17 @@ const createExam = async (req, res) => {
 
     const cleanGrade = parseFloat(totalGrade) || 0;
     const cleanDuration = parseInt(duration) || 0;
-    const sqlStartTime = formatSqlDate(startTime);
-    const sqlEndTime = formatSqlDate(endTime);
+    const finalExamType = examType === 'PRINTABLE_ONLY' ? 'PRINTABLE_ONLY' : 'ONLINE';
+    // Printable exams have no schedule — store NULL to avoid NOT NULL constraint violation
+    const sqlStartTime = finalExamType === 'PRINTABLE_ONLY' ? null : formatSqlDate(startTime);
+    const sqlEndTime   = finalExamType === 'PRINTABLE_ONLY' ? null : formatSqlDate(endTime);
+    const finalExamMeta = examMeta ? JSON.stringify(examMeta) : null;
 
     const insertResult = await query(
-      `INSERT INTO Exams (title, description, accessCode, totalGrade, duration, startTime, endTime, instructorId, showResults, requireAIGradeApproval) 
+      `INSERT INTO Exams (title, description, accessCode, totalGrade, duration, startTime, endTime, instructorId, showResults, requireAIGradeApproval, examType, examMeta) 
        OUTPUT INSERTED.id 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title, description || null, accessCode, cleanGrade, cleanDuration, sqlStartTime, sqlEndTime, instructorId, finalVisibility, finalApproval]
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, description || null, accessCode, cleanGrade, cleanDuration, sqlStartTime, sqlEndTime, instructorId, finalVisibility, finalApproval, finalExamType, finalExamMeta]
     );
 
     const examId = insertResult[0].id;
@@ -65,6 +86,13 @@ const createExam = async (req, res) => {
     }
 
     const exam = await get('SELECT * FROM Exams WHERE id = ?', [examId]);
+    if (exam && exam.examMeta) {
+      try {
+        exam.examMeta = JSON.parse(exam.examMeta);
+      } catch (e) {
+        console.error('Error parsing examMeta in createExam response:', e);
+      }
+    }
     res.status(201).json(exam);
   } catch (err) {
     console.error('❌ Database Error during Exam Creation:', err);
@@ -84,11 +112,22 @@ const getExams = async (req, res) => {
       ORDER BY e.createdAt DESC
     `, [instructorId]);
     
-    const exams = examsResult.map(e => ({
-      ...e,
-      instructor: { name: e.instructorName },
-      _count: { questions: e.questionCount }
-    }));
+    const exams = examsResult.map(e => {
+      let parsedMeta = null;
+      if (e.examMeta) {
+        try {
+          parsedMeta = JSON.parse(e.examMeta);
+        } catch (err) {
+          console.error('Error parsing examMeta in getExams:', err);
+        }
+      }
+      return {
+        ...e,
+        examMeta: parsedMeta,
+        instructor: { name: e.instructorName },
+        _count: { questions: e.questionCount }
+      };
+    });
 
     res.json(exams);
   } catch (err) {
@@ -119,6 +158,14 @@ const getExamById = async (req, res) => {
       `, [id]);
 
     if (!exam) return res.status(404).json({ error: 'Exam not found' });
+
+    if (exam.examMeta) {
+      try {
+        exam.examMeta = JSON.parse(exam.examMeta);
+      } catch (e) {
+        console.error('Error parsing examMeta in getExamById:', e);
+      }
+    }
 
     const questionsResult = await query('SELECT * FROM Questions WHERE examId = ?', [id]);
     exam.instructor = { name: exam.instructorName };
@@ -160,16 +207,39 @@ const deleteExam = async (req, res) => {
 
 const updateExam = async (req, res) => {
   const id = parseInt(req.params.id);
-  const { title, description, totalGrade, duration, startTime, endTime, questions, showResults, requireAIGradeApproval } = req.body;
+  const { title, description, totalGrade, duration, startTime, endTime, questions, showResults, requireAIGradeApproval, examType, examMeta } = req.body;
   const instructorId = parseInt(req.user.id);
   
+  // HIGH-003: Validate fields when present (same rules as createExam)
+  if (title !== undefined) {
+    if (!title || !title.trim()) return res.status(400).json({ error: 'Exam title is required.' });
+    if (title.trim().length > 500) return res.status(400).json({ error: 'Title must be 500 characters or fewer.' });
+  }
+  if (totalGrade !== undefined) {
+    const parsedGrade = parseFloat(totalGrade);
+    if (isNaN(parsedGrade) || parsedGrade <= 0) return res.status(400).json({ error: 'Total grade must be a positive number.' });
+  }
+  if (duration !== undefined) {
+    const parsedDuration = parseInt(duration);
+    if (isNaN(parsedDuration) || parsedDuration <= 0) return res.status(400).json({ error: 'Duration must be a positive number of minutes.' });
+  }
+  if (questions !== undefined && (!Array.isArray(questions) || questions.length === 0)) {
+    return res.status(400).json({ error: 'At least one question is required.' });
+  }
+  const finalExamTypeUpdateCheck = examType === 'PRINTABLE_ONLY' ? 'PRINTABLE_ONLY' : 'ONLINE';
+  if (finalExamTypeUpdateCheck === 'ONLINE') {
+    if (startTime && endTime && new Date(startTime) >= new Date(endTime)) {
+      return res.status(400).json({ error: 'End time must be after start time.' });
+    }
+  }
+
   try {
     const dbExam = await get('SELECT id, instructorId FROM Exams WHERE id = ?', [id]);
-    
+
     if (!dbExam) {
        return res.status(404).json({ error: `Assessment Matrix [ID:${id}] not found.` });
     }
-    
+
     if (parseInt(dbExam.instructorId) !== instructorId) {
        return res.status(403).json({ error: 'Permission Denied.' });
     }
@@ -184,24 +254,39 @@ const updateExam = async (req, res) => {
 
     const cleanGrade = parseFloat(totalGrade) || 0;
     const cleanDuration = parseInt(duration) || 0;
-    const sqlStartTime = formatSqlDate(startTime);
-    const sqlEndTime = formatSqlDate(endTime);
+    const finalExamType = examType === 'PRINTABLE_ONLY' ? 'PRINTABLE_ONLY' : 'ONLINE';
+    // Printable exams have no schedule — store NULL to avoid NOT NULL constraint violation
+    const sqlStartTime = finalExamType === 'PRINTABLE_ONLY' ? null : formatSqlDate(startTime);
+    const sqlEndTime   = finalExamType === 'PRINTABLE_ONLY' ? null : formatSqlDate(endTime);
+    const finalExamMeta = examMeta ? JSON.stringify(examMeta) : null;
 
     await run(
-      `UPDATE Exams SET title=?, description=?, totalGrade=?, duration=?, startTime=?, endTime=?, showResults=?, requireAIGradeApproval=? WHERE id=?`,
-      [title, description || null, cleanGrade, cleanDuration, sqlStartTime, sqlEndTime, finalVisibility, finalApproval, id]
+      `UPDATE Exams SET title=?, description=?, totalGrade=?, duration=?, startTime=?, endTime=?, showResults=?, requireAIGradeApproval=?, examType=?, examMeta=? WHERE id=?`,
+      [title, description || null, cleanGrade, cleanDuration, sqlStartTime, sqlEndTime, finalVisibility, finalApproval, finalExamType, finalExamMeta, id]
     );
 
-    // Sync Questions
-    // Sync Questions: Clean up old answers first to avoid FK conflict
-    await run('DELETE FROM Answers WHERE questionId IN (SELECT id FROM Questions WHERE examId = ?)', [id]);
-    await run('DELETE FROM Questions WHERE examId = ?', [id]);
-    for (const q of questions) {
-      const cleanPoints = parseFloat(q.points) || 0;
-      await run(
-        'INSERT INTO Questions (examId, type, text, points, options, correctAnswer, isMultiple) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [id, q.type, q.text, cleanPoints, q.options ? JSON.stringify(q.options) : null, q.correctAnswer || null, q.isMultiple ? 1 : 0]
-      );
+    // Sync Questions — only if questions array was provided
+    if (questions && questions.length > 0) {
+      // Guard: block question changes if students have already submitted to preserve their answers
+      const submissionCount = await get('SELECT COUNT(*) as cnt FROM Submissions WHERE examId = ? AND status = ?', [id, 'SUBMITTED']);
+      if (submissionCount && submissionCount.cnt > 0) {
+        return res.status(409).json({
+          error: `Cannot modify questions: ${submissionCount.cnt} student submission(s) already exist for this exam. Only exam metadata (title, description, dates, grade, settings) was updated.`,
+          metadataUpdated: true,
+          submissionCount: submissionCount.cnt
+        });
+      }
+
+      // No submissions — safe to resync questions
+      await run('DELETE FROM Answers WHERE questionId IN (SELECT id FROM Questions WHERE examId = ?)', [id]);
+      await run('DELETE FROM Questions WHERE examId = ?', [id]);
+      for (const q of questions) {
+        const cleanPoints = parseFloat(q.points) || 0;
+        await run(
+          'INSERT INTO Questions (examId, type, text, points, options, correctAnswer, isMultiple) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [id, q.type, q.text, cleanPoints, q.options ? JSON.stringify(q.options) : null, q.correctAnswer || null, q.isMultiple ? 1 : 0]
+        );
+      }
     }
 
     res.json({ message: 'Exam updated successfully' });

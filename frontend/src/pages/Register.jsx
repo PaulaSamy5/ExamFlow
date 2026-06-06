@@ -1,303 +1,516 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../store/AuthContext';
-import { Link } from 'react-router-dom';
-import { Loader2, ArrowRight, GraduationCap, ShieldCheck, KeyRound, ArrowLeft, Mail, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Loader2, ArrowRight, GraduationCap, ShieldCheck, ArrowLeft,
+  Mail, User, Lock, Eye, EyeOff, Check, Camera, ImagePlus, KeyRound, Trash2
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { FieldError, inputStateClass } from '../components/FieldError';
 
 const Register = () => {
+  const { register, verifyOTP, updateProfile, setOnboardingInProgress } = useAuth();
+  const navigate = useNavigate();
+  
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [direction, setDirection] = useState(1); // 1 for forward, -1 for backward
+
+  // Form Data
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [role, setRole] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [profileImage, setProfileImage] = useState('');
+  const [otpCodes, setOtpCodes] = useState(Array(6).fill(''));
+
+  // Inline validation errors
+  const [errors, setErrors] = useState({});
+
+  // UI State
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
-  const [role, setRole] = useState('STUDENT');
-  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
+  const otpRefs = useRef([]);
+
+  // Password Validation
+  const [criteria, setCriteria] = useState({ length: false, upper: false, lower: false, number: false, special: false });
   const [strength, setStrength] = useState(0);
 
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-
-  const { register, verifyOTP } = useAuth();
-
   useEffect(() => {
+    const checks = {
+      length: password.length >= 8,
+      upper: /[A-Z]/.test(password),
+      lower: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[^A-Za-z0-9]/.test(password)
+    };
+    setCriteria(checks);
     let score = 0;
-    if (password.length > 7) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
+    if (checks.length) score++;
+    if (checks.upper || checks.lower) score++;
+    if (checks.number) score++;
+    if (checks.special) score++;
     setStrength(score);
   }, [password]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (strength < 2) return toast.error('Password is too weak. Please use at least 8 characters.');
-    if (password !== confirmPassword) return toast.error('Passwords do not match.');
-    
-    setLoading(true);
-    const fullName = `${firstName} ${lastName}`.trim();
+  const isValidPassword = Object.values(criteria).every(Boolean);
+  const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
-    const result = await register(email, password, fullName, role);
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) return toast.error("Image must be smaller than 2MB");
+      const reader = new FileReader();
+      reader.onloadend = () => setProfileImage(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const submitStep2 = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const newErrors = {};
+    if (!email.trim()) newErrors.email = 'Email address is required.';
+    else if (!emailRegex.test(email.trim())) newErrors.email = 'Please enter a valid email address.';
+    if (!isValidPassword) newErrors.password = 'Please meet all password requirements above.';
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+    setErrors({});
+
+    setLoading(true);
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    const result = await register(email, password, fullName, role, null, null); 
+    
     if (result.success && result.verificationRequired) {
-      toast.success('Verification code dispatched to your email');
-      setIsVerifying(true);
+      setDirection(1);
+      setStep(3);
     } else if (result.success) {
-      toast.success(`Welcome, ${firstName}! Your account is ready.`);
+      // Very rare fallback if no verification required
+      setDirection(1);
+      setStep(4); 
     } else {
       toast.error(result.error || 'Unable to create account. Please try again.');
     }
     setLoading(false);
   };
 
-  const handleVerify = async (e) => {
+  const nextStep = () => {
+    if (step === 1) {
+      const newErrors = {};
+      if (!role) newErrors.role = 'Please select an account type.';
+      if (!firstName.trim()) newErrors.firstName = 'First name is required.';
+      if (!lastName.trim()) newErrors.lastName = 'Last name is required.';
+      if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+      setErrors({});
+      setDirection(1);
+      setStep(2);
+    } else if (step === 2) {
+      submitStep2();
+    } else if (step === 3) {
+      handleVerify();
+    } else if (step === 4) {
+      handleComplete();
+    }
+  };
+
+  const prevStep = () => {
+    setDirection(-1);
+    setStep(prev => prev - 1);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      nextStep();
+    }
+  };
+
+  // OTP Handling
+  const handleOtpChange = (index, value) => {
+    if (!/^[0-9]*$/.test(value)) return;
+    const newOtp = [...otpCodes];
+    newOtp[index] = value;
+    setOtpCodes(newOtp);
+    if (value && index < 5) otpRefs.current[index + 1].focus();
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otpCodes[index] && index > 0) {
+      otpRefs.current[index - 1].focus();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (otpCodes.every(v => v !== '')) handleVerify();
+    }
+  };
+
+  const handleOtpPaste = (e) => {
     e.preventDefault();
-    if (otpCode.length !== 6) return toast.error('Please enter the 6-digit code');
+    const pasteData = e.clipboardData.getData('text').slice(0, 6).replace(/\D/g, '');
+    if (pasteData) {
+      const newOtp = [...otpCodes];
+      for (let i = 0; i < pasteData.length; i++) newOtp[i] = pasteData[i];
+      setOtpCodes(newOtp);
+      if (pasteData.length === 6) otpRefs.current[5].focus();
+      else otpRefs.current[pasteData.length].focus();
+    }
+  };
+
+  const handleVerify = async () => {
+    const code = otpCodes.join('');
+    if (code.length !== 6) return toast.error('Please enter the 6-digit code');
     setLoading(true);
-    const result = await verifyOTP(email, otpCode);
+    // Mark onboarding in progress BEFORE verify so route guard doesn't redirect
+    setOnboardingInProgress(true);
+    const result = await verifyOTP(email, code, true);
     if (result.success) {
-      toast.success('Email verified! Redirecting...');
+      setDirection(1);
+      setStep(4);
     } else {
+      setOnboardingInProgress(false);
       toast.error(result.error || 'Invalid verification code');
     }
     setLoading(false);
   };
 
+  const handleComplete = async () => {
+    setLoading(true);
+    await updateProfile(
+      `${firstName.trim()} ${lastName.trim()}`,
+      null,
+      profileImage || null,
+      null
+    );
+    setLoading(false);
+    // Onboarding is done — clear the flag so route guard works normally
+    setOnboardingInProgress(false);
+    toast.success('Setup Complete! Welcome aboard. ✨');
+    navigate('/dashboard');
+  };
+
+  const animationClass = direction === 1 ? 'animate-in fade-in slide-in-from-right-8' : 'animate-in fade-in slide-in-from-left-8';
+
   return (
-    <div className="relative min-h-[calc(100dvh-72px)] flex flex-col items-center justify-center p-4">
-      {/* Container - widened slightly for comfortable grid layout */}
-      <div className="w-full max-w-[500px] space-y-6">
+    <div className="flex flex-col items-center justify-center p-4 overflow-hidden" style={{ minHeight: 'calc(100dvh - 120px)' }}>
+      <div className="w-full max-w-[480px]">
+        
+        {/* Header */}
+        <div className="text-center mb-6 space-y-1">
+          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            {step === 1 && "Join ExamFlow"}
+            {step === 2 && "Secure Account"}
+            {step === 3 && "Verify Identity"}
+            {step === 4 && "Final Polish"}
+          </h1>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            {[1, 2, 3, 4].map(s => (
+              <div key={s} className={`h-1.5 rounded-full transition-all duration-500 ${step === s ? 'w-8 bg-indigo-600 dark:bg-indigo-500' : step > s ? 'w-4 bg-emerald-500' : 'w-4 bg-slate-200 dark:bg-slate-800'}`} />
+            ))}
+          </div>
+        </div>
 
-        {!isVerifying ? (
-          <>
-            <div className="text-center space-y-1">
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Create Account</h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Sign up and get started in seconds</p>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
-              <form className="space-y-6" onSubmit={handleSubmit}>
-                
-                {/* Clean Role Switch - No heavy borders */}
-                <div className="bg-white dark:bg-slate-950/60 p-1.5 rounded-2xl flex relative">
+        {/* Form Container */}
+        <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-[0_8px_32px_-4px_rgba(99,102,241,0.12),0_2px_8px_-2px_rgba(0,0,0,0.06)] dark:shadow-2xl relative overflow-hidden">
+          
+          {/* STEP 1: Basic Info */}
+          {step === 1 && (
+            <div className={`space-y-6 ${animationClass} duration-500`}>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">I am a</label>
+                <div className={`grid grid-cols-2 gap-3 ${errors.role ? 'ring-2 ring-rose-500/30 rounded-2xl p-1' : ''}`}>
                   <button
                     type="button"
-                    onClick={() => setRole('STUDENT')}
-                    className={`flex-1 flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold transition-all z-10 ${
-                      role === 'STUDENT' ? 'bg-indigo-600 text-slate-900 dark:text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:text-slate-300'
+                    onClick={() => { setRole('STUDENT'); setErrors(p => ({ ...p, role: '' })); }}
+                    className={`relative p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-300 ${
+                      role === 'STUDENT'
+                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 shadow-md transform scale-[1.02]'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 hover:bg-white dark:hover:bg-slate-800/50 text-slate-500 scale-100'
                     }`}
                   >
-                    <GraduationCap className="h-4.5 w-4.5" />
-                    Student
+                    <GraduationCap className={`w-8 h-8 transition-colors ${role === 'STUDENT' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+                    <span className="font-bold text-sm">Student</span>
+                    {role === 'STUDENT' && <CheckCircleIcon />}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRole('INSTRUCTOR')}
-                    className={`flex-1 flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold transition-all z-10 ${
-                      role === 'INSTRUCTOR' ? 'bg-indigo-600 text-slate-900 dark:text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:text-slate-300'
+                    onClick={() => { setRole('INSTRUCTOR'); setErrors(p => ({ ...p, role: '' })); }}
+                    className={`relative p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-300 ${
+                      role === 'INSTRUCTOR'
+                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 shadow-md transform scale-[1.02]'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 hover:bg-white dark:hover:bg-slate-800/50 text-slate-500 scale-100'
                     }`}
                   >
-                    <ShieldCheck className="h-4.5 w-4.5" />
-                    Instructor
+                    <ShieldCheck className={`w-8 h-8 transition-colors ${role === 'INSTRUCTOR' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+                    <span className="font-bold text-sm">Instructor</span>
+                    {role === 'INSTRUCTOR' && <CheckCircleIcon />}
                   </button>
                 </div>
+                <FieldError message={errors.role} />
+              </div>
 
-                {/* Name Grid - side by side */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium text-slate-500 dark:text-slate-400 ml-1">First Name</label>
-                    <div className="relative group">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none">
-                        <User className="h-4.5 w-4.5" />
-                      </div>
-                      <input
-                        type="text"
-                        className="w-full h-12 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl pl-11 pr-4 text-sm text-slate-900 dark:text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-all"
-                        placeholder="John"
-                        required
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium text-slate-500 dark:text-slate-400 ml-1">Last Name</label>
-                    <div className="relative group">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none">
-                        <User className="h-4.5 w-4.5" />
-                      </div>
-                      <input
-                        type="text"
-                        className="w-full h-12 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl pl-11 pr-4 text-sm text-slate-900 dark:text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-all"
-                        placeholder="Doe"
-                        required
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Email Address */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium text-slate-500 dark:text-slate-400 ml-1">Email Address</label>
+                  <label className={`text-xs font-bold uppercase tracking-wider ml-1 ${errors.firstName ? 'text-rose-500' : 'text-slate-500'}`}>First Name</label>
                   <div className="relative group">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none">
-                      <Mail className="h-4.5 w-4.5" />
+                    <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors pointer-events-none ${errors.firstName ? 'text-rose-400' : 'text-slate-400 group-focus-within:text-indigo-500'}`}>
+                      <User className="h-4.5 w-4.5" />
                     </div>
                     <input
-                      type="email"
-                      className="w-full h-12 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl pl-11 pr-4 text-sm text-slate-900 dark:text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-all"
-                      placeholder="name@example.com"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      autoFocus
+                      type="text"
+                      className={`w-full h-12 rounded-2xl pl-10 pr-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all font-medium ${errors.firstName ? inputStateClass(true) + ' border' : 'bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 focus:border-indigo-400 focus:ring-indigo-500/10'}`}
+                      placeholder="Jane"
+                      value={firstName}
+                      onChange={e => { setFirstName(e.target.value); if (errors.firstName) setErrors(p => ({ ...p, firstName: '' })); }}
+                      onBlur={() => { if (!firstName.trim()) setErrors(p => ({ ...p, firstName: 'First name is required.' })); }}
+                      onKeyDown={handleKeyDown}
                     />
                   </div>
+                  <FieldError message={errors.firstName} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={`text-xs font-bold uppercase tracking-wider ml-1 ${errors.lastName ? 'text-rose-500' : 'text-slate-500'}`}>Last Name</label>
+                  <div className="relative group">
+                    <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors pointer-events-none ${errors.lastName ? 'text-rose-400' : 'text-slate-400 group-focus-within:text-indigo-500'}`}>
+                      <User className="h-4.5 w-4.5" />
+                    </div>
+                    <input
+                      type="text"
+                      className={`w-full h-12 rounded-2xl pl-10 pr-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all font-medium ${errors.lastName ? inputStateClass(true) + ' border' : 'bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 focus:border-indigo-400 focus:ring-indigo-500/10'}`}
+                      placeholder="Doe"
+                      value={lastName}
+                      onChange={e => { setLastName(e.target.value); if (errors.lastName) setErrors(p => ({ ...p, lastName: '' })); }}
+                      onBlur={() => { if (!lastName.trim()) setErrors(p => ({ ...p, lastName: 'Last name is required.' })); }}
+                      onKeyDown={handleKeyDown}
+                    />
+                  </div>
+                  <FieldError message={errors.lastName} />
+                </div>
+              </div>
+
+              <button
+                onClick={nextStep}
+                className="w-full h-12 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-white font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25 mt-4"
+              >
+                Continue <ArrowRight className="h-4.5 w-4.5" />
+              </button>
+            </div>
+          )}
+
+          {/* STEP 2: Account Info */}
+          {step === 2 && (
+            <div className={`space-y-5 ${animationClass} duration-500`}>
+              <div className="space-y-1.5">
+                <label className={`text-xs font-bold uppercase tracking-wider ml-1 ${errors.email ? 'text-rose-500' : 'text-slate-500'}`}>Email Address</label>
+                <div className="relative group">
+                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors pointer-events-none ${errors.email ? 'text-rose-400' : 'text-slate-400 group-focus-within:text-indigo-500'}`}>
+                    <Mail className="h-4.5 w-4.5" />
+                  </div>
+                  <input
+                    autoFocus
+                    type="email"
+                    className={`w-full h-12 rounded-2xl pl-10 pr-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all font-medium ${errors.email ? inputStateClass(true) + ' border' : 'bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 focus:border-indigo-400 focus:ring-indigo-500/10'}`}
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={e => { setEmail(e.target.value); if (errors.email) setErrors(p => ({ ...p, email: '' })); }}
+                    onBlur={() => {
+                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      if (!email.trim()) setErrors(p => ({ ...p, email: 'Email address is required.' }));
+                      else if (!emailRegex.test(email.trim())) setErrors(p => ({ ...p, email: 'Please enter a valid email address.' }));
+                    }}
+                    onKeyDown={handleKeyDown}
+                  />
+                </div>
+                <FieldError message={errors.email} />
+              </div>
+              
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
+                <div className="relative group">
+                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors pointer-events-none ${password && isValidPassword ? 'text-emerald-500' : 'text-slate-400 group-focus-within:text-indigo-500'}`}>
+                    <Lock className="h-4.5 w-4.5" />
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className={`w-full h-12 bg-slate-50 dark:bg-slate-950/40 border rounded-2xl pl-10 pr-10 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none transition-all font-medium ${password && isValidPassword ? 'border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10' : 'border-slate-200 dark:border-slate-800 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10'}`}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors focus:outline-none"
+                    tabIndex="-1"
+                  >
+                    {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                  </button>
                 </div>
                 
-                {/* Passwords Grid - side by side on desktop! */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium text-slate-500 dark:text-slate-400 ml-1">Password</label>
-                    <div className="relative group">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none">
-                        <Lock className="h-4.5 w-4.5" />
-                      </div>
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        className="w-full h-12 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl pl-11 pr-11 text-sm text-slate-900 dark:text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-all"
-                        placeholder="••••••••"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                      <button 
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-600 dark:text-slate-300 transition-colors"
-                        tabIndex="-1"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {/* Password Strength Indicator */}
-                    <div className="flex gap-1.5 mt-2.5 px-1">
-                      {[1, 2, 3, 4].map((level) => (
-                        <div 
-                          key={level} 
-                          className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-                            strength >= level 
-                              ? strength <= 2 ? 'bg-rose-500' : strength === 3 ? 'bg-amber-500' : 'bg-emerald-500'
-                              : 'bg-slate-100 dark:bg-slate-800'
-                          }`} 
-                        />
-                      ))}
-                    </div>
-                  </div>
+                {/* Visual Strength Indicator */}
+                <div className="flex gap-1.5 px-1 pt-1.5">
+                  {[1, 2, 3, 4].map((level) => (
+                    <div key={level} className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${strength >= level ? strength <= 2 ? 'bg-rose-500' : strength === 3 ? 'bg-amber-500' : 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800'}`} />
+                  ))}
+                </div>
+                <FieldError message={errors.password} />
+              </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium text-slate-500 dark:text-slate-400 ml-1">Confirm Password</label>
-                    <div className="relative group">
-                      <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors pointer-events-none ${
-                        confirmPassword ? (password === confirmPassword ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-500 group-focus-within:text-indigo-400'
-                      }`}>
-                        <Lock className="h-4.5 w-4.5" />
-                      </div>
-                      <input
-                        type={showConfirmPassword ? "text" : "password"}
-                        className={`w-full h-12 bg-white dark:bg-slate-950/40 border rounded-2xl pl-11 pr-11 text-sm text-slate-900 dark:text-white placeholder:text-slate-600 focus:outline-none transition-all ${
-                          confirmPassword 
-                            ? (password === confirmPassword ? 'border-emerald-500/50 focus:border-emerald-500' : 'border-rose-500/50 focus:border-rose-500') 
-                            : 'border-slate-200 dark:border-slate-800 focus:border-indigo-500/50'
-                        }`}
-                        placeholder="••••••••"
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                      />
-                      <button 
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-600 dark:text-slate-300 transition-colors"
-                        tabIndex="-1"
-                      >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Confirm Password</label>
+                <div className="relative group">
+                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors pointer-events-none ${confirmPassword ? (passwordsMatch ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-400 group-focus-within:text-indigo-500'}`}>
+                    <Lock className="h-4.5 w-4.5" />
                   </div>
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    className={`w-full h-12 bg-slate-50 dark:bg-slate-950/40 border rounded-2xl pl-10 pr-10 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none transition-all font-medium ${confirmPassword ? (passwordsMatch ? 'border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10' : 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10') : 'border-slate-200 dark:border-slate-800 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10'}`}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
+                </div>
+                <FieldError message={confirmPassword && !passwordsMatch ? 'Passwords do not match.' : ''} />
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button onClick={prevStep} className="w-14 h-12 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-700 dark:text-slate-300 flex items-center justify-center hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm">
+                  <ArrowLeft className="h-4.5 w-4.5" />
+                </button>
+                <button onClick={nextStep} disabled={loading} className="flex-1 h-12 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-white font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25 disabled:opacity-50">
+                  {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Continue <ArrowRight className="h-4.5 w-4.5" /></>}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: OTP Verification */}
+          {step === 3 && (
+            <div className={`space-y-8 text-center ${animationClass} duration-500`}>
+              <div className="space-y-3">
+                <div className="h-16 w-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center mx-auto border border-indigo-500/20 shadow-inner">
+                  <KeyRound className="h-7 w-7 text-indigo-500" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">Enter Verification Code</h2>
+                  <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1">
+                    Sent to <strong className="text-slate-900 dark:text-white">{email}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-center gap-2 sm:gap-3" onPaste={handleOtpPaste}>
+                {otpCodes.map((code, index) => (
+                  <input
+                    key={index}
+                    ref={(el) => (otpRefs.current[index] = el)}
+                    type="text"
+                    maxLength={1}
+                    value={code}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    className="w-11 h-14 sm:w-12 sm:h-16 bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-center text-xl font-black text-slate-900 dark:text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all shadow-sm"
+                  />
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                 <button onClick={prevStep} className="w-14 h-12 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-700 dark:text-slate-300 flex items-center justify-center hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm">
+                  <ArrowLeft className="h-4.5 w-4.5" />
+                </button>
+                <button
+                  onClick={handleVerify}
+                  disabled={loading || otpCodes.some(c => !c)}
+                  className="flex-1 h-12 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-white font-bold flex items-center justify-center transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-indigo-600/25"
+                >
+                  {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Verify Code'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: Profile Setup */}
+          {step === 4 && (
+            <div className={`space-y-8 ${animationClass} duration-500`}>
+              
+              <div className="flex flex-col items-center justify-center pt-4">
+                <div className="relative group cursor-pointer mb-6" onClick={() => fileInputRef.current?.click()}>
+                  <div className="w-32 h-32 rounded-full border-4 border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden bg-slate-50 dark:bg-slate-900 flex items-center justify-center group-hover:border-indigo-500/50 transition-all">
+                    {profileImage ? (
+                      <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-400 transition-colors flex flex-col items-center">
+                        <Camera className="w-10 h-10 mb-1.5" />
+                        <span className="text-[10px] uppercase font-bold tracking-widest">Upload Photo</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute bottom-1 right-1 w-9 h-9 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900 group-hover:scale-110 transition-transform">
+                    <ImagePlus className="w-4.5 h-4.5" />
+                  </div>
+                  <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-12 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-slate-900 dark:text-white font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 mt-2 shadow-lg shadow-indigo-600/20"
-                >
-                  {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
-                    <>
-                      Create Account
-                      <ArrowRight className="h-4.5 w-4.5" />
-                    </>
-                  )}
-                </button>
-              </form>
-            </div>
-
-            <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-              Already have an account?{' '}
-              <Link to="/login" className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
-                Log in
-              </Link>
-            </p>
-          </>
-        ) : (
-          /* Verification Step */
-          <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-xl text-center space-y-6">
-            <div className="space-y-3">
-              <div className="h-14 w-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center mx-auto border border-indigo-500/20">
-                <KeyRound className="h-6 w-6 text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Check your email</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                  We sent a 6-digit code to:<br/>
-                  <span className="text-slate-900 dark:text-white font-medium mt-1 block">{email}</span>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none text-center">
+                  Welcome, {firstName.trim()}!
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 text-center">
+                  Add a profile picture to personalize your account, or skip this step for now.
                 </p>
               </div>
+
+              <div className="flex flex-col gap-3 pt-2">
+                <button
+                  onClick={handleComplete}
+                  disabled={loading}
+                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 rounded-2xl text-white font-bold flex items-center justify-center transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-emerald-600/25 text-[15px]"
+                >
+                  {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Finish Setup"}
+                </button>
+                
+                {!profileImage ? (
+                  <button 
+                    onClick={handleComplete} 
+                    disabled={loading}
+                    className="w-full h-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-slate-900 transition-all text-sm"
+                  >
+                    Skip for now
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => setProfileImage('')} 
+                    disabled={loading}
+                    className="w-full h-12 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-2xl text-rose-500 dark:text-rose-400 font-bold hover:bg-rose-100 dark:hover:bg-rose-500/30 transition-all text-sm flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Remove Photo
+                  </button>
+                )}
+              </div>
             </div>
+          )}
 
-            <form onSubmit={handleVerify} className="space-y-4">
-              <input
-                type="text"
-                maxLength={6}
-                className="w-full h-14 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-center text-2xl font-bold tracking-[0.5em] text-slate-900 dark:text-white focus:border-indigo-500/50 outline-none transition-all placeholder:tracking-normal placeholder:text-slate-600"
-                placeholder="000000"
-                required
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full h-12 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-slate-900 dark:text-white font-semibold transition-all active:scale-[0.98] disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : 'Complete Setup'}
-              </button>
-            </form>
+        </div>
 
-            <button 
-              onClick={() => setIsVerifying(false)}
-              className="flex items-center justify-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-600 dark:text-slate-300 transition-colors mx-auto"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to registration
-            </button>
-          </div>
+        {step < 3 && (
+          <p className="text-center text-xs font-semibold text-slate-500 dark:text-slate-400 mt-6">
+            Already have an account?{' '}
+            <Link to="/login" className="font-bold text-indigo-500 hover:text-indigo-400 transition-colors uppercase tracking-wide">
+              Log in instead
+            </Link>
+          </p>
         )}
       </div>
     </div>
   );
 };
+
+const CheckCircleIcon = () => (
+  <div className="absolute top-2 right-2 text-indigo-600 dark:text-indigo-400 bg-white dark:bg-slate-900 rounded-full shadow-sm">
+    <Check className="w-4 h-4 p-0.5 font-bold" />
+  </div>
+);
 
 export default Register;

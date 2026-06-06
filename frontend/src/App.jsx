@@ -7,6 +7,8 @@ import { Toaster } from 'react-hot-toast'
 
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import HomePage from './pages/HomePage'
 import CreateExam from './pages/instructor/CreateExam'
@@ -15,48 +17,33 @@ import ExamSession from './pages/student/ExamSession'
 import ExamResult from './pages/student/ExamResult'
 import ExamSubmissions from './pages/instructor/ExamSubmissions'
 import ExamJoin from './pages/student/ExamJoin'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import ProfileSettings from './pages/ProfileSettings'
+import PrintableExamView from './pages/instructor/PrintableExamView'
+import ScrollToTopButton from './components/ScrollToTop'
+import { trackPageView } from './lib/analytics'
 
 
 function ScrollToTop() {
   const { pathname } = useLocation();
+  
   useEffect(() => {
     window.scrollTo(0, 0);
+    // Track page view on route change
+    trackPageView(pathname);
   }, [pathname]);
+
   return null;
 }
 
-function DevPanel() {
-  const { devLogin, user } = useAuth();
-  
-  if (!import.meta.env.DEV) return null;
-
-  return (
-    <div className="fixed bottom-4 left-4 z-[9999] bg-slate-50 dark:bg-slate-900 border border-indigo-500/50 p-3 rounded-xl shadow-2xl shadow-indigo-500/20 flex flex-col gap-2 backdrop-blur-md opacity-30 hover:opacity-100 transition-opacity duration-300">
-      <div className="text-[10px] font-mono text-indigo-400 uppercase tracking-widest text-center border-b border-indigo-500/20 pb-1 mb-1">Dev Switch</div>
-      <div className="flex gap-2">
-        <button 
-          onClick={() => devLogin('INSTRUCTOR')}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${user?.role === 'INSTRUCTOR' ? 'bg-indigo-600 text-slate-900 dark:text-white shadow-md shadow-indigo-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-700 hover:text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700'}`}
-        >
-          Login as Instructor
-        </button>
-        <button 
-          onClick={() => devLogin('STUDENT')}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${user?.role === 'STUDENT' ? 'bg-emerald-600 text-slate-900 dark:text-white shadow-md shadow-emerald-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-700 hover:text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700'}`}
-        >
-          Login as Student
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function App() {
-  const { user, logout, loading } = useAuth()
+  const { user, logout, loading, onboardingInProgress } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   const isHomePage = location.pathname === '/';
+  const isPrintPage = location.pathname.includes('/print');
 
 
   if (loading) {
@@ -70,7 +57,7 @@ function App() {
   return (
     <div className="min-h-screen flex flex-col selection:bg-indigo-500/30">
       <ScrollToTop />
-      <Toaster position="top-right" reverseOrder={false} 
+      <Toaster position="top-right" reverseOrder={false}
         toastOptions={{
           duration: 4000,
           style: theme === 'dark' ? {
@@ -79,16 +66,17 @@ function App() {
             border: '1px solid #334155',
           } : {
             background: '#ffffff',
-            color: '#0f172a',
-            border: '1px solid #e2e8f0',
+            color: '#1e1b4b',
+            border: '1px solid hsl(237, 22%, 89%)',
+            boxShadow: '0 4px 16px -2px rgba(99, 102, 241, 0.09), 0 2px 6px rgba(0,0,0,0.05)',
           },
         }}
       />
       
       {/* Top Navbar */}
-      {!location.pathname.includes('/session') && (
-        <nav className="sticky top-0 z-50 w-full bg-slate-50/70 dark:bg-[#040814]/70 border-b border-slate-200/50 dark:border-indigo-500/10 backdrop-blur-xl transition-all duration-300">
-          <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-6 lg:px-8">
+      {!location.pathname.includes('/session') && !isPrintPage && (
+        <nav className="sticky top-0 z-50 w-full bg-white/90 dark:bg-[#111827]/70 border-b border-slate-200/80 dark:border-indigo-500/10 backdrop-blur-xl shadow-[0_1px_0_0_rgba(99,102,241,0.06),0_2px_10px_-2px_rgba(0,0,0,0.05)] dark:shadow-none transition-all duration-300">
+          <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2.5 group">
               <div className="bg-indigo-600 p-1.5 rounded-lg group-hover:rotate-6 transition-transform duration-300 shadow-md shadow-indigo-500/20">
@@ -97,20 +85,21 @@ function App() {
               <span className="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white">ExamFlow</span>
             </Link>
 
-            <div className="flex items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
               {user ? (
-                <div className="flex items-center gap-4 sm:gap-6">
+                <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
                   {/* Dashboard Link for logged-in users */}
-                  <Link 
-                    to="/dashboard" 
-                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all px-4 py-2 rounded-xl border ${location.pathname === '/dashboard' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500' : 'text-slate-500 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  <Link
+                    to={user.role === 'ADMIN' ? '/admin' : user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'}
+                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all px-3 sm:px-4 py-2 rounded-xl border ${(location.pathname.includes('/dashboard') || location.pathname === '/admin') ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400' : 'text-slate-500 border-transparent hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/80 dark:hover:bg-slate-800'}`}
                   >
-                    Control Panel
+                    <span className="hidden sm:inline">{user.role === 'ADMIN' ? 'Admin Console' : 'Control Panel'}</span>
+                    <span className="sm:hidden">{user.role === 'ADMIN' ? 'Admin' : 'Panel'}</span>
                   </Link>
 
                   {/* Role Indicator */}
-                  <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 rounded-full border border-slate-200 dark:border-white/5 shadow-inner">
-                    <div className={`h-1.5 w-1.5 rounded-full animate-pulse ${user.role === 'INSTRUCTOR' ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'}`}></div>
+                  <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 bg-indigo-50 dark:bg-white/5 rounded-full border border-indigo-100 dark:border-white/5">
+                    <div className={`h-1.5 w-1.5 rounded-full animate-pulse ${user.role === 'ADMIN' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]' : user.role === 'INSTRUCTOR' ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'}`}></div>
                     <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                       {user.role}
                     </span>
@@ -120,20 +109,24 @@ function App() {
                   <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block mx-1"></div>
 
                   {/* User Profile Hook */}
-                  <div className="flex items-center gap-3">
+                  <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                     <div className="text-right hidden sm:block">
                       <p className="text-[11px] font-black text-slate-900 dark:text-white leading-tight uppercase tracking-wide">{user.name}</p>
                       <p className="text-[9px] font-bold text-slate-400 leading-tight">Verified Academic</p>
                     </div>
-                    <div className="bg-slate-100 dark:bg-slate-800 h-10 w-10 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-                      <User className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                    <div className="bg-indigo-50 dark:bg-slate-800 h-10 w-10 rounded-2xl flex items-center justify-center border border-indigo-100 dark:border-slate-800 shadow-sm transition-all overflow-hidden">
+                      {user.profileImage ? (
+                        <img src={user.profileImage} alt="Profile" className="h-full w-full object-cover" />
+                      ) : (
+                        <User className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                      )}
                     </div>
-                  </div>
+                  </Link>
 
                   <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-4 sm:pl-6">
                     <button
                       onClick={toggleTheme}
-                      className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                      className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-all border border-transparent hover:border-indigo-100 dark:hover:border-slate-700"
                     >
                       {theme === 'dark' ? <Sun className="h-5 w-5 transition-transform group-hover:rotate-45" /> : <Moon className="h-5 w-5" />}
                     </button>
@@ -165,16 +158,21 @@ function App() {
         </nav>
       )}
 
-      <main className={`flex-1 w-full ${isHomePage ? 'pt-0 pb-0' : 'max-w-7xl mx-auto px-6 lg:px-8 pt-8 pb-32'}`}>
+      <main className={`flex-1 w-full ${isPrintPage ? '' : isHomePage ? 'pt-0 pb-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-24 sm:pb-32'}`}>
 
 
 
 
         <Routes>
-          <Route path="/" element={!user ? <HomePage /> : <Navigate to="/dashboard" />} />
-          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
-          <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
+          <Route path="/" element={!user ? <HomePage /> : <Navigate to={user.role === 'ADMIN' ? '/admin' : user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} />} />
+          <Route path="/dashboard" element={user ? <Navigate to={user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} replace /> : <Navigate to="/login" />} />
+          <Route path="/student/dashboard" element={user && user.role === 'STUDENT' ? <Dashboard /> : <Navigate to="/login" />} />
+          <Route path="/instructor/dashboard" element={user && user.role === 'INSTRUCTOR' ? <Dashboard /> : <Navigate to="/login" />} />
+          <Route path="/admin" element={user && user.role === 'ADMIN' ? <AdminDashboard /> : <Navigate to="/login" />} />
+          <Route path="/login" element={!user ? <Login /> : <Navigate to={user.role === 'ADMIN' ? '/admin' : user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} />} />
+          <Route path="/register" element={(!user || onboardingInProgress) ? <Register /> : <Navigate to={user.role === 'ADMIN' ? '/admin' : user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} />} />
+          <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
+          <Route path="/reset-password" element={!user ? <ResetPassword /> : <Navigate to="/dashboard" />} />
           
           {/* Protected Routes */}
           <Route path="/exams/new" element={user && user.role === 'INSTRUCTOR' ? <CreateExam /> : <Navigate to="/login" />} />
@@ -184,6 +182,8 @@ function App() {
           <Route path="/exams/:id/submissions" element={user && user.role === 'INSTRUCTOR' ? <ExamSubmissions /> : <Navigate to="/login" />} />
           <Route path="/submissions/:id" element={user ? <ExamResult /> : <Navigate to="/login" />} />
           <Route path="/exams/join/:code" element={user ? <ExamJoin /> : <Navigate to="/login" />} />
+          <Route path="/exams/:id/print" element={user && user.role === 'INSTRUCTOR' ? <PrintableExamView /> : <Navigate to="/login" />} />
+          <Route path="/profile" element={user ? <ProfileSettings /> : <Navigate to="/login" />} />
 
           
           <Route path="*" element={<Navigate to="/" />} />
@@ -193,8 +193,8 @@ function App() {
       </main>
       
       {/* ─── Unified Premium Footer ─── */}
-      {!location.pathname.includes('/session') && (
-        <footer className="border-t border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-[#111827]/50 backdrop-blur-md mt-auto">
+      {!location.pathname.includes('/session') && !isPrintPage && (
+        <footer className="border-t border-slate-200/80 dark:border-white/5 bg-white/70 dark:bg-[#111827]/50 backdrop-blur-md mt-auto shadow-[0_-1px_0_0_rgba(99,102,241,0.05)] dark:shadow-none">
           <div className="max-w-7xl mx-auto px-6 py-12 lg:px-8">
             <div className="flex flex-col md:flex-row justify-between items-center gap-10">
               
@@ -224,7 +224,7 @@ function App() {
             </div>
 
             <div className="mt-12 pt-8 border-t border-slate-200/50 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-              <p>© {new Date().getFullYear()} ExamFlow Platform. All rights reserved.</p>
+              <p>© {new Date().getFullYear()} ExamFlow Platform. Developed by Paula Samy. All rights reserved.</p>
               <div className="flex gap-8">
                 <a href="#" className="hover:text-indigo-500 transition-colors">Privacy</a>
                 <a href="#" className="hover:text-indigo-500 transition-colors">Terms</a>
@@ -235,8 +235,7 @@ function App() {
         </footer>
       )}
 
-      {/* Dev Only Features */}
-      <DevPanel />
+      {!isPrintPage && <ScrollToTopButton />}
     </div>
   )
 }

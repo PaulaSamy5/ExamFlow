@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 require('dotenv').config();
 
 console.log('📦 Core Modules Engaged. Booting System...');
@@ -8,18 +10,66 @@ console.log('📦 Core Modules Engaged. Booting System...');
 const authRoutes = require('./modules/auth/auth.routes');
 const examRoutes = require('./modules/exams/exam.routes');
 const submissionRoutes = require('./modules/submissions/submission.routes');
+const adminRoutes = require('./modules/admin/admin.routes');
+const analyticsRoutes = require('./modules/analytics/analytics.routes');
 
 const app = express();
 
-// Middlewares
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// ─── Security Headers ───
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow fonts/images cross-origin
+  contentSecurityPolicy: false, // CSP managed separately; enabling here breaks the SPA served via Vite
+}));
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/exams', examRoutes);
-app.use('/api/submissions', submissionRoutes);
+// ─── Rate Limiters ───
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15-minute window
+  max: 300,                  // 300 requests per window per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,                   // Stricter: 30 auth attempts per window per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many authentication attempts. Please try again later.' },
+});
+
+// Middlewares
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim());
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow server-to-server / curl
+
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    // Allow localhost only outside production — prevents same-host container abuse in prod
+    if (process.env.NODE_ENV !== 'production') {
+      if (/^https?:\/\/localhost:\d+$/.test(origin) || /^https?:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
+        return callback(null, true);
+      }
+    }
+
+    callback(new Error(`CORS policy: origin ${origin} is not allowed`));
+  },
+  credentials: true,
+}));
+// 10MB covers UML diagrams (base64 images); 50MB was far too permissive for a DoS attack surface
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Routes (rate-limited)
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/exams', apiLimiter, examRoutes);
+app.use('/api/submissions', apiLimiter, submissionRoutes);
+app.use('/api/admin', apiLimiter, adminRoutes);
+app.use('/api/analytics', apiLimiter, analyticsRoutes);
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'OK' }));

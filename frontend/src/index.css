@@ -22,38 +22,47 @@
 }
 
 body {
-  @apply bg-slate-50 dark:bg-[#111827] text-slate-700 dark:text-slate-200 font-sans antialiased;
+  background-color: hsl(240, 28%, 96.5%);
+  @apply dark:bg-[#111827] text-slate-700 dark:text-slate-200 font-sans antialiased;
   min-height: 100vh;
 }
 
 html.dark body {
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0, transparent 50%),
     radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.05) 0, transparent 50%);
 }
 
-html.light body {
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.04) 0, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.02) 0, transparent 50%);
+/* Light mode — indigo-tinted surface so white cards genuinely pop */
+html:not(.dark) body {
+  background-color: hsl(240, 28%, 96.5%);
+  background-image:
+    radial-gradient(ellipse 70% 55% at 0% 0%, rgba(99, 102, 241, 0.13) 0, transparent 55%),
+    radial-gradient(ellipse 70% 55% at 100% 0%, rgba(139, 92, 246, 0.09) 0, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(99, 102, 241, 0.05) 0, transparent 45%);
 }
 
 .glass {
-  @apply bg-slate-50 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-slate-800/50 shadow-2xl;
+  background-color: #ffffff;
+  @apply dark:bg-slate-900/40 backdrop-blur-xl border dark:border-slate-800/50 dark:shadow-2xl;
+  border-color: hsl(237, 22%, 89%);
+  box-shadow: 0 4px 16px -2px rgba(99, 102, 241, 0.09), 0 2px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 .glass-hover {
-  @apply hover:bg-slate-100 dark:bg-slate-800/60 transition-all duration-300 border-slate-300 dark:border-slate-700/50;
+  @apply hover:bg-slate-200/50 dark:bg-slate-800/60 transition-all duration-300 border-slate-300 dark:border-slate-700/50;
 }
 
 .btn-primary {
-  @apply bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white font-medium py-2 px-6 rounded-xl 
+  @apply bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-6 rounded-xl
          transition-all duration-300 shadow-lg shadow-indigo-500/20 active:scale-95 flex items-center justify-center gap-2;
 }
 
 .input-field {
-  @apply bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none 
+  @apply dark:bg-slate-800/50 border dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none
          focus:ring-2 focus:ring-indigo-500/50 transition-all duration-300 placeholder:text-slate-500;
+  background-color: hsl(237, 20%, 97.5%);
+  border-color: hsl(237, 20%, 89%);
 }
 
 .card-title {
@@ -64,6 +73,94 @@ html.light body {
   @apply px-2.5 py-0.5 rounded-full text-xs font-semibold;
 }
 
+/* ═══ Premium Hover Utilities ═══ */
+
+/* Subtle lift on hover — use on buttons, cards, links */
+.btn-lift {
+  transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 0.2s ease,
+              filter 0.2s ease;
+}
+.btn-lift:hover {
+  transform: translateY(-1px);
+}
+.btn-lift:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Card hover — softer lift with border glow */
+.card-interactive {
+  transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              border-color 0.25s ease,
+              box-shadow 0.25s ease;
+  cursor: pointer;
+}
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.16),
+              0 4px 12px -2px rgba(0, 0, 0, 0.06);
+  border-color: hsl(237, 45%, 83%);
+}
+html.dark .card-interactive:hover {
+  box-shadow: 0 8px 25px -8px rgba(99, 102, 241, 0.15),
+              0 4px 12px -4px rgba(0, 0, 0, 0.25);
+  border-color: unset;
+}
+
+/* ═══ Scrollbar Utilities ═══ */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ═══ Global Cursor States ═══ */
+
+/* Ensure all interactive elements show pointer cursor */
+button,
+[role="button"],
+a[href],
+summary,
+select,
+label[for],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+button:disabled,
+[disabled] {
+  cursor: not-allowed;
+}
+
+/* ═══ Closed / Archived Exam Styling ═══ */
+
+/* Elegant archived state — subtle desaturation, pale (باهت), not ugly disabled */
+.exam-closed {
+  position: relative;
+  filter: saturate(0.2) brightness(0.97);
+  opacity: 0.65;
+  transition: filter 0.3s ease, opacity 0.3s ease;
+}
+html.dark .exam-closed {
+  filter: saturate(0.1) brightness(0.92);
+  opacity: 0.55;
+}
+.exam-closed:hover {
+  filter: saturate(0.4) brightness(1);
+  opacity: 0.85;
+}
+html.dark .exam-closed:hover {
+  filter: saturate(0.3) brightness(0.96);
+  opacity: 0.8;
+}
+
+/* Softer hover for closed exams — reduce intensity */
+.exam-closed.card-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.02);
+}
+html.dark .exam-closed.card-interactive:hover {
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.08);
+}
+
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -72,7 +169,10 @@ html.light body {
   @apply bg-transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-700;
+  @apply bg-slate-300/70 dark:bg-slate-700 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400 dark:bg-slate-600;
 }
 
 /* Animations */
@@ -85,6 +185,37 @@ html.light body {
   animation: fadeIn 0.5s ease-out forwards;
 }
 
+/* ═══ Modal Animation System ═══ */
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalOverlayOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes modalOut {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.95) translateY(10px); }
+}
+
+.modal-overlay-enter {
+  animation: modalOverlayIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.modal-overlay-exit {
+  animation: modalOverlayOut 0.15s ease-in forwards;
+}
+.modal-enter {
+  animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.modal-exit {
+  animation: modalOut 0.15s ease-in forwards;
+}
+
 /* Hide native number input spin buttons */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
@@ -95,15 +226,24 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-/* Make datetime picker icon white for dark theme */
-::-webkit-calendar-picker-indicator {
+/* Datetime picker icon — invert only in dark mode */
+html.dark ::-webkit-calendar-picker-indicator {
   filter: invert(1);
-  opacity: 0.8;
+  opacity: 0.7;
   cursor: pointer;
   transition: opacity 0.2s;
 }
-::-webkit-calendar-picker-indicator:hover {
+html.dark ::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
+}
+html:not(.dark) ::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  filter: none;
+}
+html:not(.dark) ::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.85;
 }
 
 /* QR Scanner scan-line animation */
@@ -229,11 +369,60 @@ input[type="number"] {
 
 /* ── Base Color ── */
 .ambient-bg {
-  background-color: #f8fafc; /* Light mode base */
+  background-color: hsl(240, 28%, 96.5%);
   transition: background-color 0.8s ease;
 }
 html.dark .ambient-bg {
-  background-color: #040814; /* Dark mode base */
+  background-color: #040814;
+}
+
+/* ═══ Light Mode Design Tokens ═══ */
+
+/* White card surface — use to replace bare bg-white/bg-slate-50 in light mode */
+html:not(.dark) .lm-card {
+  background-color: #ffffff;
+  border-color: hsl(237, 20%, 90%);
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+/* Inset tray — stats strips, tab bars, secondary panels */
+html:not(.dark) .lm-tray {
+  background-color: hsl(237, 22%, 97%);
+  border-color: hsl(237, 18%, 91%);
+}
+
+/* Selected / active state highlight */
+html:not(.dark) .lm-active {
+  background-color: hsl(237, 40%, 95%);
+  border-color: hsl(237, 50%, 83%);
+  color: hsl(237, 55%, 40%);
+}
+
+/* Status chip overrides for light mode — replaces washed-out /10 opacity versions */
+html:not(.dark) .chip-indigo {
+  background-color: hsl(237, 80%, 96%);
+  border-color: hsl(237, 55%, 85%);
+  color: hsl(237, 55%, 42%);
+}
+html:not(.dark) .chip-emerald {
+  background-color: hsl(152, 70%, 95%);
+  border-color: hsl(152, 50%, 82%);
+  color: hsl(152, 55%, 28%);
+}
+html:not(.dark) .chip-amber {
+  background-color: hsl(43, 90%, 95%);
+  border-color: hsl(43, 70%, 80%);
+  color: hsl(30, 65%, 32%);
+}
+html:not(.dark) .chip-rose {
+  background-color: hsl(350, 80%, 96%);
+  border-color: hsl(350, 60%, 85%);
+  color: hsl(350, 60%, 38%);
+}
+html:not(.dark) .chip-cyan {
+  background-color: hsl(192, 75%, 95%);
+  border-color: hsl(192, 55%, 82%);
+  color: hsl(192, 60%, 28%);
 }
 
 /* ── Gradient text with glow ── */
@@ -294,16 +483,6 @@ html.dark .ambient-bg {
   box-shadow: 0 0 30px rgba(99, 102, 241, 0.4), 0 0 60px rgba(139, 92, 246, 0.15);
   transform: translateY(-1px);
 }
-
-.hero-cta-primary:active {
-  transform: scale(0.97);
-}
-
-/* ── Radial gradient utility ── */
-.bg-gradient-radial {
-  background: radial-gradient(ellipse at center, var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to, transparent));
-}
-
 
 .hero-cta-primary:active {
   transform: scale(0.97);

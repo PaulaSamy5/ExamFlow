@@ -21,6 +21,10 @@ const configMaster = {
 };
 
 const DB_NAME = process.env.DB_NAME || "ExamsDB";
+// MED-005: Validate DB_NAME to prevent SQL injection in DDL statements
+if (!/^[a-zA-Z0-9_]+$/.test(DB_NAME)) {
+  throw new Error(`FATAL: DB_NAME '${DB_NAME}' contains invalid characters. Only letters, digits, and underscores are allowed.`);
+}
 const configTarget = JSON.parse(JSON.stringify(configMaster));
 configTarget.options.database = DB_NAME;
 
@@ -52,7 +56,9 @@ async function getConnection() {
   } catch (err) {
     console.error('❌ SQL Server CONNECTION ERROR:', err.message);
     poolPromise = null;
-    throw err;
+    const dbErr = new Error('Database unavailable: ' + err.message);
+    dbErr.code = 'DB_CONNECTION_FAILED';
+    throw dbErr;
   }
 }
 
@@ -178,22 +184,132 @@ async function initializeSchema(pool) {
       )
     `);
 
+    // 6.5. PasswordResets Table
+    await request.query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PasswordResets')
+      CREATE TABLE PasswordResets (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        email NVARCHAR(255) NOT NULL,
+        token NVARCHAR(MAX) NOT NULL,
+        expiresAt DATETIME NOT NULL,
+        attempts INT DEFAULT 0,
+        createdAt DATETIME DEFAULT GETDATE()
+      )
+    `);
+
+    // 7. Analytics Table
+    await request.query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Analytics')
+      CREATE TABLE Analytics (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        visitorId NVARCHAR(255) NOT NULL,
+        userId INT NULL,
+        url NVARCHAR(MAX) NOT NULL,
+        referrer NVARCHAR(MAX),
+        userAgent NVARCHAR(MAX),
+        duration INT DEFAULT 0, -- in seconds
+        createdAt DATETIME DEFAULT GETDATE(),
+        CONSTRAINT FK_Analytics_Users FOREIGN KEY (userId) REFERENCES Users(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Add indices for performance
+    try {
+      await request.query("IF NOT EXISTS (SELECT name FROM sys.indexes WHERE name = 'IX_Analytics_VisitorId') CREATE INDEX IX_Analytics_VisitorId ON Analytics(visitorId)");
+      await request.query("IF NOT EXISTS (SELECT name FROM sys.indexes WHERE name = 'IX_Analytics_CreatedAt') CREATE INDEX IX_Analytics_CreatedAt ON Analytics(createdAt)");
+    } catch (e) { /* Indices likely exist */ }
+
     await transaction.commit();
 
     // --- PATCH: Add missing columns to existing tables (safe, idempotent) ---
     const patchRequest = pool.request();
 
-    // Patch Users: isVerified
+    // Patch Users: isVerified, username, profileImage
     await patchRequest.query(`
       IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'isVerified')
-        ALTER TABLE Users ADD isVerified INT DEFAULT 0
+        ALTER TABLE Users ADD isVerified INT DEFAULT 0;
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'username')
+        ALTER TABLE Users ADD username NVARCHAR(255);
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'profileImage')
+        ALTER TABLE Users ADD profileImage NVARCHAR(MAX);
     `);
+
+    // Patch PendingUsers: username, profileImage
+    await patchRequest.query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PendingUsers') AND name = 'username')
+        ALTER TABLE PendingUsers ADD username NVARCHAR(255);
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PendingUsers') AND name = 'profileImage')
+        ALTER TABLE PendingUsers ADD profileImage NVARCHAR(MAX);
+    `);
+
+    // Patch PasswordResets: attempts
+    await patchRequest.query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PasswordResets') AND name = 'attempts')
+        ALTER TABLE PasswordResets ADD attempts INT DEFAULT 0
+    `);
+
+    // Patch Submissions: unique constraint to prevent double-start race condition (EDGE-001)
+    // LOW-004: Remove any pre-existing duplicates first so the index creation can succeed
+    try {
+      await patchRequest.query(`
+        IF NOT EXISTS (
+          SELECT 1 FROM sys.indexes
+          WHERE object_id = OBJECT_ID('Submissions') AND name = 'UQ_Submissions_StudentExam'
+        )
+        BEGIN
+          WITH CTE AS (
+            SELECT id,
+                   ROW_NUMBER() OVER (PARTITION BY studentId, examId ORDER BY
+                     CASE WHEN status = 'SUBMITTED' THEN 0 ELSE 1 END,
+                     createdAt DESC) AS rn
+            FROM Submissions
+          )
+          DELETE FROM CTE WHERE rn > 1;
+
+          CREATE UNIQUE INDEX UQ_Submissions_StudentExam ON Submissions(studentId, examId);
+        END
+      `);
+    } catch (e) { /* constraint may already exist */ }
 
     // Patch Exams: accessCode
     await patchRequest.query(`
       IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Exams') AND name = 'accessCode')
         ALTER TABLE Exams ADD accessCode NVARCHAR(50)
     `);
+
+    // Patch Exams: examType
+    await patchRequest.query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Exams') AND name = 'examType')
+        ALTER TABLE Exams ADD examType NVARCHAR(50) DEFAULT 'ONLINE'
+    `);
+
+    // Patch Exams: examMeta (JSON blob for institution/academic metadata)
+    await patchRequest.query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Exams') AND name = 'examMeta')
+        ALTER TABLE Exams ADD examMeta NVARCHAR(MAX)
+    `);
+
+    // Patch Exams: make startTime / endTime nullable to support PRINTABLE_ONLY exams
+    try {
+      await patchRequest.query(`
+        IF EXISTS (
+          SELECT 1 FROM sys.columns
+          WHERE object_id = OBJECT_ID('Exams')
+            AND name = 'startTime'
+            AND is_nullable = 0
+        )
+        ALTER TABLE Exams ALTER COLUMN startTime DATETIME NULL
+      `);
+      await patchRequest.query(`
+        IF EXISTS (
+          SELECT 1 FROM sys.columns
+          WHERE object_id = OBJECT_ID('Exams')
+            AND name = 'endTime'
+            AND is_nullable = 0
+        )
+        ALTER TABLE Exams ALTER COLUMN endTime DATETIME NULL
+      `);
+    } catch (e) { console.warn('⚠️ startTime/endTime nullable patch skipped:', e.message); }
 
     console.log('✨ All Schema Tables Synchronized/Ready.');
 
@@ -228,14 +344,70 @@ async function initializeSchema(pool) {
       await patch.query(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Answers') AND name = 'aiScore') ALTER TABLE Answers ADD aiScore FLOAT`);
       await patch.query(`UPDATE Answers SET isAIGradeApproved = 0 WHERE isAIGradeApproved IS NULL`);
  
+      // Drop restrictive Check Constraint for User Roles (add ADMIN support)
+      try {
+        await patch.query(`
+          IF EXISTS (SELECT * FROM sys.check_constraints WHERE name = 'CHK_User_Role')
+          BEGIN
+             ALTER TABLE Users DROP CONSTRAINT CHK_User_Role;
+          END
+        `);
+        await patch.query(`
+          ALTER TABLE Users ADD CONSTRAINT CHK_User_Role CHECK (role IN ('STUDENT', 'INSTRUCTOR', 'ADMIN'))
+        `);
+      } catch (dropErr) {}
+
       console.log('✅ DB Patches Applied Successfully.');
     } catch (e) {
       console.warn('⚠️ Some DB Patches skipped or already applied:', e.message);
     }
 
+    // ─── Admin Account Seed ───
+    await seedAdminAccount(pool);
+
   } catch (err) {
     console.error('❌ Schema Sync Failure:', err.message);
     if (transaction) await transaction.rollback();
+  }
+}
+
+// ─── Secure Admin Seed (runs on every startup, idempotent) ───
+async function seedAdminAccount(pool) {
+  try {
+    const bcrypt = require('bcryptjs');
+    const checkResult = await pool.request().query(
+      "SELECT COUNT(*) AS cnt FROM Users WHERE role = 'ADMIN'"
+    );
+    const adminCount = checkResult.recordset[0].cnt;
+
+    if (adminCount === 0) {
+      const adminEmail = process.env.ADMIN_EMAIL;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+
+      if (!adminEmail || !adminPassword) {
+        console.warn('⚠️  ADMIN_EMAIL or ADMIN_PASSWORD not set in .env — skipping admin seed. Set these variables to create the initial admin account.');
+        return;
+      }
+
+      const adminName = process.env.ADMIN_NAME || 'System Administrator';
+      const hashedPassword = await bcrypt.hash(adminPassword, 12);
+
+      await pool.request()
+        .input('email', adminEmail)
+        .input('password', hashedPassword)
+        .input('name', adminName)
+        .input('role', 'ADMIN')
+        .input('isVerified', 1)
+        .query(
+          "INSERT INTO Users (email, password, name, role, isVerified) VALUES (@email, @password, @name, @role, @isVerified)"
+        );
+
+      console.log('🔐 Admin account created. Email stored from ADMIN_EMAIL env var.');
+    } else {
+      console.log('🔐 Admin account already exists. Skipping seed.');
+    }
+  } catch (err) {
+    console.error('⚠️ Admin seed error:', err.message);
   }
 }
 

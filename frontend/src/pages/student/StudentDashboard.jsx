@@ -10,7 +10,6 @@ import { AnimatePresence } from 'framer-motion';
 
 
 const StudentDashboard = () => {
-  const [exams, setExams] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,12 +39,10 @@ const StudentDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [examsRes, statsRes, subRes] = await Promise.all([
-          api.get('/exams'),
+        const [statsRes, subRes] = await Promise.all([
           api.get('/submissions/stats'),
           api.get('/submissions/my')
         ]);
-        setExams(examsRes.data || []);
         setStats(statsRes.data);
         setSubmissions(subRes.data || []);
       } catch (err) {
@@ -58,13 +55,13 @@ const StudentDashboard = () => {
   }, []);
 
   const highlights = [
-    { label: 'Exams Taken', value: stats?.examsTaken || 0, icon: History, color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
-    { label: 'Average Score', value: stats?.avgScore ? `${Math.round(stats.avgScore)}` : '—', icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-    { label: 'Best Score', value: stats?.bestScore ? stats.bestScore : '—', icon: Award, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+    { label: 'Exams Taken', value: stats?.examsTaken || 0, icon: History, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-200 dark:border-indigo-500/20' },
+    { label: 'Average Score', value: stats?.avgScore ? `${Math.round(stats.avgScore)}` : '—', icon: TrendingUp, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-200 dark:border-emerald-500/20' },
+    { label: 'Best Score', value: stats?.bestScore ? stats.bestScore : '—', icon: Award, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-200 dark:border-amber-500/20' },
   ];
 
   const filteredSubmissions = (submissions || []).filter(s =>
-    s.examTitle?.toLowerCase().includes(searchTerm.toLowerCase())
+    s.examTitle?.toLowerCase().includes(searchTerm.trim().toLowerCase())
   );
 
   return (
@@ -80,13 +77,13 @@ const StudentDashboard = () => {
         </div>
 
         {/* Join Code Card */}
-        <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-5">
+        <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-5 shadow-[0_2px_12px_-2px_rgba(99,102,241,0.08),0_1px_4px_-1px_rgba(0,0,0,0.04)] dark:shadow-none">
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3">Enter your exam access code</p>
           <form onSubmit={handleJoinByCode} className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setShowQRScanner(true)}
-              className="h-11 w-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-300 dark:border-slate-700 shrink-0 hover:bg-indigo-600 hover:border-indigo-500 active:scale-95 transition-all"
+              className="h-11 w-11 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shrink-0 hover:bg-indigo-600 hover:border-indigo-500 active:scale-95 transition-all"
               title="Scan QR Code"
             >
               <ScanLine className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white" />
@@ -96,7 +93,7 @@ const StudentDashboard = () => {
               <input 
                 type="text" 
                 placeholder="Enter 6-digit code" 
-                className="w-full h-11 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl px-4 pr-10 text-base font-semibold tracking-widest text-slate-900 dark:text-white placeholder:text-slate-600 placeholder:tracking-normal placeholder:font-normal focus:outline-none focus:border-indigo-500/50 transition-all"
+                className="w-full h-11 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-4 pr-10 text-base font-semibold tracking-widest text-slate-900 dark:text-white placeholder:text-slate-400 placeholder:tracking-normal placeholder:font-normal focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
@@ -125,7 +122,7 @@ const StudentDashboard = () => {
             <button 
               type="submit" 
               disabled={joining || joinCode.length < 6}
-              className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2 shrink-0"
+              className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2 shrink-0 btn-lift"
             >
               <PlayCircle className="h-4 w-4" />
               {joining ? 'Joining...' : 'Join'}
@@ -135,15 +132,15 @@ const StudentDashboard = () => {
       </section>
 
       {/* ─── Stats Row ─── */}
-      <section className="grid grid-cols-3 gap-4">
+      <section className="grid grid-cols-3 gap-2 sm:gap-4">
         {highlights.map((item, i) => (
-          <div key={i} className={`bg-slate-50 dark:bg-slate-900/50 border ${item.border} rounded-xl p-4 flex items-center gap-3.5`}>
-            <div className={`h-10 w-10 rounded-lg ${item.bg} flex items-center justify-center shrink-0`}>
-              <item.icon className={`h-5 w-5 ${item.color}`} />
+          <div key={i} className={`bg-white dark:bg-slate-900/50 border ${item.border} rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row items-center sm:items-center gap-2 sm:gap-3.5 shadow-[0_1px_4px_rgba(99,102,241,0.06),0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-none`}>
+            <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg ${item.bg} flex items-center justify-center shrink-0`}>
+              <item.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${item.color}`} />
             </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium text-slate-500 leading-none mb-1">{item.label}</p>
-              <p className="text-xl font-bold text-slate-900 dark:text-white leading-none">{item.value}</p>
+            <div className="min-w-0 text-center sm:text-left">
+              <p className="text-[9px] sm:text-[11px] font-medium text-slate-500 leading-none mb-1">{item.label}</p>
+              <p className="text-base sm:text-xl font-bold text-slate-900 dark:text-white leading-none">{item.value}</p>
             </div>
           </div>
         ))}
@@ -156,10 +153,10 @@ const StudentDashboard = () => {
           {submissions.length > 0 && (
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
-              <input 
-                type="text" 
-                placeholder="Search..." 
-                className="h-9 w-48 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 text-xs text-slate-600 dark:text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-slate-300 dark:border-slate-700 transition-all"
+              <input
+                type="text"
+                placeholder="Search..."
+                className="h-9 w-32 sm:w-48 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 text-xs text-slate-600 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-500/10 dark:focus:border-slate-700 shadow-sm dark:shadow-none transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -177,14 +174,14 @@ const StudentDashboard = () => {
               <Link 
                 key={sub.id} 
                 to={`/submissions/${sub.id}`}
-                className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800/40 hover:border-slate-300 dark:border-slate-700/60 rounded-xl transition-all group"
+                className="flex items-center justify-between p-4 bg-white dark:bg-slate-900/40 hover:bg-indigo-50/50 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-800/40 rounded-xl transition-all group card-interactive shadow-[0_1px_3px_rgba(99,102,241,0.05),0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-none"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-300 dark:border-slate-700/50 shrink-0 group-hover:bg-indigo-600 group-hover:border-indigo-500 transition-colors">
-                    <FileCheck className="h-4.5 w-4.5 text-slate-500 group-hover:text-slate-900 dark:text-white transition-colors" />
+                  <div className="h-10 w-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700/50 shrink-0 group-hover:bg-indigo-600 group-hover:border-indigo-500 transition-colors">
+                    <FileCheck className="h-4.5 w-4.5 text-slate-500 group-hover:text-white transition-colors" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white leading-tight truncate group-hover:text-indigo-300 transition-colors">{sub.examTitle}</h4>
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white leading-tight truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">{sub.examTitle}</h4>
                     <p className="text-[11px] text-slate-500 mt-0.5">{format(new Date(sub.submittedAt), 'MMM dd, yyyy · h:mm a')}</p>
                   </div>
                 </div>
@@ -197,7 +194,7 @@ const StudentDashboard = () => {
 
                     if (sub.isPending || releaseMode === 'manual_review') {
                       return (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-[11px] font-semibold text-cyan-400">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 text-[11px] font-semibold text-cyan-700 dark:text-cyan-400">
                           <Clock className="h-3 w-3" /> In Review
                         </span>
                       );
@@ -205,7 +202,7 @@ const StudentDashboard = () => {
 
                     if (releaseMode === 'hidden') {
                       return (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                           Hidden
                         </span>
                       );
@@ -213,7 +210,7 @@ const StudentDashboard = () => {
 
                     if (resultsPending) {
                       return (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] font-semibold text-amber-400">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
                           <Clock className="h-3 w-3" /> Pending
                         </span>
                       );
@@ -231,7 +228,7 @@ const StudentDashboard = () => {
             ))}
           </div>
         ) : (
-          <div className="bg-slate-50 dark:bg-slate-900/30 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-10 text-center">
+          <div className="bg-white dark:bg-slate-900/30 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-10 text-center shadow-sm dark:shadow-none">
             <AlertCircle className="h-8 w-8 text-slate-700 mx-auto mb-3" />
             <p className="text-sm text-slate-500">No completed exams yet</p>
             <p className="text-xs text-slate-600 mt-1">Enter an access code above to start your first exam.</p>

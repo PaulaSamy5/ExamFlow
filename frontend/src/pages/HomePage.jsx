@@ -34,7 +34,7 @@ export default function HomePage() {
   const { user } = useAuth();
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={user.role === 'ADMIN' ? '/admin' : user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} replace />;
   }
 
   return (
@@ -189,7 +189,7 @@ function HeroSection() {
           transition={{ duration: 1, delay: 1 }}
           className="mt-20"
         >
-          <div className="flex items-center justify-center gap-8 sm:gap-14">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 lg:gap-14">
             {[
               { label: 'AI Grading', icon: Brain },
               { label: 'UML Support', icon: PenTool },

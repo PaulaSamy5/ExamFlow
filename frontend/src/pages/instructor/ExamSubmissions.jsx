@@ -36,8 +36,8 @@ const ExamSubmissions = () => {
 
   const filtered = submissions
     .filter(s => 
-      s.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.studentEmail.toLowerCase().includes(searchTerm.toLowerCase())
+      s.studentName.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
+      s.studentEmail.toLowerCase().includes(searchTerm.trim().toLowerCase())
     )
     .sort((a, b) => {
       if (sortBy === 'time') {
@@ -82,7 +82,7 @@ const ExamSubmissions = () => {
     <div className="space-y-12 pb-24 animate-fade-in max-w-6xl mx-auto">
       {/* Header */}
       <header className="space-y-8 px-2 mt-8">
-        <button onClick={() => navigate('/')} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-indigo-500 transition-all group w-fit">
+        <button onClick={() => navigate('/instructor/dashboard')} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-indigo-500 transition-all group w-fit">
           <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 group-hover:bg-indigo-500/10 border border-slate-200 dark:border-slate-800 group-hover:border-indigo-500/30 transition-all">
             <ArrowLeft className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400 group-hover:text-indigo-500 group-hover:-translate-x-0.5 transition-all" />
           </div>
