@@ -67,8 +67,8 @@ test.describe('1. Navigation & Page Load', () => {
 
   test('1.3 /register page loads with role selector', async ({ page }) => {
     await page.goto('/register');
-    await expect(page.locator('text=Student')).toBeVisible();
-    await expect(page.locator('text=Instructor')).toBeVisible();
+    await expect(page.locator('button:has-text("Student")')).toBeVisible();
+    await expect(page.locator('button:has-text("Instructor")')).toBeVisible();
   });
 
   test('1.4 /forgot-password page loads', async ({ page }) => {
@@ -129,8 +129,8 @@ test.describe('2. Authentication — Login Validation', () => {
     await page.goto('/login');
     const passwordInput = page.locator('input[type="password"]');
     await expect(passwordInput).toBeVisible();
-    // Click toggle button (the eye icon)
-    const toggle = page.locator('button[type="button"]').last();
+    // Click the eye icon button (tabIndex="-1", near the password field)
+    const toggle = page.locator('button[tabindex="-1"]').first();
     await toggle.click();
     // Input type should switch to text
     await expect(page.locator('input[type="text"]').last()).toBeVisible();
@@ -260,7 +260,7 @@ test.describe('5. Instructor Dashboard', () => {
   });
 
   test('5.2 Create exam button is visible', async ({ page }) => {
-    await expect(page.locator('text=Create, text=New Exam, text=Add Exam').first()).toBeVisible();
+    await expect(page.locator('text=Create Exam').first()).toBeVisible();
   });
 
   test('5.3 Student cannot access instructor dashboard', async ({ page }) => {
@@ -392,7 +392,7 @@ test.describe('8. Role Separation & Access Control', () => {
   test('8.5 Admin dashboard loads after admin login', async ({ page }) => {
     await loginAs(page, ADMIN);
     await expect(page).toHaveURL('/admin');
-    await expect(page.locator('text=Platform Overview, text=Admin, text=Dashboard').first()).toBeVisible();
+    await expect(page.locator('text=Platform Overview').first()).toBeVisible();
   });
 
   test('8.6 Instructor cannot access /admin', async ({ page }) => {
@@ -431,7 +431,7 @@ test.describe('9. Profile Settings', () => {
     const nameInput = page.locator('input[placeholder*="Full name" i], input[placeholder*="name" i]').first();
     await nameInput.fill('');
     await page.locator('button[type="submit"], button:has-text("Save")').first().click();
-    await expect(page.locator('text=required, text=Full name')).toBeVisible();
+    await expect(page.locator('text=Full name is required.')).toBeVisible();
   });
 
   test('9.3 Profile page not accessible when logged out', async ({ page }) => {
@@ -463,14 +463,14 @@ test.describe('10. Edge Cases & Error States', () => {
   test('10.3 ExamJoin with invalid code shows error', async ({ page }) => {
     await loginAs(page, STUDENT);
     await page.goto('/exams/join/000000');
-    await expect(page.locator('text=Access Denied, text=Invalid, text=Validation Failure').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('text=Validation Failure').first()).toBeVisible({ timeout: 8000 });
   });
 
   test('10.4 /reset-password with expired/invalid token shows error', async ({ page }) => {
     await page.goto('/reset-password?token=expiredtoken000000000000000000000000000000000');
-    // Fill in a valid password
-    await page.fill('input[type="password"]:first-of-type', 'ValidPass1!');
-    await page.fill('input[type="password"]:last-of-type', 'ValidPass1!');
+    // Fill in a valid password using nth selectors (both inputs have the same type)
+    await page.locator('input[type="password"]').nth(0).fill('ValidPass1!');
+    await page.locator('input[type="password"]').nth(1).fill('ValidPass1!');
     const submitBtn = page.locator('button[type="submit"]');
     await expect(submitBtn).not.toBeDisabled();
     await submitBtn.click();

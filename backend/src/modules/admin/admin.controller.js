@@ -1,4 +1,4 @@
-const { query, get, run } = require('../../config/db');
+const { query, get, run, withTransaction } = require('../../config/db');
 
 // ─── Admin Dashboard Analytics ───
 const getDashboardStats = async (req, res) => {
@@ -125,24 +125,27 @@ const deleteUser = async (req, res) => {
     const user = await get("SELECT id, role FROM Users WHERE id = ?", [parseInt(id)]);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Cascade delete: Answers → Submissions, then Exam Questions/Answers → Exams, then User
-    // 1. Delete answers from user's submissions
-    await run("DELETE FROM Answers WHERE submissionId IN (SELECT id FROM Submissions WHERE studentId = ?)", [parseInt(id)]);
-    // 2. Delete user's submissions
-    await run("DELETE FROM Submissions WHERE studentId = ?", [parseInt(id)]);
-    // 3. If instructor, delete answers linked to their exam questions
-    await run("DELETE FROM Answers WHERE questionId IN (SELECT id FROM Questions WHERE examId IN (SELECT id FROM Exams WHERE instructorId = ?))", [parseInt(id)]);
-    // 4. Delete submissions to their exams
-    await run("DELETE FROM Submissions WHERE examId IN (SELECT id FROM Exams WHERE instructorId = ?)", [parseInt(id)]);
-    // 5. Delete their exam questions
-    await run("DELETE FROM Questions WHERE examId IN (SELECT id FROM Exams WHERE instructorId = ?)", [parseInt(id)]);
-    // 6. Delete their exams
-    await run("DELETE FROM Exams WHERE instructorId = ?", [parseInt(id)]);
-    // 7. Clean analytics references
-    await run("UPDATE Analytics SET userId = NULL WHERE userId = ?", [parseInt(id)]);
-    // 8. Finally delete the user
-    await run("DELETE FROM Users WHERE id = ?", [parseInt(id)]);
-    
+    // BLOCK-5: All 8 cascade deletes wrapped in a single transaction.
+    // If any step fails the entire deletion is rolled back, preventing partial deletes.
+    await withTransaction(async (runTx) => {
+      // 1. Delete answers from user's submissions
+      await runTx("DELETE FROM Answers WHERE submissionId IN (SELECT id FROM Submissions WHERE studentId = ?)", [parseInt(id)]);
+      // 2. Delete user's submissions
+      await runTx("DELETE FROM Submissions WHERE studentId = ?", [parseInt(id)]);
+      // 3. If instructor, delete answers linked to their exam questions
+      await runTx("DELETE FROM Answers WHERE questionId IN (SELECT id FROM Questions WHERE examId IN (SELECT id FROM Exams WHERE instructorId = ?))", [parseInt(id)]);
+      // 4. Delete submissions to their exams
+      await runTx("DELETE FROM Submissions WHERE examId IN (SELECT id FROM Exams WHERE instructorId = ?)", [parseInt(id)]);
+      // 5. Delete their exam questions
+      await runTx("DELETE FROM Questions WHERE examId IN (SELECT id FROM Exams WHERE instructorId = ?)", [parseInt(id)]);
+      // 6. Delete their exams
+      await runTx("DELETE FROM Exams WHERE instructorId = ?", [parseInt(id)]);
+      // 7. Clean analytics references
+      await runTx("UPDATE Analytics SET userId = NULL WHERE userId = ?", [parseInt(id)]);
+      // 8. Finally delete the user
+      await runTx("DELETE FROM Users WHERE id = ?", [parseInt(id)]);
+    });
+
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
     console.error('Delete user error:', err);

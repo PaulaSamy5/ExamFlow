@@ -190,24 +190,35 @@ const submitExam = async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Idempotent: if already submitted, return success (handles retries/race conditions)
-    if (submission.status === 'SUBMITTED') {
-      const existing = await get(`
-        SELECT s.*, e.showResults 
-        FROM Submissions s 
-        JOIN Exams e ON s.examId = e.id 
-        WHERE s.id = ?
-      `, [id]);
-      return res.json({ ...existing, success: true, alreadySubmitted: true });
+    // BLOCK-4: Atomic status transition — only one concurrent request can claim IN_PROGRESS → SUBMITTED.
+    // Sets score = NULL to signal grading is pending (frontend polls getSubmission until score !== null).
+    const atomicResult = await run(
+      "UPDATE Submissions SET status = 'SUBMITTED', submittedAt = GETDATE(), score = NULL WHERE id = ? AND status = 'IN_PROGRESS'",
+      [id]
+    );
+
+    if (atomicResult.changes === 0) {
+      // Either another request already submitted, or status was not IN_PROGRESS.
+      const currentSub = await get(
+        'SELECT s.*, e.showResults FROM Submissions s JOIN Exams e ON s.examId = e.id WHERE s.id = ?',
+        [id]
+      );
+      if (!currentSub) return res.status(404).json({ error: 'Submission not found' });
+      return res.json({ ...currentSub, success: true, alreadySubmitted: true });
     }
 
-    if (submission.status !== 'IN_PROGRESS') {
-      return res.status(400).json({ error: 'Invalid submission session' });
-    }
+    // BLOCK-6: Return 202 immediately so the HTTP response is not held open during AI grading.
+    // The frontend (ExamResult) polls getSubmission until score is no longer null.
+    res.status(202).json({ success: true, submissionId: id, gradingStatus: 'PENDING' });
 
-    const questions = await query('SELECT * FROM Questions WHERE examId = ?', [submission.examId]);
-    const answers = await query('SELECT * FROM Answers WHERE submissionId = ?', [id]);
-    const examSettings = await get('SELECT showResults, requireAIGradeApproval, endTime FROM Exams WHERE id = ?', [submission.examId]);
+    const examId = submission.examId;
+    const submissionId = id;
+
+    setImmediate(async () => {
+    try {
+    const questions = await query('SELECT * FROM Questions WHERE examId = ?', [examId]);
+    const answers = await query('SELECT * FROM Answers WHERE submissionId = ?', [submissionId]);
+    const examSettings = await get('SELECT showResults, requireAIGradeApproval, endTime FROM Exams WHERE id = ?', [examId]);
     const examReleaseMode = examSettings?.requireAIGradeApproval === 1 ? 'manual_review' : (examSettings?.showResults === 2 ? 'after_deadline' : 'immediate');
 
     let totalScore = 0;
@@ -917,17 +928,12 @@ const submitExam = async (req, res) => {
       }
     }
 
-    await run('UPDATE Submissions SET status = ?, score = ?, submittedAt = ? WHERE id = ?', ['SUBMITTED', Math.round(totalScore * 100) / 100, new Date().toISOString(), id]);
-    
-    // FETCH FULL RECORD FOR FRONTEND NAVIGATION
-    const updated = await get(`
-      SELECT s.*, e.showResults 
-      FROM Submissions s 
-      JOIN Exams e ON s.examId = e.id 
-      WHERE s.id = ?
-    `, [id]);
-    
-    res.json({ ...updated, success: true });
+    await run('UPDATE Submissions SET score = ? WHERE id = ?', [Math.round(totalScore * 100) / 100, submissionId]);
+    } catch (bgErr) {
+      console.error('[Background Grading]', bgErr);
+      try { await run('UPDATE Submissions SET score = 0 WHERE id = ?', [submissionId]); } catch (e) {}
+    }
+    }); // end setImmediate
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });

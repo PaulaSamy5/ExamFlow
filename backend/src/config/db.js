@@ -1,15 +1,19 @@
 const sql = require('mssql');
 require('dotenv').config();
 
+// DB_ENCRYPT=true required for Azure SQL Database; false for local SQL Server
+// DB_SKIP_CREATE=true required for Azure SQL (managed service - database created in portal)
+const USE_AZURE = process.env.DB_ENCRYPT === 'true';
+
 const configMaster = {
   server: process.env.DB_SERVER || "localhost",
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  port: 1433,
+  port: parseInt(process.env.DB_PORT || '1433', 10),
   options: {
     database: "master",
-    encrypt: false, // Set to true if using Azure
-    trustServerCertificate: true,
+    encrypt: USE_AZURE,
+    trustServerCertificate: !USE_AZURE,
     enableArithAbort: true,
     connectTimeout: 30000
   },
@@ -35,22 +39,26 @@ async function getConnection() {
 
   try {
     console.log(`📡 Connecting to SQL Server Instance [${configMaster.server}]...`);
-    
-    // 1. Ensure target DB exists (using master connection)
-    const masterPool = await new sql.ConnectionPool(configMaster).connect();
-    console.log('✅ Connected to Master.');
-    
-    await masterPool.request().query(`
-      IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${DB_NAME}')
-      CREATE DATABASE ${DB_NAME}
-    `);
-    await masterPool.close();
-    console.log(`📦 Database [${DB_NAME}] Ready/Verified.`);
 
-    // 2. Connect to the actual Application DB
+    if (process.env.DB_SKIP_CREATE !== 'true') {
+      // Local/self-hosted: ensure the target DB exists via master connection
+      const masterPool = await new sql.ConnectionPool(configMaster).connect();
+      console.log('✅ Connected to Master.');
+      await masterPool.request().query(`
+        IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${DB_NAME}')
+        CREATE DATABASE ${DB_NAME}
+      `);
+      await masterPool.close();
+      console.log(`📦 Database [${DB_NAME}] Ready/Verified.`);
+    } else {
+      // Azure SQL / managed: database is pre-created in the portal
+      console.log(`📦 Managed database mode — skipping CREATE DATABASE, connecting directly to [${DB_NAME}].`);
+    }
+
+    // Connect to the application DB
     poolPromise = await new sql.ConnectionPool(configTarget).connect();
     console.log(`✅ Fully established connection to ${DB_NAME} (User: ${configTarget.user}).`);
-    
+
     await initializeSchema(poolPromise);
     return poolPromise;
   } catch (err) {
@@ -470,11 +478,41 @@ const get = async (sqlText, params = []) => {
   return result.recordset[0] || null;
 };
 
+// Wraps multiple queries in a SQL Server transaction with automatic commit/rollback.
+const withTransaction = async (callback) => {
+  const pool = await getConnection();
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+
+  const runTx = async (sqlText, params = []) => {
+    const request = new sql.Request(transaction);
+    let paramIndex = 0;
+    const convertedSql = sqlText.replace(/\?/g, () => {
+      const name = `p${paramIndex}`;
+      request.input(name, params[paramIndex]);
+      paramIndex++;
+      return `@${name}`;
+    });
+    const result = await request.query(convertedSql);
+    return { changes: result.rowsAffected ? result.rowsAffected[0] : 0 };
+  };
+
+  try {
+    const result = await callback(runTx);
+    await transaction.commit();
+    return result;
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
+};
+
 module.exports = {
   sql,
   query,
   run,
-  get
+  get,
+  withTransaction
 };
 
 

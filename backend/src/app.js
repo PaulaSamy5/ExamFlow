@@ -15,6 +15,16 @@ const analyticsRoutes = require('./modules/analytics/analytics.routes');
 
 const app = express();
 
+// ─── HTTPS Enforcement (production only, behind reverse proxy) ───
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] !== 'https') {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
+}
+
 // ─── Security Headers ───
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow fonts/images cross-origin
@@ -32,7 +42,7 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,                   // Stricter: 30 auth attempts per window per IP
+  max: process.env.NODE_ENV === 'production' ? 30 : 300, // Production: strict 30; dev/test: 300
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many authentication attempts. Please try again later.' },

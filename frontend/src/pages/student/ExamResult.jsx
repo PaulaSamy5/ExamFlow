@@ -45,17 +45,24 @@ const ExamResult = () => {
   };
 
   useEffect(() => {
+    let pollTimer = null;
+
     const fetchResult = async () => {
       try {
         const { data } = await api.get(`/submissions/${id}`);
         setSubmission(data);
+        if (data.score === null) {
+          pollTimer = setTimeout(fetchResult, 3000);
+        }
       } catch (err) {
         toast.error('Failed to load assessment report');
       } finally {
         setLoading(false);
       }
     };
+
     fetchResult();
+    return () => { if (pollTimer) clearTimeout(pollTimer); };
   }, [id]);
 
   const handleUpdateScore = async (answerId, newScore) => {
@@ -108,6 +115,16 @@ const ExamResult = () => {
   );
 
   if (!submission) return null;
+
+  if (submission.score === null) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-slate-500">
+        <RefreshCw className="h-10 w-10 animate-spin text-indigo-500" />
+        <h2 className="text-lg font-bold text-slate-700 dark:text-slate-300 tracking-tight">Grading in progress...</h2>
+        <p className="text-sm text-slate-500">This may take a moment for AI-graded questions.</p>
+      </div>
+    );
+  }
 
   const { exam, score, answers, serverNow, scoreVisible } = submission;
   const isInstructor = user?.role === 'INSTRUCTOR';
