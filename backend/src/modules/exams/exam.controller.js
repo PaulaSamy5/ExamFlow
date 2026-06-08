@@ -68,9 +68,9 @@ const createExam = async (req, res) => {
     const finalExamMeta = examMeta ? JSON.stringify(examMeta) : null;
 
     const insertResult = await query(
-      `INSERT INTO Exams (title, description, accessCode, totalGrade, duration, startTime, endTime, instructorId, showResults, requireAIGradeApproval, examType, examMeta) 
-       OUTPUT INSERTED.id 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO Exams (title, description, accessCode, totalGrade, duration, startTime, endTime, instructorId, showResults, requireAIGradeApproval, examType, examMeta)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING id`,
       [title, description || null, accessCode, cleanGrade, cleanDuration, sqlStartTime, sqlEndTime, instructorId, finalVisibility, finalApproval, finalExamType, finalExamMeta]
     );
 

@@ -97,7 +97,7 @@ const startSubmission = async (req, res) => {
   const studentId = req.user.id;
 
   try {
-    const examCheck = await get('SELECT startTime, endTime, GETDATE() as serverNow FROM Exams WHERE id = ?', [examId]);
+    const examCheck = await get('SELECT startTime, endTime, NOW() as serverNow FROM Exams WHERE id = ?', [examId]);
     if (!examCheck) return res.status(404).json({ error: 'Assessment not found' });
 
     if (examCheck.startTime) {
@@ -126,7 +126,7 @@ const startSubmission = async (req, res) => {
       result = await run('INSERT INTO Submissions (examId, studentId, status) VALUES (?, ?, ?)', [examId, studentId, 'IN_PROGRESS']);
     } catch (insertErr) {
       // Handle unique constraint violation (race condition where two requests inserted simultaneously)
-      if (insertErr.message && insertErr.message.includes('UQ_Submissions_StudentExam')) {
+      if (insertErr.code === '23505' || (insertErr.message && insertErr.message.toLowerCase().includes('uq_submissions_studentexam'))) {
         const race = await get('SELECT * FROM Submissions WHERE examId = ? AND studentId = ?', [examId, studentId]);
         if (race) return res.json(race);
       }
@@ -193,7 +193,7 @@ const submitExam = async (req, res) => {
     // BLOCK-4: Atomic status transition — only one concurrent request can claim IN_PROGRESS → SUBMITTED.
     // Sets score = NULL to signal grading is pending (frontend polls getSubmission until score !== null).
     const atomicResult = await run(
-      "UPDATE Submissions SET status = 'SUBMITTED', submittedAt = GETDATE(), score = NULL WHERE id = ? AND status = 'IN_PROGRESS'",
+      "UPDATE Submissions SET status = 'SUBMITTED', submittedAt = NOW(), score = NULL WHERE id = ? AND status = 'IN_PROGRESS'",
       [id]
     );
 
@@ -1028,7 +1028,7 @@ const getSubmission = async (req, res) => {
     // When startSubmission runs, it's GETDATE() in SQL.
     // Let's just pass `serverTime: new Date().toISOString()` back, 
     // BUT wait! SQL Server `GETDATE()` is local DB time. 
-    submission.serverNow = (await get('SELECT GETDATE() as now')).now;
+    submission.serverNow = (await get('SELECT NOW() as now')).now;
 
     res.json(submission);
   } catch (err) {

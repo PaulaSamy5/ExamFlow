@@ -39,7 +39,7 @@ const getAnalyticsStats = async (req, res) => {
         COUNT(CASE WHEN userId IS NULL THEN 1 END) as guestViews,
         AVG(duration) as avgDuration
       FROM Analytics
-      WHERE createdAt >= DATEADD(DAY, -30, GETDATE())
+      WHERE createdAt >= NOW() - INTERVAL '30 days'
     `);
 
     // 2. Returning vs New Visitors
@@ -52,35 +52,36 @@ const getAnalyticsStats = async (req, res) => {
         GROUP BY visitorId
       )
       SELECT 
-        COUNT(CASE WHEN firstVisit >= DATEADD(DAY, -30, GETDATE()) THEN 1 END) as newVisitors,
-        COUNT(CASE WHEN firstVisit < DATEADD(DAY, -30, GETDATE()) THEN 1 END) as returningVisitors
+        COUNT(CASE WHEN firstVisit >= NOW() - INTERVAL '30 days' THEN 1 END) as newVisitors,
+        COUNT(CASE WHEN firstVisit < NOW() - INTERVAL '30 days' THEN 1 END) as returningVisitors
       FROM FirstSeen
-      WHERE visitorId IN (SELECT DISTINCT visitorId FROM Analytics WHERE createdAt >= DATEADD(DAY, -30, GETDATE()))
+      WHERE visitorId IN (SELECT DISTINCT visitorId FROM Analytics WHERE createdAt >= NOW() - INTERVAL '30 days')
     `);
 
     // 3. Daily Visitor Trend (Last 14 days)
     const dailyTrend = await query(`
       SELECT 
-        CAST(createdAt AS DATE) as date,
+        createdAt::DATE as date,
         COUNT(DISTINCT visitorId) as visitors,
         COUNT(DISTINCT userId) as loggedInUsers,
         COUNT(*) as pageViews
       FROM Analytics
-      WHERE createdAt >= DATEADD(DAY, -14, GETDATE())
-      GROUP BY CAST(createdAt AS DATE)
+      WHERE createdAt >= NOW() - INTERVAL '14 days'
+      GROUP BY createdAt::DATE
       ORDER BY date ASC
     `);
 
     // 4. Most Visited Pages
     const topPages = await query(`
-      SELECT TOP 10 
-        url, 
+      SELECT
+        url,
         COUNT(*) as views,
         COUNT(DISTINCT visitorId) as uniqueViews
       FROM Analytics
-      WHERE createdAt >= DATEADD(DAY, -30, GETDATE())
+      WHERE createdAt >= NOW() - INTERVAL '30 days'
       GROUP BY url
       ORDER BY views DESC
+      LIMIT 10
     `);
 
     // 5. User Activity Flags
@@ -90,7 +91,7 @@ const getAnalyticsStats = async (req, res) => {
     const inactiveInstructors = await query(`
       SELECT name, email, id FROM Users 
       WHERE role = 'INSTRUCTOR' 
-      AND id NOT IN (SELECT instructorId FROM Exams WHERE createdAt >= DATEADD(DAY, -14, GETDATE()))
+      AND id NOT IN (SELECT instructorId FROM Exams WHERE createdAt >= NOW() - INTERVAL '14 days')
     `);
     if (inactiveInstructors.length > 0) {
       flags.push({ 
@@ -105,9 +106,9 @@ const getAnalyticsStats = async (req, res) => {
       SELECT u.name, u.email, u.id 
       FROM Users u
       LEFT JOIN Analytics a ON u.id = a.userId
-      WHERE u.createdAt >= DATEADD(DAY, -30, GETDATE())
+      WHERE u.createdAt >= NOW() - INTERVAL '30 days'
       GROUP BY u.id, u.name, u.email, u.createdAt
-      HAVING MAX(a.createdAt) <= DATEADD(HOUR, 24, u.createdAt) OR MAX(a.createdAt) IS NULL
+      HAVING MAX(a.createdAt) <= u.createdAt + INTERVAL '24 hours' OR MAX(a.createdAt) IS NULL
     `);
     if (dropOffs.length > 0) {
       flags.push({ 
@@ -158,7 +159,7 @@ const exportReport = async (req, res) => {
       `);
       fileName = 'Exams_Report.xlsx';
     } else {
-      data = await query("SELECT TOP 5000 * FROM Analytics ORDER BY createdAt DESC");
+      data = await query("SELECT * FROM Analytics ORDER BY createdAt DESC LIMIT 5000");
       fileName = 'Visitor_Analytics_Report.xlsx';
     }
 

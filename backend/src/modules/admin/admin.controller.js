@@ -13,7 +13,7 @@ const getDashboardStats = async (req, res) => {
 
     // Recent registrations (last 30 days)
     const recentRegistrations = await query(
-      "SELECT CAST(createdAt AS DATE) as date, COUNT(*) as count FROM Users WHERE createdAt >= DATEADD(DAY, -30, GETDATE()) GROUP BY CAST(createdAt AS DATE) ORDER BY date DESC"
+      "SELECT createdAt::DATE as date, COUNT(*) as count FROM Users WHERE createdAt >= NOW() - INTERVAL '30 days' GROUP BY createdAt::DATE ORDER BY date DESC"
     );
 
     // Active users (users who have submitted at least one exam)
@@ -47,12 +47,12 @@ const getDashboardStats = async (req, res) => {
 
     // Student activity (submissions per student, top 20)
     const studentActivity = await query(
-      "SELECT TOP 20 u.id, u.name, u.email, COUNT(s.id) as submissionCount, AVG(s.score) as avgScore FROM Users u LEFT JOIN Submissions s ON u.id = s.studentId WHERE u.role = 'STUDENT' GROUP BY u.id, u.name, u.email ORDER BY submissionCount DESC"
+      "SELECT u.id, u.name, u.email, COUNT(s.id) as submissionCount, AVG(s.score) as avgScore FROM Users u LEFT JOIN Submissions s ON u.id = s.studentId WHERE u.role = 'STUDENT' GROUP BY u.id, u.name, u.email ORDER BY submissionCount DESC LIMIT 20"
     );
 
     // Exams created over time (last 30 days)
     const examTimeline = await query(
-      "SELECT CAST(createdAt AS DATE) as date, COUNT(*) as count FROM Exams WHERE createdAt >= DATEADD(DAY, -30, GETDATE()) GROUP BY CAST(createdAt AS DATE) ORDER BY date DESC"
+      "SELECT createdAt::DATE as date, COUNT(*) as count FROM Exams WHERE createdAt >= NOW() - INTERVAL '30 days' GROUP BY createdAt::DATE ORDER BY date DESC"
     );
 
     res.json({
@@ -156,9 +156,9 @@ const deleteUser = async (req, res) => {
 // ─── Get System Info ───
 const getSystemInfo = async (req, res) => {
   try {
-    const dbInfo = await get("SELECT @@VERSION as version");
+    const dbInfo = await get("SELECT version() as version");
     const tableCount = await get(
-      "SELECT COUNT(*) as count FROM sys.tables"
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public'"
     );
 
     res.json({
