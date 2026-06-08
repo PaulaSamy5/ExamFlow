@@ -102,6 +102,11 @@ const register = async (req, res) => {
 
     await sendOTP(email, otp);
 
+    // Reset any stale attempt counter so a fresh code always starts clean
+    otpAttempts.delete(email);
+
+    console.log(`📧 [Register] OTP issued for ${email}`);
+
     res.status(201).json({
       message: 'OTP sent to email',
       email,
@@ -115,47 +120,90 @@ const register = async (req, res) => {
 const verifyOTP = async (req, res) => {
   const { email, code } = req.body;
 
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Email and verification code are required.' });
+  }
+
+  // Normalise both sides — trims whitespace and forces string comparison
+  const submittedCode = String(code).trim();
+
   try {
     // HIGH-002: Check OTP attempt lockout
     const attempts = otpAttempts.get(email);
-    if (attempts && attempts.lockedUntil && Date.now() < attempts.lockedUntil) {
+    if (attempts?.lockedUntil && Date.now() < attempts.lockedUntil) {
       const waitSecs = Math.ceil((attempts.lockedUntil - Date.now()) / 1000);
+      console.warn(`🔒 [verifyOTP] ${email} is locked out for ${waitSecs}s more.`);
       return res.status(429).json({ error: `Too many failed attempts. Please request a new code or wait ${waitSecs} seconds.` });
     }
 
     const pending = await get('SELECT * FROM PendingUsers WHERE email = ?', [email]);
-    if (!pending) return res.status(404).json({ error: 'Identity not found in verification queue' });
 
-    // ─── OTP Expiration Check (10-minute window) ───
-    const createdAt = new Date(pending.createdAt);
-    if (Date.now() - createdAt.getTime() > OTP_EXPIRY_MS) {
-      await run('DELETE FROM PendingUsers WHERE email = ?', [email]);
-      otpAttempts.delete(email);
-      return res.status(400).json({ error: 'Verification code has expired. Please register again.' });
+    if (pending) {
+      console.log(`🔍 [verifyOTP] pending record for ${email} — stored="${pending.verificationCode}" submitted="${submittedCode}" createdAt=${pending.createdAt}`);
     }
 
-    if (pending.verificationCode !== code) {
+    // Race-condition guard: if record is gone but user is already verified, treat as success
+    if (!pending) {
+      const alreadyVerified = await get('SELECT id, email, name, role, username, profileImage FROM Users WHERE email = ? AND isVerified = 1', [email]);
+      if (alreadyVerified) {
+        console.log(`✅ [verifyOTP] ${email} already verified (race condition — returning success).`);
+        otpAttempts.delete(email);
+        const token = jwt.sign(
+          { id: alreadyVerified.id, email: alreadyVerified.email, role: alreadyVerified.role },
+          JWT_SECRET,
+          { expiresIn: '1d' }
+        );
+        return res.json({ user: alreadyVerified, token });
+      }
+      console.warn(`⚠️  [verifyOTP] ${email} — no pending record and not yet in Users.`);
+      return res.status(404).json({ error: 'Verification session not found. Please register again.' });
+    }
+
+    // ─── OTP Expiration Check ───
+    const createdAt = new Date(pending.createdAt);
+    const now = new Date();
+    const ageMs = now.getTime() - createdAt.getTime();
+    const expiresAt = new Date(createdAt.getTime() + OTP_EXPIRY_MS);
+    console.log(`⏰ [verifyOTP] time check for ${email}:`);
+    console.log(`   created : ${createdAt.toISOString()}`);
+    console.log(`   expires : ${expiresAt.toISOString()}`);
+    console.log(`   now     : ${now.toISOString()}`);
+    console.log(`   age     : ${Math.round(ageMs / 1000)}s  limit: ${OTP_EXPIRY_MS / 1000}s  expired: ${ageMs > OTP_EXPIRY_MS}`);
+    if (ageMs > OTP_EXPIRY_MS) {
+      await run('DELETE FROM PendingUsers WHERE email = ?', [email]);
+      otpAttempts.delete(email);
+      console.warn(`⏰ [verifyOTP] ${email} — code expired (age ${Math.round(ageMs / 1000)}s > limit ${OTP_EXPIRY_MS / 1000}s).`);
+      return res.status(400).json({ error: 'Verification code has expired. Please request a new code.', expired: true });
+    }
+
+    const storedCode = String(pending.verificationCode).trim();
+
+    if (storedCode !== submittedCode) {
       const current = otpAttempts.get(email) || { count: 0, lockedUntil: null };
       current.count += 1;
+      console.warn(`❌ [verifyOTP] ${email} — wrong code (attempt ${current.count}/${MAX_OTP_ATTEMPTS}). stored="${storedCode}" submitted="${submittedCode}"`);
+
       if (current.count >= MAX_OTP_ATTEMPTS) {
         current.lockedUntil = Date.now() + OTP_EXPIRY_MS;
         await run('DELETE FROM PendingUsers WHERE email = ?', [email]);
         otpAttempts.set(email, current);
+        console.warn(`🔒 [verifyOTP] ${email} — locked out after ${MAX_OTP_ATTEMPTS} failed attempts.`);
         return res.status(429).json({ error: 'Too many failed attempts. Your verification code has been invalidated. Please register again.' });
       }
-      otpAttempts.set(email, current);
-      return res.status(400).json({ error: 'Invalid Access Code' });
-    }
-    // Clear attempts on success
-    otpAttempts.delete(email);
 
-    // Move to OFFICIAL Users Table
+      otpAttempts.set(email, current);
+      return res.status(400).json({ error: 'Invalid verification code.' });
+    }
+
+    // ─── Code correct — clear attempts and promote to Users ───
+    otpAttempts.delete(email);
+    console.log(`✅ [verifyOTP] ${email} — code accepted.`);
+
     const result = await run(
       'INSERT INTO Users (email, password, name, role, isVerified, username, profileImage) VALUES (?, ?, ?, ?, 1, ?, ?)',
       [pending.email, pending.password, pending.name, pending.role, pending.username, pending.profileImage]
     );
 
-    // Clean up queue
     await run('DELETE FROM PendingUsers WHERE email = ?', [email]);
 
     const token = jwt.sign(
@@ -164,16 +212,16 @@ const verifyOTP = async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    res.json({ 
-      user: { 
-        id: result.lastID, 
-        email: pending.email, 
-        name: pending.name, 
-        role: pending.role, 
-        username: pending.username, 
-        profileImage: pending.profileImage 
-      }, 
-      token 
+    res.json({
+      user: {
+        id: result.lastID,
+        email: pending.email,
+        name: pending.name,
+        role: pending.role,
+        username: pending.username,
+        profileImage: pending.profileImage,
+      },
+      token,
     });
   } catch (err) {
     return handleError(res, err, 'verifyOTP');

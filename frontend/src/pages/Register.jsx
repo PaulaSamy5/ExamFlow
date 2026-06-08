@@ -23,6 +23,7 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmBlurred, setConfirmBlurred] = useState(false);
   const [profileImage, setProfileImage] = useState('');
   const [otpCodes, setOtpCodes] = useState(Array(6).fill(''));
 
@@ -54,10 +55,17 @@ const Register = () => {
     if (checks.number) score++;
     if (checks.special) score++;
     setStrength(score);
+    if (Object.values(checks).every(Boolean)) {
+      setErrors(p => p.password ? { ...p, password: '' } : p);
+    }
   }, [password]);
 
   const isValidPassword = Object.values(criteria).every(Boolean);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
+  // Show error only when the user has diverged (typed something that can't become a match)
+  // or when they left the field without completing a match.
+  const confirmDiverged = confirmPassword.length > 0 && !password.startsWith(confirmPassword);
+  const showConfirmError = confirmDiverged || (confirmBlurred && confirmPassword.length > 0 && !passwordsMatch);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -76,6 +84,7 @@ const Register = () => {
     else if (!emailRegex.test(email.trim())) newErrors.email = 'Please enter a valid email address.';
     if (!isValidPassword) newErrors.password = 'Please meet all password requirements above.';
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+    if (!passwordsMatch) { setConfirmBlurred(true); return; }
     setErrors({});
 
     setLoading(true);
@@ -154,6 +163,20 @@ const Register = () => {
       if (pasteData.length === 6) otpRefs.current[5].focus();
       else otpRefs.current[pasteData.length].focus();
     }
+  };
+
+  const handleResend = async () => {
+    setLoading(true);
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    const result = await register(email, password, fullName, role, null, null);
+    if (result.success) {
+      setOtpCodes(Array(6).fill(''));
+      otpRefs.current[0]?.focus();
+      toast.success('A new verification code has been sent to your email.');
+    } else {
+      toast.error(result.error || 'Failed to resend code. Please try again.');
+    }
+    setLoading(false);
   };
 
   const handleVerify = async () => {
@@ -262,7 +285,6 @@ const Register = () => {
                       placeholder="Jane"
                       value={firstName}
                       onChange={e => { setFirstName(e.target.value); if (errors.firstName) setErrors(p => ({ ...p, firstName: '' })); }}
-                      onBlur={() => { if (!firstName.trim()) setErrors(p => ({ ...p, firstName: 'First name is required.' })); }}
                       onKeyDown={handleKeyDown}
                     />
                   </div>
@@ -280,7 +302,6 @@ const Register = () => {
                       placeholder="Doe"
                       value={lastName}
                       onChange={e => { setLastName(e.target.value); if (errors.lastName) setErrors(p => ({ ...p, lastName: '' })); }}
-                      onBlur={() => { if (!lastName.trim()) setErrors(p => ({ ...p, lastName: 'Last name is required.' })); }}
                       onKeyDown={handleKeyDown}
                     />
                   </div>
@@ -314,9 +335,9 @@ const Register = () => {
                     value={email}
                     onChange={e => { setEmail(e.target.value); if (errors.email) setErrors(p => ({ ...p, email: '' })); }}
                     onBlur={() => {
+                      if (!email.trim()) return; // don't flag "required" on an untouched field
                       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                      if (!email.trim()) setErrors(p => ({ ...p, email: 'Email address is required.' }));
-                      else if (!emailRegex.test(email.trim())) setErrors(p => ({ ...p, email: 'Please enter a valid email address.' }));
+                      if (!emailRegex.test(email.trim())) setErrors(p => ({ ...p, email: 'Please enter a valid email address.' }));
                     }}
                     onKeyDown={handleKeyDown}
                   />
@@ -360,19 +381,32 @@ const Register = () => {
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Confirm Password</label>
                 <div className="relative group">
-                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors pointer-events-none ${confirmPassword ? (passwordsMatch ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-400 group-focus-within:text-indigo-500'}`}>
+                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors pointer-events-none ${
+                    passwordsMatch ? 'text-emerald-500' : showConfirmError ? 'text-rose-500' : 'text-slate-400 group-focus-within:text-indigo-500'
+                  }`}>
                     <Lock className="h-4.5 w-4.5" />
                   </div>
                   <input
                     type={showConfirmPassword ? "text" : "password"}
-                    className={`w-full h-12 bg-slate-50 dark:bg-slate-950/40 border rounded-2xl pl-10 pr-10 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none transition-all font-medium ${confirmPassword ? (passwordsMatch ? 'border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10' : 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10') : 'border-slate-200 dark:border-slate-800 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10'}`}
+                    className={`w-full h-12 bg-slate-50 dark:bg-slate-950/40 border rounded-2xl pl-10 pr-10 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none transition-all font-medium ${
+                      passwordsMatch
+                        ? 'border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10'
+                        : showConfirmError
+                          ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10'
+                          : 'border-slate-200 dark:border-slate-800 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10'
+                    }`}
                     placeholder="••••••••"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    onBlur={() => setConfirmBlurred(true)}
                     onKeyDown={handleKeyDown}
                   />
                 </div>
-                <FieldError message={confirmPassword && !passwordsMatch ? 'Passwords do not match.' : ''} />
+                {confirmPassword && (passwordsMatch || showConfirmError) && (
+                  <p className={`text-xs ml-1 mt-1 font-medium transition-colors ${passwordsMatch ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    {passwordsMatch ? 'Passwords match' : 'Passwords do not match.'}
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-3">
@@ -428,6 +462,18 @@ const Register = () => {
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Verify Code'}
                 </button>
               </div>
+
+              <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+                Didn't receive it or code expired?{' '}
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={loading}
+                  className="font-bold text-indigo-500 hover:text-indigo-400 transition-colors disabled:opacity-50"
+                >
+                  Resend code
+                </button>
+              </p>
             </div>
           )}
 

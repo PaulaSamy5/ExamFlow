@@ -16,16 +16,9 @@ const Login = () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const clearError = (field) => setErrors(prev => ({ ...prev, [field]: '' }));
 
-  const validateField = (field, value) => {
-    if (field === 'email') {
-      if (!value.trim()) return setErrors(p => ({ ...p, email: 'Email address is required.' }));
-      if (!emailRegex.test(value.trim())) return setErrors(p => ({ ...p, email: 'Please enter a valid email address.' }));
-      setErrors(p => ({ ...p, email: '' }));
-    }
-    if (field === 'password') {
-      if (!value) return setErrors(p => ({ ...p, password: 'Password is required.' }));
-      setErrors(p => ({ ...p, password: '' }));
-    }
+  const validateEmailOnBlur = (value) => {
+    if (!value.trim()) return; // don't flag "required" on an untouched field
+    if (!emailRegex.test(value.trim())) setErrors(p => ({ ...p, email: 'Please enter a valid email address.' }));
   };
 
   const handleSubmit = async (e) => {
@@ -92,7 +85,7 @@ const Login = () => {
                   autoFocus
                   value={email}
                   onChange={e => { setEmail(e.target.value); clearError('email'); }}
-                  onBlur={e => validateField('email', e.target.value)}
+                  onBlur={e => validateEmailOnBlur(e.target.value)}
                 />
               </div>
               <FieldError message={errors.email} />
@@ -117,7 +110,6 @@ const Login = () => {
                   placeholder="••••••••"
                   value={password}
                   onChange={e => { setPassword(e.target.value); clearError('password'); }}
-                  onBlur={e => validateField('password', e.target.value)}
                 />
                 <button
                   type="button"

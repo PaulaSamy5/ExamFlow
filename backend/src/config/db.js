@@ -1,5 +1,11 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 require('dotenv').config();
+
+// pg parses TIMESTAMP WITHOUT TIME ZONE as local time by default.
+// Neon stores NOW() as UTC, so we must tell pg to treat these values as UTC
+// to avoid OTPs and tokens appearing instantly expired on non-UTC servers.
+types.setTypeParser(1114, (str) => (str ? new Date(str + 'Z') : null)); // TIMESTAMP
+types.setTypeParser(1082, (str) => str); // DATE — keep as string, avoid date-shifting
 
 // Supports DATABASE_URL (Neon/Railway/Render) OR individual DB_* vars (local dev)
 const pool = new Pool(
@@ -33,6 +39,57 @@ const convertParams = (sqlText, params) => {
   let i = 0;
   const sql = sqlText.replace(/\?/g, () => `$${++i}`);
   return { sql, values: params };
+};
+
+// PostgreSQL folds all unquoted identifiers to lowercase.
+// This map restores the camelCase names used throughout the codebase.
+const COLUMN_MAP = {
+  // Users / PendingUsers
+  isverified:              'isVerified',
+  verificationcode:        'verificationCode',
+  profileimage:            'profileImage',
+  createdat:               'createdAt',
+  // Exams
+  accesscode:              'accessCode',
+  totalgrade:              'totalGrade',
+  starttime:               'startTime',
+  endtime:                 'endTime',
+  instructorid:            'instructorId',
+  showresults:             'showResults',
+  requireaiggradeapproval: 'requireAIGradeApproval',
+  examtype:                'examType',
+  exammeta:                'examMeta',
+  // Questions
+  examid:                  'examId',
+  correctanswer:           'correctAnswer',
+  ismultiple:              'isMultiple',
+  // Submissions
+  studentid:               'studentId',
+  submittedat:             'submittedAt',
+  // Answers
+  submissionid:            'submissionId',
+  questionid:              'questionId',
+  studentanswer:           'studentAnswer',
+  scoreearned:             'scoreEarned',
+  iscorrect:               'isCorrect',
+  isaiggradeapproved:      'isAIGradeApproved',
+  aiscore:                 'aiScore',
+  testresults:             'testResults',
+  // PasswordResets
+  expiresat:               'expiresAt',
+  // Analytics
+  visitorid:               'visitorId',
+  userid:                  'userId',
+  useragent:               'userAgent',
+};
+
+const camelizeRow = (row) => {
+  if (!row || typeof row !== 'object') return row;
+  const out = {};
+  for (const [k, v] of Object.entries(row)) {
+    out[COLUMN_MAP[k] ?? k] = v;
+  }
+  return out;
 };
 
 async function getConnection() {
@@ -244,7 +301,7 @@ async function seedAdminAccount(client) {
 const query = async (sqlText, params = []) => {
   const { sql, values } = convertParams(sqlText, params);
   const result = await pool.query(sql, values);
-  return result.rows;
+  return result.rows.map(camelizeRow);
 };
 
 const run = async (sqlText, params = []) => {
@@ -263,7 +320,7 @@ const run = async (sqlText, params = []) => {
 const get = async (sqlText, params = []) => {
   const { sql, values } = convertParams(sqlText, params);
   const result = await pool.query(sql, values);
-  return result.rows[0] || null;
+  return camelizeRow(result.rows[0] ?? null);
 };
 
 const withTransaction = async (callback) => {

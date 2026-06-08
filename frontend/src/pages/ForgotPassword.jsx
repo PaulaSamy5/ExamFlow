@@ -91,9 +91,9 @@ const ForgotPassword = () => {
                     value={email}
                     onChange={e => { setEmail(e.target.value); setEmailError(''); }}
                     onBlur={() => {
+                      if (!email.trim()) return;
                       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                      if (!email.trim()) setEmailError('Email address is required.');
-                      else if (!emailRegex.test(email.trim())) setEmailError('Please enter a valid email address.');
+                      if (!emailRegex.test(email.trim())) setEmailError('Please enter a valid email address.');
                     }}
                   />
                 </div>
