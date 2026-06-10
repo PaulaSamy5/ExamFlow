@@ -10,11 +10,15 @@ function getTransporter() {
       console.error('❌ [Mailer] SMTP_USER or SMTP_PASS not set!');
     }
     console.log(`📧 [Mailer] SMTP ready: ${user}`);
+    const port = parseInt(process.env.SMTP_PORT) || 587;
     _transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT) || 465,
-      secure: true,
+      port,
+      secure: port === 465,
       auth: { user, pass },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
   }
   return _transporter;

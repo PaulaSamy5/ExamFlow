@@ -100,17 +100,20 @@ const register = async (req, res) => {
       [email, hashedPassword, name, safeRole, otp, finalUsername, profileImage || null]
     );
 
-    await sendOTP(email, otp);
-
     // Reset any stale attempt counter so a fresh code always starts clean
     otpAttempts.delete(email);
 
-    console.log(`📧 [Register] OTP issued for ${email}`);
-
+    // Respond immediately — email is sent in background so UI doesn't hang
     res.status(201).json({
       message: 'OTP sent to email',
       email,
       requiresVerification: true
+    });
+
+    // Fire-and-forget: send OTP after response is already delivered
+    sendOTP(email, otp).then(sent => {
+      if (sent) console.log(`📧 [Register] OTP delivered to ${email}`);
+      else console.error(`❌ [Register] OTP email failed for ${email} — user can resend`);
     });
   } catch (err) {
     return handleError(res, err, 'register');
