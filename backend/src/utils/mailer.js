@@ -1,64 +1,44 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Lazy-initialized transporter — created on first use to guarantee env vars are loaded
-let _transporter = null;
-function getTransporter() {
-  if (!_transporter) {
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-    if (!user || !pass) {
-      console.error('❌ [Mailer] SMTP_USER or SMTP_PASS not set!');
-    }
-    console.log(`📧 [Mailer] SMTP ready: ${user}`);
-    const port = parseInt(process.env.SMTP_PORT) || 587;
-    _transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
+const FROM_ADDRESS = process.env.FROM_EMAIL || 'ExamFlow Platform <onboarding@resend.dev>';
+
+let _client = null;
+function getClient() {
+  if (!_client) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) console.error('❌ [Mailer] RESEND_API_KEY not set!');
+    _client = new Resend(apiKey);
+    console.log('📧 [Mailer] Resend client ready');
   }
-  return _transporter;
+  return _client;
 }
 
-/**
- * Send OTP verification email
- * @param {string} recipientEmail - Dynamic email from registration form
- * @param {string} code - 6-digit verification code
- */
 const sendOTP = async (recipientEmail, code) => {
   if (!recipientEmail) {
     console.error('❌ [sendOTP] No recipient email provided!');
     return false;
   }
 
-  const sender = process.env.SMTP_USER;
-  console.log(`📧 [sendOTP] To: ${recipientEmail} | From: ${sender} | Code: ${code}`);
+  console.log(`📧 [sendOTP] To: ${recipientEmail} | Code: ${code}`);
 
-  const mailOptions = {
-    from: `"ExamFlow Platform" <${sender}>`,
-    to: recipientEmail,
-    subject: `${code} is your ExamFlow verification code`,
-    headers: {
-      'X-Priority': '1',
-      'X-Mailer': 'ExamFlow Platform',
-    },
-    text: [
-      'ExamFlow - Email Verification',
-      '',
-      `Your verification code is: ${code}`,
-      '',
-      'Enter this code on the verification page to complete your registration.',
-      'This code expires in 10 minutes.',
-      '',
-      'If you did not create an ExamFlow account, please ignore this email.',
-      '',
-      '- The ExamFlow Team',
-    ].join('\n'),
-    html: `
+  try {
+    const { data, error } = await getClient().emails.send({
+      from: FROM_ADDRESS,
+      to: recipientEmail,
+      subject: `${code} is your ExamFlow verification code`,
+      text: [
+        'ExamFlow - Email Verification',
+        '',
+        `Your verification code is: ${code}`,
+        '',
+        'Enter this code on the verification page to complete your registration.',
+        'This code expires in 10 minutes.',
+        '',
+        'If you did not create an ExamFlow account, please ignore this email.',
+        '',
+        '- The ExamFlow Team',
+      ].join('\n'),
+      html: `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -70,41 +50,33 @@ const sendOTP = async (recipientEmail, code) => {
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); overflow: hidden;">
-          <!-- Header -->
           <tr>
             <td style="background-color: #4f46e5; padding: 32px 40px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">ExamFlow</h1>
             </td>
           </tr>
-          <!-- Body -->
           <tr>
             <td style="padding: 40px;">
               <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; font-weight: 500;">Verify your email address</p>
               <p style="margin: 0 0 32px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
                 You're almost there! To complete your registration and secure your account, please use the verification code below.
               </p>
-              
-              <!-- Code Box -->
               <div style="text-align: center; margin-bottom: 32px;">
                 <div style="display: inline-block; background-color: #f8fafc; border: 2px dashed #c7d2fe; border-radius: 12px; padding: 16px 32px;">
-                  <span style="display: block; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #4f46e5; user-select: all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; cursor: pointer;">${code}</span>
+                  <span style="display: block; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #4f46e5;">${code}</span>
                 </div>
                 <p style="margin: 12px 0 0 0; font-size: 13px; color: #9ca3af; font-weight: 500;">(Tip: Double-click the code to select and copy)</p>
               </div>
-
-              <!-- Security Message -->
               <div style="background-color: #fffbeb; border-left: 4px solid #fbbf24; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 32px;">
                 <p style="margin: 0; font-size: 13px; color: #92400e; line-height: 1.5; font-weight: 500;">
                   🔒 <strong>Security Notice:</strong> This code expires in exactly 10 minutes. Do not share this code with anyone.
                 </p>
               </div>
-
               <p style="margin: 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
                 If you didn't request this email, there's nothing to worry about — you can safely ignore it.
               </p>
             </td>
           </tr>
-          <!-- Footer -->
           <tr>
             <td style="background-color: #f9fafb; padding: 24px 40px; text-align: center; border-top: 1px solid #f3f4f6;">
               <p style="margin: 0; font-size: 12px; color: #9ca3af; font-weight: 500;">&copy; ${new Date().getFullYear()} ExamFlow Platform. All rights reserved.</p>
@@ -116,11 +88,14 @@ const sendOTP = async (recipientEmail, code) => {
   </table>
 </body>
 </html>`,
-  };
+    });
 
-  try {
-    const info = await getTransporter().sendMail(mailOptions);
-    console.log(`✅ [sendOTP] Sent to ${recipientEmail} | ID: ${info.messageId} | ${info.response}`);
+    if (error) {
+      console.error(`❌ [sendOTP] Failed for ${recipientEmail}: ${error.message}`);
+      return false;
+    }
+
+    console.log(`✅ [sendOTP] Sent to ${recipientEmail} | ID: ${data.id}`);
     return true;
   } catch (err) {
     console.error(`❌ [sendOTP] Failed for ${recipientEmail}: ${err.message}`);
@@ -128,43 +103,34 @@ const sendOTP = async (recipientEmail, code) => {
   }
 };
 
-/**
- * Send password reset link email
- * @param {string} recipientEmail - Dynamic email from forgot-password form
- * @param {string} resetLink - Secure reset link
- */
 const sendResetLink = async (recipientEmail, resetLink) => {
   if (!recipientEmail) {
     console.error('❌ [sendResetLink] No recipient email provided!');
     return false;
   }
 
-  const sender = process.env.SMTP_USER;
-  console.log(`📧 [sendResetLink] To: ${recipientEmail} | From: ${sender}`);
+  console.log(`📧 [sendResetLink] To: ${recipientEmail}`);
 
-  const mailOptions = {
-    from: `"ExamFlow Platform" <${sender}>`,
-    to: recipientEmail,
-    subject: 'Reset Your ExamFlow Password',
-    headers: {
-      'X-Priority': '1',
-      'X-Mailer': 'ExamFlow Platform',
-    },
-    text: [
-      'ExamFlow - Password Reset',
-      '',
-      'We received a request to reset your password.',
-      '',
-      `Please copy and paste the following link into your browser to reset your password:`,
-      `${resetLink}`,
-      '',
-      'This link will expire in 15 minutes.',
-      '',
-      'If you did not request a password reset, please ignore this email.',
-      '',
-      '- The ExamFlow Team',
-    ].join('\n'),
-    html: `
+  try {
+    const { data, error } = await getClient().emails.send({
+      from: FROM_ADDRESS,
+      to: recipientEmail,
+      subject: 'Reset Your ExamFlow Password',
+      text: [
+        'ExamFlow - Password Reset',
+        '',
+        'We received a request to reset your password.',
+        '',
+        'Please copy and paste the following link into your browser to reset your password:',
+        `${resetLink}`,
+        '',
+        'This link will expire in 15 minutes.',
+        '',
+        'If you did not request a password reset, please ignore this email.',
+        '',
+        '- The ExamFlow Team',
+      ].join('\n'),
+      html: `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -176,21 +142,17 @@ const sendResetLink = async (recipientEmail, resetLink) => {
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); overflow: hidden;">
-          <!-- Header -->
           <tr>
             <td style="background-color: #111827; padding: 32px 40px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">ExamFlow</h1>
             </td>
           </tr>
-          <!-- Body -->
           <tr>
             <td style="padding: 40px;">
               <p style="margin: 0 0 20px 0; font-size: 18px; color: #111827; font-weight: 700;">Password Reset Request</p>
               <p style="margin: 0 0 32px 0; font-size: 15px; color: #4b5563; line-height: 1.6;">
                 We received a request to securely reset the password associated with your ExamFlow account. If this was you, please click the button below to choose a new password.
               </p>
-              
-              <!-- CTA Button -->
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
                 <tr>
                   <td align="center">
@@ -200,18 +162,14 @@ const sendResetLink = async (recipientEmail, resetLink) => {
                   </td>
                 </tr>
               </table>
-
-              <!-- Security Message -->
               <div style="background-color: #f3f4f6; border-left: 4px solid #6b7280; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 32px;">
                 <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; font-weight: 500;">
                   ⏱️ <strong>Time Sensitive:</strong> This secure link will expire in exactly 15 minutes.
                 </p>
               </div>
-
               <p style="margin: 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
                 If you did not request this password reset, please ignore this email or contact support if you have concerns.
               </p>
-              
               <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
                 <p style="margin: 0; font-size: 12px; color: #9ca3af; line-height: 1.5;">
                   Having trouble clicking the button? Copy and paste this URL into your browser:<br>
@@ -220,7 +178,6 @@ const sendResetLink = async (recipientEmail, resetLink) => {
               </div>
             </td>
           </tr>
-          <!-- Footer -->
           <tr>
             <td style="background-color: #f9fafb; padding: 24px 40px; text-align: center; border-top: 1px solid #f3f4f6;">
               <p style="margin: 0; font-size: 12px; color: #9ca3af; font-weight: 500;">&copy; ${new Date().getFullYear()} ExamFlow Platform. All rights reserved.</p>
@@ -232,11 +189,14 @@ const sendResetLink = async (recipientEmail, resetLink) => {
   </table>
 </body>
 </html>`,
-  };
+    });
 
-  try {
-    const info = await getTransporter().sendMail(mailOptions);
-    console.log(`✅ [sendResetLink] Sent to ${recipientEmail} | ID: ${info.messageId} | ${info.response}`);
+    if (error) {
+      console.error(`❌ [sendResetLink] Failed for ${recipientEmail}: ${error.message}`);
+      return false;
+    }
+
+    console.log(`✅ [sendResetLink] Sent to ${recipientEmail} | ID: ${data.id}`);
     return true;
   } catch (err) {
     console.error(`❌ [sendResetLink] Failed for ${recipientEmail}: ${err.message}`);

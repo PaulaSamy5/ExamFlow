@@ -15,6 +15,9 @@ const analyticsRoutes = require('./modules/analytics/analytics.routes');
 
 const app = express();
 
+// Trust Railway's reverse proxy — required for express-rate-limit and correct client IP detection
+app.set('trust proxy', 1);
+
 // ─── HTTPS Enforcement (production only, behind reverse proxy) ───
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
