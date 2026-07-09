@@ -1,4 +1,6 @@
+require('dns').setDefaultResultOrder('ipv4first');
 const nodemailer = require('nodemailer');
+
 
 const FROM_ADDRESS = process.env.FROM_EMAIL || `ExamFlow Platform <${process.env.SMTP_USER}>`;
 
