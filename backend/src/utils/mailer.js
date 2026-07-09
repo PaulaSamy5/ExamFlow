@@ -15,14 +15,25 @@ function getTransporter() {
       console.error('❌ [Mailer] SMTP_USER or SMTP_PASS not set!');
     }
 
+    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const port = parseInt(process.env.SMTP_PORT) || 587;
+    const secure = port === 465;
+
+    console.log(`📧 [Mailer] Configuring transporter with host: ${host}, port: ${port}, secure: ${secure}`);
+
     _transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT) || 465,
-      secure: true, // SSL
+      host,
+      port,
+      secure,
       auth: { user, pass },
+      tls: {
+        rejectUnauthorized: false
+      },
+      connectionTimeout: 15000, // 15 seconds
+      greetingTimeout: 15000,
     });
 
-    console.log('📧 [Mailer] Nodemailer/Gmail transporter ready');
+    console.log('📧 [Mailer] Nodemailer transporter ready');
   }
   return _transporter;
 }
