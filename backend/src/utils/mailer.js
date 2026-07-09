@@ -1,42 +1,16 @@
-require('dns').setDefaultResultOrder('ipv4first');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
+const FROM_ADDRESS = process.env.FROM_EMAIL || 'ExamFlow Platform <onboarding@resend.dev>';
 
-const FROM_ADDRESS = process.env.FROM_EMAIL || `ExamFlow Platform <${process.env.SMTP_USER}>`;
-
-let _transporter = null;
-
-function getTransporter() {
-  if (!_transporter) {
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-
-    if (!user || !pass) {
-      console.error('❌ [Mailer] SMTP_USER or SMTP_PASS not set!');
-    }
-
-    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const port = parseInt(process.env.SMTP_PORT) || 587;
-    const secure = port === 465;
-
-    console.log(`📧 [Mailer] Configuring transporter with host: ${host}, port: ${port}, secure: ${secure}`);
-
-    _transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: { user, pass },
-      tls: {
-        rejectUnauthorized: false
-      },
-      family: 4, // Force IPv4 to prevent ENETUNREACH on IPv6
-      connectionTimeout: 15000, // 15 seconds
-      greetingTimeout: 15000,
-    });
-
-    console.log('📧 [Mailer] Nodemailer transporter ready');
+let _client = null;
+function getClient() {
+  if (!_client) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) console.error('❌ [Mailer] RESEND_API_KEY not set!');
+    _client = new Resend(apiKey);
+    console.log('📧 [Mailer] Resend client ready');
   }
-  return _transporter;
+  return _client;
 }
 
 const sendOTP = async (recipientEmail, code) => {
@@ -48,7 +22,7 @@ const sendOTP = async (recipientEmail, code) => {
   console.log(`📧 [sendOTP] To: ${recipientEmail} | Code: ${code}`);
 
   try {
-    const info = await getTransporter().sendMail({
+    const { data, error } = await getClient().emails.send({
       from: FROM_ADDRESS,
       to: recipientEmail,
       subject: `${code} is your ExamFlow verification code`,
@@ -71,41 +45,40 @@ const sendOTP = async (recipientEmail, code) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; -webkit-font-smoothing: antialiased;">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
     <tr>
       <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); overflow: hidden;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden;">
           <tr>
             <td style="background-color: #4f46e5; padding: 32px 40px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">ExamFlow</h1>
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">ExamFlow</h1>
             </td>
           </tr>
           <tr>
             <td style="padding: 40px;">
               <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; font-weight: 500;">Verify your email address</p>
               <p style="margin: 0 0 32px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
-                You're almost there! To complete your registration and secure your account, please use the verification code below.
+                You're almost there! Use the verification code below to complete your registration.
               </p>
               <div style="text-align: center; margin-bottom: 32px;">
                 <div style="display: inline-block; background-color: #f8fafc; border: 2px dashed #c7d2fe; border-radius: 12px; padding: 16px 32px;">
                   <span style="display: block; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #4f46e5;">${code}</span>
                 </div>
-                <p style="margin: 12px 0 0 0; font-size: 13px; color: #9ca3af; font-weight: 500;">(Tip: Double-click the code to select and copy)</p>
               </div>
               <div style="background-color: #fffbeb; border-left: 4px solid #fbbf24; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 32px;">
-                <p style="margin: 0; font-size: 13px; color: #92400e; line-height: 1.5; font-weight: 500;">
-                  🔒 <strong>Security Notice:</strong> This code expires in exactly 10 minutes. Do not share this code with anyone.
+                <p style="margin: 0; font-size: 13px; color: #92400e; font-weight: 500;">
+                  🔒 This code expires in 10 minutes. Do not share it with anyone.
                 </p>
               </div>
-              <p style="margin: 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-                If you didn't request this email, there's nothing to worry about — you can safely ignore it.
+              <p style="margin: 0; font-size: 14px; color: #6b7280;">
+                If you didn't request this email, you can safely ignore it.
               </p>
             </td>
           </tr>
           <tr>
             <td style="background-color: #f9fafb; padding: 24px 40px; text-align: center; border-top: 1px solid #f3f4f6;">
-              <p style="margin: 0; font-size: 12px; color: #9ca3af; font-weight: 500;">&copy; ${new Date().getFullYear()} ExamFlow Platform. All rights reserved.</p>
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">&copy; ${new Date().getFullYear()} ExamFlow Platform. All rights reserved.</p>
             </td>
           </tr>
         </table>
@@ -116,10 +89,15 @@ const sendOTP = async (recipientEmail, code) => {
 </html>`,
     });
 
-    console.log(`✅ [sendOTP] Sent to ${recipientEmail} | MessageId: ${info.messageId}`);
+    if (error) {
+      console.error(`❌ [sendOTP] Resend error for ${recipientEmail}:`, JSON.stringify(error));
+      return false;
+    }
+
+    console.log(`✅ [sendOTP] Sent to ${recipientEmail} | ID: ${data.id}`);
     return true;
   } catch (err) {
-    console.error(`❌ [sendOTP] Failed for ${recipientEmail}: ${err.message}`);
+    console.error(`❌ [sendOTP] Exception for ${recipientEmail}: ${err.message}`);
     return false;
   }
 };
@@ -133,7 +111,7 @@ const sendResetLink = async (recipientEmail, resetLink) => {
   console.log(`📧 [sendResetLink] To: ${recipientEmail}`);
 
   try {
-    const info = await getTransporter().sendMail({
+    const { data, error } = await getClient().emails.send({
       from: FROM_ADDRESS,
       to: recipientEmail,
       subject: 'Reset Your ExamFlow Password',
@@ -142,12 +120,11 @@ const sendResetLink = async (recipientEmail, resetLink) => {
         '',
         'We received a request to reset your password.',
         '',
-        'Please copy and paste the following link into your browser to reset your password:',
-        `${resetLink}`,
+        `Reset link: ${resetLink}`,
         '',
         'This link will expire in 15 minutes.',
         '',
-        'If you did not request a password reset, please ignore this email.',
+        'If you did not request this, please ignore this email.',
         '',
         '- The ExamFlow Team',
       ].join('\n'),
@@ -158,50 +135,44 @@ const sendResetLink = async (recipientEmail, resetLink) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; -webkit-font-smoothing: antialiased;">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
     <tr>
       <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); overflow: hidden;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden;">
           <tr>
             <td style="background-color: #111827; padding: 32px 40px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">ExamFlow</h1>
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">ExamFlow</h1>
             </td>
           </tr>
           <tr>
             <td style="padding: 40px;">
               <p style="margin: 0 0 20px 0; font-size: 18px; color: #111827; font-weight: 700;">Password Reset Request</p>
               <p style="margin: 0 0 32px 0; font-size: 15px; color: #4b5563; line-height: 1.6;">
-                We received a request to securely reset the password associated with your ExamFlow account. If this was you, please click the button below to choose a new password.
+                Click the button below to reset your password.
               </p>
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
                 <tr>
                   <td align="center">
-                    <a href="${resetLink}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; padding: 16px 32px; border-radius: 12px; border: 1px solid #4338ca; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">
+                    <a href="${resetLink}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; padding: 16px 32px; border-radius: 12px;">
                       Reset My Password
                     </a>
                   </td>
                 </tr>
               </table>
               <div style="background-color: #f3f4f6; border-left: 4px solid #6b7280; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 32px;">
-                <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; font-weight: 500;">
-                  ⏱️ <strong>Time Sensitive:</strong> This secure link will expire in exactly 15 minutes.
+                <p style="margin: 0; font-size: 13px; color: #4b5563; font-weight: 500;">
+                  ⏱️ This link expires in 15 minutes.
                 </p>
               </div>
-              <p style="margin: 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-                If you did not request this password reset, please ignore this email or contact support if you have concerns.
+              <p style="margin: 0; font-size: 12px; color: #9ca3af; word-break: break-all;">
+                Or copy: <a href="${resetLink}" style="color: #6366f1;">${resetLink}</a>
               </p>
-              <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0; font-size: 12px; color: #9ca3af; line-height: 1.5;">
-                  Having trouble clicking the button? Copy and paste this URL into your browser:<br>
-                  <a href="${resetLink}" style="color: #6366f1; text-decoration: none; word-break: break-all;">${resetLink}</a>
-                </p>
-              </div>
             </td>
           </tr>
           <tr>
             <td style="background-color: #f9fafb; padding: 24px 40px; text-align: center; border-top: 1px solid #f3f4f6;">
-              <p style="margin: 0; font-size: 12px; color: #9ca3af; font-weight: 500;">&copy; ${new Date().getFullYear()} ExamFlow Platform. All rights reserved.</p>
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">&copy; ${new Date().getFullYear()} ExamFlow Platform. All rights reserved.</p>
             </td>
           </tr>
         </table>
@@ -212,10 +183,15 @@ const sendResetLink = async (recipientEmail, resetLink) => {
 </html>`,
     });
 
-    console.log(`✅ [sendResetLink] Sent to ${recipientEmail} | MessageId: ${info.messageId}`);
+    if (error) {
+      console.error(`❌ [sendResetLink] Resend error for ${recipientEmail}:`, JSON.stringify(error));
+      return false;
+    }
+
+    console.log(`✅ [sendResetLink] Sent to ${recipientEmail} | ID: ${data.id}`);
     return true;
   } catch (err) {
-    console.error(`❌ [sendResetLink] Failed for ${recipientEmail}: ${err.message}`);
+    console.error(`❌ [sendResetLink] Exception for ${recipientEmail}: ${err.message}`);
     return false;
   }
 };
