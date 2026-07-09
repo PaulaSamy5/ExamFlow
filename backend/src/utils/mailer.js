@@ -1,16 +1,28 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-const FROM_ADDRESS = process.env.FROM_EMAIL || 'ExamFlow Platform <onboarding@resend.dev>';
+const FROM_ADDRESS = process.env.FROM_EMAIL || `ExamFlow Platform <${process.env.SMTP_USER}>`;
 
-let _client = null;
-function getClient() {
-  if (!_client) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) console.error('❌ [Mailer] RESEND_API_KEY not set!');
-    _client = new Resend(apiKey);
-    console.log('📧 [Mailer] Resend client ready');
+let _transporter = null;
+
+function getTransporter() {
+  if (!_transporter) {
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+
+    if (!user || !pass) {
+      console.error('❌ [Mailer] SMTP_USER or SMTP_PASS not set!');
+    }
+
+    _transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT) || 465,
+      secure: true, // SSL
+      auth: { user, pass },
+    });
+
+    console.log('📧 [Mailer] Nodemailer/Gmail transporter ready');
   }
-  return _client;
+  return _transporter;
 }
 
 const sendOTP = async (recipientEmail, code) => {
@@ -22,7 +34,7 @@ const sendOTP = async (recipientEmail, code) => {
   console.log(`📧 [sendOTP] To: ${recipientEmail} | Code: ${code}`);
 
   try {
-    const { data, error } = await getClient().emails.send({
+    const info = await getTransporter().sendMail({
       from: FROM_ADDRESS,
       to: recipientEmail,
       subject: `${code} is your ExamFlow verification code`,
@@ -90,12 +102,7 @@ const sendOTP = async (recipientEmail, code) => {
 </html>`,
     });
 
-    if (error) {
-      console.error(`❌ [sendOTP] Failed for ${recipientEmail}: ${error.message}`);
-      return false;
-    }
-
-    console.log(`✅ [sendOTP] Sent to ${recipientEmail} | ID: ${data.id}`);
+    console.log(`✅ [sendOTP] Sent to ${recipientEmail} | MessageId: ${info.messageId}`);
     return true;
   } catch (err) {
     console.error(`❌ [sendOTP] Failed for ${recipientEmail}: ${err.message}`);
@@ -112,7 +119,7 @@ const sendResetLink = async (recipientEmail, resetLink) => {
   console.log(`📧 [sendResetLink] To: ${recipientEmail}`);
 
   try {
-    const { data, error } = await getClient().emails.send({
+    const info = await getTransporter().sendMail({
       from: FROM_ADDRESS,
       to: recipientEmail,
       subject: 'Reset Your ExamFlow Password',
@@ -191,12 +198,7 @@ const sendResetLink = async (recipientEmail, resetLink) => {
 </html>`,
     });
 
-    if (error) {
-      console.error(`❌ [sendResetLink] Failed for ${recipientEmail}: ${error.message}`);
-      return false;
-    }
-
-    console.log(`✅ [sendResetLink] Sent to ${recipientEmail} | ID: ${data.id}`);
+    console.log(`✅ [sendResetLink] Sent to ${recipientEmail} | MessageId: ${info.messageId}`);
     return true;
   } catch (err) {
     console.error(`❌ [sendResetLink] Failed for ${recipientEmail}: ${err.message}`);
