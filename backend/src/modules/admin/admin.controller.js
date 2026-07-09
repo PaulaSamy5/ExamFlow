@@ -153,31 +153,118 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// ─── Get System Info ───
+// ─── Get System Health ───
 const getSystemInfo = async (req, res) => {
+  const startTime = Date.now();
+
+  // ── DB Health ──
+  let dbStatus = 'online';
+  let dbVersion = 'Unknown';
+  let dbTables = 0;
+  let dbSizeMB = null;
+  let totalUsers = 0;
+  let totalExams = 0;
+  let onlineExams = 0;
+  let printableExams = 0;
+  let totalSubmissions = 0;
+
   try {
     const dbInfo = await get("SELECT version() as version");
     const tableCount = await get(
       "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public'"
     );
+    const sizeRow = await get(
+      "SELECT pg_size_pretty(pg_database_size(current_database())) as size, pg_database_size(current_database()) as bytes"
+    );
+    const userRow = await get("SELECT COUNT(*) as total FROM Users");
+    const examRow = await get("SELECT COUNT(*) as total FROM Exams");
+    const onlineRow = await get("SELECT COUNT(*) as total FROM Exams WHERE examType = 'ONLINE'");
+    const printRow = await get("SELECT COUNT(*) as total FROM Exams WHERE examType != 'ONLINE'");
+    const subRow = await get("SELECT COUNT(*) as total FROM Submissions");
 
-    res.json({
-      database: {
-        version: dbInfo?.version?.split('\n')[0] || 'Unknown',
-        tables: tableCount?.count || 0,
-      },
-      server: {
-        nodeVersion: process.version,
-        uptime: Math.floor(process.uptime()),
-        memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        platform: process.platform,
-      },
-    });
+    dbVersion = dbInfo?.version?.split(' ').slice(0, 2).join(' ') || 'Unknown';
+    dbTables = tableCount?.count || 0;
+    dbSizeMB = sizeRow?.size || null;
+    totalUsers = parseInt(userRow?.total) || 0;
+    totalExams = parseInt(examRow?.total) || 0;
+    onlineExams = parseInt(onlineRow?.total) || 0;
+    printableExams = parseInt(printRow?.total) || 0;
+    totalSubmissions = parseInt(subRow?.total) || 0;
   } catch (err) {
-    console.error('System info error:', err);
-    res.status(500).json({ error: 'Failed to fetch system info' });
+    dbStatus = 'offline';
+    console.error('DB health check failed:', err.message);
   }
+
+  // ── AI Service Health ──
+  let aiStatus = 'unknown';
+  const aiServiceUrl = process.env.AI_SERVICE_URL;
+  if (aiServiceUrl) {
+    try {
+      const http = require('http');
+      const https = require('https');
+      const url = new URL('/health', aiServiceUrl);
+      const lib = url.protocol === 'https:' ? https : http;
+      await new Promise((resolve, reject) => {
+        const req = lib.get(url.toString(), { timeout: 5000 }, (r) => {
+          aiStatus = r.statusCode === 200 ? 'online' : 'degraded';
+          resolve();
+        });
+        req.on('error', reject);
+        req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+      });
+    } catch {
+      aiStatus = 'offline';
+    }
+  } else {
+    aiStatus = 'not_configured';
+  }
+
+  // ── Email Service Health ──
+  const emailStatus = process.env.BREVO_API_KEY || process.env.RESEND_API_KEY
+    ? 'configured'
+    : 'not_configured';
+
+  // ── API Response Time ──
+  const responseTimeMs = Date.now() - startTime;
+
+  // ── Process Info ──
+  const uptimeSeconds = Math.floor(process.uptime());
+  const hours = Math.floor(uptimeSeconds / 3600);
+  const mins = Math.floor((uptimeSeconds % 3600) / 60);
+  const uptimeLabel = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+  res.json({
+    services: {
+      backend: 'online',
+      database: dbStatus,
+      aiService: aiStatus,
+      emailService: emailStatus,
+    },
+    database: {
+      version: dbVersion,
+      tables: dbTables,
+      sizeFormatted: dbSizeMB,
+      status: dbStatus,
+    },
+    platform: {
+      totalUsers,
+      totalExams,
+      onlineExams,
+      printableExams,
+      totalSubmissions,
+    },
+    server: {
+      nodeVersion: process.version,
+      uptime: uptimeLabel,
+      uptimeSeconds,
+      memoryUsageMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      platform: process.platform,
+      environment: process.env.NODE_ENV || 'development',
+      apiResponseTimeMs: responseTimeMs,
+    },
+  });
 };
+
 
 module.exports = {
   getDashboardStats,

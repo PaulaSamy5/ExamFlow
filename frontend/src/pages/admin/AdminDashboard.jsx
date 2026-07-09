@@ -919,50 +919,219 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* ── INFRASTRUCTURE ── */}
-        {tab === 'system' && sysInfo && (
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-             <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-8 space-y-6">
-                <div className="flex items-center gap-3 mb-2">
-                   <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
-                      <Server className="h-5 w-5" />
-                   </div>
-                   <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">System Engine</h3>
-                </div>
-                {[
-                  { k: 'Software Version', v: sysInfo.server.nodeVersion },
-                  { k: 'Operating Platform', v: sysInfo.server.platform },
-                  { k: 'System Uptime', v: `${Math.floor(sysInfo.server.uptime / 60)} Minutes` },
-                  { k: 'Memory in Use', v: `${sysInfo.server.memoryUsage} MB` },
-                ].map((item, i) => (
-                  <div key={i} className="flex justify-between items-center py-4 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{item.k}</span>
-                    <span className="text-sm font-black text-slate-900 dark:text-white">{item.v}</span>
-                  </div>
-                ))}
-             </div>
+        {/* ── SYSTEM HEALTH ── */}
+        {tab === 'system' && (
+          <div className="space-y-8">
+            <div className="mb-2">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">System Health</h2>
+              <p className="text-sm text-slate-500 font-medium mt-1">Application-level status — updated on each page load.</p>
+            </div>
 
-             <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-8 space-y-6">
-                <div className="flex items-center gap-3 mb-2">
-                   <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
-                      <Activity className="h-5 w-5" />
-                   </div>
-                   <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Database Cluster</h3>
+            {/* ── Service Status Badges ── */}
+            {sysInfo && (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  {
+                    label: 'Backend API',
+                    status: sysInfo.services?.backend,
+                    icon: Server,
+                    desc: 'Node.js / Express',
+                  },
+                  {
+                    label: 'Database',
+                    status: sysInfo.services?.database,
+                    icon: Activity,
+                    desc: 'PostgreSQL / Neon',
+                  },
+                  {
+                    label: 'AI Service',
+                    status: sysInfo.services?.aiService,
+                    icon: Zap,
+                    desc: 'FastAPI / Python',
+                  },
+                  {
+                    label: 'Email Service',
+                    status: sysInfo.services?.emailService,
+                    icon: CheckCircle2,
+                    desc: 'Brevo HTTP API',
+                  },
+                ].map(({ label, status, icon: Icon, desc }) => {
+                  const isOnline = status === 'online' || status === 'configured';
+                  const isOffline = status === 'offline';
+                  const isDegraded = status === 'degraded';
+                  const isUnknown = !status || status === 'unknown' || status === 'not_configured';
+
+                  const colorClass = isOnline
+                    ? 'border-emerald-500/20 bg-emerald-500/5'
+                    : isOffline
+                    ? 'border-rose-500/20 bg-rose-500/5'
+                    : isDegraded
+                    ? 'border-amber-500/20 bg-amber-500/5'
+                    : 'border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40';
+
+                  const dotClass = isOnline
+                    ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'
+                    : isOffline
+                    ? 'bg-rose-500'
+                    : isDegraded
+                    ? 'bg-amber-500 animate-pulse'
+                    : 'bg-slate-400';
+
+                  const labelClass = isOnline
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : isOffline
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : isDegraded
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-slate-500';
+
+                  const statusLabel = isOnline
+                    ? 'Operational'
+                    : isOffline
+                    ? 'Offline'
+                    : isDegraded
+                    ? 'Degraded'
+                    : 'Not Configured';
+
+                  return (
+                    <div key={label} className={`rounded-2xl border p-5 flex flex-col gap-3 ${colorClass}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 rounded-xl bg-white/70 dark:bg-slate-800/70 border border-slate-200/50 dark:border-slate-700/50">
+                          <Icon className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`h-2 w-2 rounded-full ${dotClass} ${isOnline ? 'animate-pulse' : ''}`} />
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${labelClass}`}>{statusLabel}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-900 dark:text-white">{label}</p>
+                        <p className="text-[11px] text-slate-500 font-medium mt-0.5">{desc}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* ── Platform Stats ── */}
+              <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-8 space-y-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
+                    <BookOpen className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">Platform Stats</h3>
+                    <p className="text-[11px] text-slate-500 font-medium">Live counts from the database</p>
+                  </div>
                 </div>
                 {[
-                  { k: 'Database Type', v: 'Microsoft SQL Server' },
-                  { k: 'Database Tables', v: `${sysInfo.database.tables} Tables` },
-                  { k: 'Connection Health', v: 'Encrypted / Stable' },
-                  { k: 'Database Environment', v: 'MSSQL (Production)' },
-                ].map((item, i) => (
-                  <div key={i} className="flex justify-between items-center py-4 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                  { k: 'Total Users', v: sysInfo?.platform?.totalUsers ?? '—', color: 'text-indigo-600 dark:text-indigo-400' },
+                  { k: 'Total Exams', v: sysInfo?.platform?.totalExams ?? '—', color: 'text-violet-600 dark:text-violet-400' },
+                  { k: 'Online Exams', v: sysInfo?.platform?.onlineExams ?? '—', color: 'text-blue-600 dark:text-blue-400' },
+                  { k: 'Printable Exams', v: sysInfo?.platform?.printableExams ?? '—', color: 'text-amber-600 dark:text-amber-400' },
+                  { k: 'Total Submissions', v: sysInfo?.platform?.totalSubmissions ?? '—', color: 'text-emerald-600 dark:text-emerald-400' },
+                ].map((item) => (
+                  <div key={item.k} className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{item.k}</span>
+                    <span className={`text-sm font-black ${item.color}`}>{item.v}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Database Health ── */}
+              <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-8 space-y-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                    <Activity className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">Database Health</h3>
+                    <p className="text-[11px] text-slate-500 font-medium">PostgreSQL on Neon (free tier)</p>
+                  </div>
+                </div>
+                {[
+                  { k: 'DB Engine', v: sysInfo?.database?.version || '—' },
+                  { k: 'Active Tables', v: sysInfo?.database?.tables ? `${sysInfo.database.tables} tables` : '—' },
+                  { k: 'Database Size', v: sysInfo?.database?.sizeFormatted || '—' },
+                  { k: 'Connection', v: 'SSL / Encrypted' },
+                  { k: 'Status', v: sysInfo?.database?.status === 'online' ? '✓ Connected' : '✗ Offline' },
+                ].map((item) => (
+                  <div key={item.k} className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{item.k}</span>
                     <span className="text-sm font-black text-slate-900 dark:text-white">{item.v}</span>
                   </div>
                 ))}
-             </div>
-           </div>
+              </div>
+
+              {/* ── Server Info ── */}
+              <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-8 space-y-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-xl bg-violet-500/10 text-violet-500">
+                    <Server className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">Backend Engine</h3>
+                    <p className="text-[11px] text-slate-500 font-medium">Node.js on Railway</p>
+                  </div>
+                </div>
+
+                {/* Response Time Gauge */}
+                {sysInfo?.server?.apiResponseTimeMs !== undefined && (
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 mb-2">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">API Response Time</span>
+                      <span className={`text-xs font-black ${sysInfo.server.apiResponseTimeMs < 300 ? 'text-emerald-500' : sysInfo.server.apiResponseTimeMs < 800 ? 'text-amber-500' : 'text-rose-500'}`}>
+                        {sysInfo.server.apiResponseTimeMs}ms
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ${sysInfo.server.apiResponseTimeMs < 300 ? 'bg-emerald-500' : sysInfo.server.apiResponseTimeMs < 800 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                        style={{ width: `${Math.min(100, (sysInfo.server.apiResponseTimeMs / 2000) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                      {sysInfo.server.apiResponseTimeMs < 300 ? 'Excellent' : sysInfo.server.apiResponseTimeMs < 800 ? 'Acceptable' : 'Slow — check Railway logs'}
+                    </p>
+                  </div>
+                )}
+
+                {[
+                  { k: 'Node Version', v: sysInfo?.server?.nodeVersion || '—' },
+                  { k: 'Platform', v: sysInfo?.server?.platform || '—' },
+                  { k: 'Environment', v: sysInfo?.server?.environment || '—' },
+                  { k: 'Server Uptime', v: sysInfo?.server?.uptime || '—' },
+                  { k: 'Heap Memory', v: sysInfo?.server?.memoryUsageMB ? `${sysInfo.server.memoryUsageMB} MB used` : '—' },
+                ].map((item) => (
+                  <div key={item.k} className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{item.k}</span>
+                    <span className="text-sm font-black text-slate-900 dark:text-white capitalize">{item.v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Capacity Warning Banner ── */}
+            {sysInfo?.database?.sizeFormatted && (
+              <div className="p-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 flex items-start gap-4">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 shrink-0 mt-0.5">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-slate-900 dark:text-white">Free Tier Capacity Notice</p>
+                  <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                    Current DB size: <strong className="text-slate-700 dark:text-slate-300">{sysInfo.database.sizeFormatted}</strong> / 512 MB (Neon free tier limit).
+                    Email service: <strong className="text-slate-700 dark:text-slate-300">300 emails/day</strong> (Brevo free tier).
+                    Upgrade these services before scaling beyond ~100 concurrent users.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         )}
+
       </div>
 
       {/* ── Delete Confirmation Modal ── */}
