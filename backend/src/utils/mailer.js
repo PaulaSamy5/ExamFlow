@@ -29,6 +29,7 @@ function getTransporter() {
       tls: {
         rejectUnauthorized: false
       },
+      family: 4, // Force IPv4 to prevent ENETUNREACH on IPv6
       connectionTimeout: 15000, // 15 seconds
       greetingTimeout: 15000,
     });
