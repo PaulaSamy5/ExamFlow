@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }) => {
       navigate(getRedirectPath(data.user.role));
       return { success: true };
     } catch (err) {
-      const errorMessage = err.response?.data?.error || (err.request ? 'Connection refused. Ensure the backend on port 5000 is spinning.' : 'Login session failed: ' + err.message);
+      const errorMessage = err.response?.data?.error || (err.request ? 'Unable to reach the server. Please try again later.' : 'Login failed: ' + err.message);
       return { success: false, error: errorMessage, verificationRequired: err.response?.data?.requiresVerification, email: err.response?.data?.email };
     }
   };
@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
       navigate(getRedirectPath(data.user.role));
       return { success: true };
     } catch (err) {
-      const errorMessage = err.response?.data?.error || (err.request ? 'Server is unreachable. Please check your connection or port 5000 status.' : 'Registration failed: ' + err.message);
+      const errorMessage = err.response?.data?.error || (err.request ? 'Unable to reach the server. Please try again later.' : 'Registration failed: ' + err.message);
       return { success: false, error: errorMessage };
     }
   };
