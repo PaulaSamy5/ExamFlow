@@ -93,11 +93,12 @@ const register = async (req, res) => {
     // Use Math.random for OTP since it's just for email verification (or use crypto.randomInt)
     const otp = crypto.randomInt(100000, 999999).toString();
 
+    const createdAt = new Date();
     // Store in PendingUsers instead of Users
     await run('DELETE FROM PendingUsers WHERE email = ?', [email]); // Clean old pendings
     await run(
-      'INSERT INTO PendingUsers (email, password, name, role, verificationCode, username, profileImage) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [email, hashedPassword, name, safeRole, otp, finalUsername, profileImage || null]
+      'INSERT INTO PendingUsers (email, password, name, role, verificationCode, username, profileImage, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [email, hashedPassword, name, safeRole, otp, finalUsername, profileImage || null, createdAt.toISOString()]
     );
 
     // Reset any stale attempt counter so a fresh code always starts clean
@@ -142,14 +143,14 @@ const verifyOTP = async (req, res) => {
     const pending = await get('SELECT * FROM PendingUsers WHERE email = ?', [email]);
 
     if (pending) {
-      console.log(`🔍 [verifyOTP] pending record for ${email} — stored="${pending.verificationCode}" submitted="${submittedCode}" createdAt=${pending.createdAt}`);
+      console.log(`🔍 [verifyOTP] pending record found: email=${email} storedCode="${pending.verificationCode}" submittedCode="${submittedCode}" createdAt=${pending.createdAt}`);
     }
 
     // Race-condition guard: if record is gone but user is already verified, treat as success
     if (!pending) {
       const alreadyVerified = await get('SELECT id, email, name, role, username, profileImage FROM Users WHERE email = ? AND isVerified = 1', [email]);
       if (alreadyVerified) {
-        console.log(`✅ [verifyOTP] ${email} already verified (race condition — returning success).`);
+        console.log(`✅ [verifyOTP] ${email} already verified (race condition).`);
         otpAttempts.delete(email);
         const token = jwt.sign(
           { id: alreadyVerified.id, email: alreadyVerified.email, role: alreadyVerified.role },
@@ -158,7 +159,7 @@ const verifyOTP = async (req, res) => {
         );
         return res.json({ user: alreadyVerified, token });
       }
-      console.warn(`⚠️  [verifyOTP] ${email} — no pending record and not yet in Users.`);
+      console.warn(`⚠️  [verifyOTP] ${email} — pending record not found and not in Users.`);
       return res.status(404).json({ error: 'Verification session not found. Please register again.' });
     }
 
@@ -167,15 +168,17 @@ const verifyOTP = async (req, res) => {
     const now = new Date();
     const ageMs = now.getTime() - createdAt.getTime();
     const expiresAt = new Date(createdAt.getTime() + OTP_EXPIRY_MS);
-    console.log(`⏰ [verifyOTP] time check for ${email}:`);
-    console.log(`   created : ${createdAt.toISOString()}`);
-    console.log(`   expires : ${expiresAt.toISOString()}`);
-    console.log(`   now     : ${now.toISOString()}`);
-    console.log(`   age     : ${Math.round(ageMs / 1000)}s  limit: ${OTP_EXPIRY_MS / 1000}s  expired: ${ageMs > OTP_EXPIRY_MS}`);
+    
+    console.log(`⏰ [verifyOTP] Time validation for ${email}:`);
+    console.log(`   Created at : ${createdAt.toISOString()} (${createdAt.getTime()})`);
+    console.log(`   Expires at : ${expiresAt.toISOString()} (${expiresAt.getTime()})`);
+    console.log(`   Now is     : ${now.toISOString()} (${now.getTime()})`);
+    console.log(`   Age        : ${Math.round(ageMs / 1000)}s | Limit: ${OTP_EXPIRY_MS / 1000}s | Expired: ${ageMs > OTP_EXPIRY_MS}`);
+    
     if (ageMs > OTP_EXPIRY_MS) {
       await run('DELETE FROM PendingUsers WHERE email = ?', [email]);
       otpAttempts.delete(email);
-      console.warn(`⏰ [verifyOTP] ${email} — code expired (age ${Math.round(ageMs / 1000)}s > limit ${OTP_EXPIRY_MS / 1000}s).`);
+      console.warn(`⏰ [verifyOTP] ${email} — OTP expired (age: ${Math.round(ageMs / 1000)}s).`);
       return res.status(400).json({ error: 'Verification code has expired. Please request a new code.', expired: true });
     }
 
