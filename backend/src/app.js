@@ -62,6 +62,11 @@ app.use(cors({
 
     if (allowedOrigins.includes(origin)) return callback(null, true);
 
+    // Allow all Vercel preview/deployment subdomains
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+
     // Allow localhost only outside production — prevents same-host container abuse in prod
     if (process.env.NODE_ENV !== 'production') {
       if (/^https?:\/\/localhost:\d+$/.test(origin) || /^https?:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
