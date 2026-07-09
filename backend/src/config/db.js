@@ -81,6 +81,16 @@ const COLUMN_MAP = {
   visitorid:               'visitorId',
   userid:                  'userId',
   useragent:               'userAgent',
+  totalviews:              'totalViews',
+  uniquevisitors:          'uniqueVisitors',
+  loggedinviews:           'loggedInViews',
+  guestviews:              'guestViews',
+  avgduration:             'avgDuration',
+  newvisitors:             'newVisitors',
+  returningvisitors:       'returningVisitors',
+  loggedinusers:           'loggedInUsers',
+  pageviews:               'pageViews',
+  uniqueviews:             'uniqueViews',
 };
 
 const camelizeRow = (row) => {

@@ -675,28 +675,37 @@ const AdminDashboard = () => {
                  <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight mb-2">Visitor Retention</h3>
                  <p className="text-xs text-slate-500 font-medium mb-8">New vs Returning breakdown</p>
                  <div className="h-[300px] flex items-center justify-center relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: 'New', value: a.newVisitors },
-                            { name: 'Returning', value: a.returningVisitors }
-                          ]}
-                          innerRadius={80}
-                          outerRadius={110}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          <Cell fill="#6366f1" />
-                          <Cell fill="#10b981" />
-                        </Pie>
-                        <Tooltip content={<ChartTooltip isPie={true} />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <p className="text-2xl font-black text-slate-900 dark:text-white">{Math.round((a.returningVisitors / (a.newVisitors + a.returningVisitors || 1)) * 100)}%</p>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Returning</p>
-                    </div>
+                    {a.newVisitors > 0 || a.returningVisitors > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'New', value: a.newVisitors || 0 },
+                                { name: 'Returning', value: a.returningVisitors || 0 }
+                              ]}
+                              innerRadius={80}
+                              outerRadius={110}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              <Cell fill="#6366f1" />
+                              <Cell fill="#10b981" />
+                            </Pie>
+                            <Tooltip content={<ChartTooltip isPie={true} />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                          <p className="text-2xl font-black text-slate-900 dark:text-white">{Math.round((a.returningVisitors / (a.newVisitors + a.returningVisitors || 1)) * 100)}%</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Returning</p>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center text-slate-400 dark:text-slate-500">
+                        <p className="text-sm font-bold">No retention data yet</p>
+                        <p className="text-xs mt-1">Requires visits from new/returning users.</p>
+                      </div>
+                    )}
                  </div>
                  <div className="flex justify-center gap-8 mt-4">
                     <div className="flex items-center gap-2">
