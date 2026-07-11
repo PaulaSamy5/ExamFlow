@@ -123,13 +123,13 @@ function HeroSection() {
           initial={{ opacity: 0, y: 20, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="inline-flex items-center gap-2.5 px-5 py-2 mb-10 rounded-full border border-indigo-400/25 bg-indigo-500/8 backdrop-blur-md"
+          className="inline-flex items-center gap-2.5 px-5 py-2 mb-10 rounded-full border border-indigo-100 dark:border-indigo-400/25 bg-indigo-50/70 dark:bg-indigo-500/8 backdrop-blur-md"
         >
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-400" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-600 dark:bg-indigo-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600 dark:bg-indigo-400" />
           </span>
-          <span className="text-indigo-300 text-sm font-medium tracking-wide">AI-Powered Exam Platform</span>
+          <span className="text-indigo-650 dark:text-indigo-300 text-sm font-medium tracking-wide">AI-Powered Exam Platform</span>
         </motion.div>
 
         {/* Title */}
@@ -137,7 +137,7 @@ function HeroSection() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.35 }}
-          className="text-5xl sm:text-6xl lg:text-[5.2rem] font-black tracking-tight text-white leading-[1.08] mb-7"
+          className="text-5xl sm:text-6xl lg:text-[5.2rem] font-black tracking-tight text-slate-900 dark:text-white leading-[1.08] mb-7"
           style={{ fontFamily: 'Outfit, sans-serif' }}
         >
           Smarter Exams,{' '}
@@ -152,7 +152,7 @@ function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed"
+          className="text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed"
         >
           Create exams, evaluate answers with AI, and review UML diagrams — all in one beautiful, easy-to-use platform built for modern education.
         </motion.p>
@@ -175,7 +175,7 @@ function HeroSection() {
           {/* Secondary CTA */}
           <Link
             to="/login"
-            className="inline-flex items-center gap-2.5 text-slate-300 hover:text-white font-medium py-3.5 px-7 rounded-2xl border border-white/10 hover:border-white/25 transition-all duration-300 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-base"
+            className="inline-flex items-center gap-2.5 text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white font-medium py-3.5 px-7 rounded-2xl border border-slate-200 hover:border-slate-350 dark:border-white/10 dark:hover:border-white/25 transition-all duration-300 bg-slate-100/50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 backdrop-blur-sm text-base"
           >
             <MousePointerClick className="h-5 w-5" />
             Sign In
@@ -196,10 +196,10 @@ function HeroSection() {
               { label: 'Real-time Analytics', icon: BarChart3 },
             ].map(({ label, icon: Icon }) => (
               <div key={label} className="flex items-center gap-2.5 group">
-                <div className="p-1.5 rounded-lg bg-white/5 border border-white/8 group-hover:border-indigo-500/30 transition-colors">
-                  <Icon className="h-3.5 w-3.5 text-indigo-400" />
+                <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/8 group-hover:border-indigo-500/30 transition-colors">
+                  <Icon className="h-3.5 w-3.5 text-indigo-650 dark:text-indigo-400" />
                 </div>
-                <span className="text-sm font-medium text-slate-500 group-hover:text-slate-300 transition-colors">{label}</span>
+                <span className="text-sm font-medium text-slate-550 group-hover:text-slate-800 dark:text-slate-500 dark:group-hover:text-slate-300 transition-colors">{label}</span>
               </div>
             ))}
           </div>
@@ -610,7 +610,7 @@ function CTASection() {
               </Link>
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-indigo-400 font-medium py-3.5 px-6 rounded-2xl border border-slate-300 dark:border-slate-700 hover:border-indigo-500/50 transition-all duration-300 text-base"
+                className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white font-medium py-3.5 px-6 rounded-2xl border border-slate-300 hover:border-slate-350 dark:border-slate-700 dark:hover:border-white/25 transition-all duration-300 bg-slate-100/50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 text-base"
               >
                 Sign In Instead
               </Link>

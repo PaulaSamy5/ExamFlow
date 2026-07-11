@@ -449,7 +449,7 @@ const DiagramTextEditor = ({ n, tpos, inputRef, setNodes, setInputNode, save, no
            {suggestions[0].options.map((opt, i) => (
              <button key={i} 
                      onClick={() => applyFix(suggestions[0].wrong, opt)}
-                     className="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-rose-500 hover:text-slate-900 dark:text-white transition-all flex items-center justify-between group">
+                     className="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-between group">
                 {opt}
                 <span className="text-[8px] opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 px-1 rounded uppercase">Fix</span>
              </button>
@@ -1663,7 +1663,7 @@ const UMLCanvas = ({ value, onChange, diagramType = 'Class', onImageExport, isEd
              <button
                type="button"
                onClick={deleteSelected}
-               className="flex items-center gap-3 px-6 py-3 bg-rose-600/90 hover:bg-rose-500 backdrop-blur-xl text-slate-900 dark:text-white rounded-full shadow-[0_8px_32px_rgba(225,29,72,0.4)] border border-rose-400/30 transition-all hover:scale-105 active:scale-95 group"
+               className="flex items-center gap-3 px-6 py-3 bg-rose-600/90 hover:bg-rose-500 backdrop-blur-xl text-white rounded-full shadow-[0_8px_32px_rgba(225,29,72,0.4)] border border-rose-400/30 transition-all hover:scale-105 active:scale-95 group"
              >
                <Trash2 size={18} className="group-hover:rotate-12 transition-transform" />
                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Remove Connection</span>
@@ -1783,7 +1783,7 @@ const UMLCanvas = ({ value, onChange, diagramType = 'Class', onImageExport, isEd
                              value={parts[2] || ''} onChange={e => updatePart(2, e.target.value)} />
                  </div>
                  <button onClick={() => { setInputNode(null); save(nodes, edges); }}
-                         className="mt-2 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
+                         className="mt-2 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
                     Apply Changes
                  </button>
                </div>

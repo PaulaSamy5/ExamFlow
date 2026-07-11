@@ -1116,9 +1116,9 @@ const ExamSession = () => {
                   e.preventDefault();
                   setShowConfirmModal(true);
                 }}
-                className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-8 py-3 rounded-xl bg-emerald-600 text-slate-900 dark:text-white shadow-xl shadow-emerald-900/40 hover:bg-emerald-500 transition-all active:scale-95 group animate-in fade-in zoom-in duration-300"
+                className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-8 py-3 rounded-xl bg-emerald-600 text-white shadow-xl shadow-emerald-900/40 hover:bg-emerald-500 transition-all active:scale-95 group animate-in fade-in zoom-in duration-300"
               >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin text-slate-900 dark:text-white" /> : <Send className="h-4 w-4 group-hover:translate-x-1 transition-transform" />}
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : <Send className="h-4 w-4 group-hover:translate-x-1 transition-transform" />}
                 Final Submit
               </button>
             ) : (
@@ -1129,7 +1129,7 @@ const ExamSession = () => {
                   setActiveIdx(prev => prev + 1);
                   handleSave(true);
                 }}
-                className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-8 py-3 rounded-xl bg-indigo-600 text-slate-900 dark:text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95"
+                className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-8 py-3 rounded-xl bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95"
               >
                 Next Step <ChevronRight className="h-4 w-4" />
               </button>
@@ -1176,7 +1176,7 @@ const ExamSession = () => {
                      processSubmission();
                   }}
                   disabled={isSubmitting}
-                  className="flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-white bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_20px_-5px_rgba(16,185,129,0.5)] transition-all outline-none flex items-center justify-center gap-2"
+                  className="flex-1 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_20px_-5px_rgba(16,185,129,0.5)] transition-all outline-none flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
                   Confirm

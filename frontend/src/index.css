@@ -64,6 +64,20 @@ html:not(.dark) body {
   background-color: hsl(237, 20%, 97.5%);
   border-color: hsl(237, 20%, 89%);
 }
+.input-field:hover {
+  border-color: hsl(237, 20%, 78%);
+}
+html.dark .input-field:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+.input-field:focus {
+  background-color: #ffffff;
+  border-color: hsl(237, 50%, 65%);
+}
+html.dark .input-field:focus {
+  background-color: #0f172a;
+}
+
 
 .card-title {
   @apply text-xl font-bold text-slate-900 dark:text-white mb-2;
@@ -99,7 +113,7 @@ html:not(.dark) body {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.16),
               0 4px 12px -2px rgba(0, 0, 0, 0.06);
-  border-color: hsl(237, 45%, 83%);
+  border-color: hsl(237, 55%, 78%);
 }
 html.dark .card-interactive:hover {
   box-shadow: 0 8px 25px -8px rgba(99, 102, 241, 0.15),
@@ -427,10 +441,14 @@ html:not(.dark) .chip-cyan {
 
 /* ── Gradient text with glow ── */
 .hero-gradient-text {
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 30%, #c084fc 60%, #e879f9 100%);
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 40%, #db2777 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.15));
+}
+html.dark .hero-gradient-text {
+  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 30%, #c084fc 60%, #e879f9 100%);
   filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.3));
 }
 

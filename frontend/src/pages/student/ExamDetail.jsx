@@ -160,7 +160,7 @@ const ExamDetail = () => {
         <button
           onClick={handleStart}
           disabled={!agreed || starting}
-          className="w-full py-4 rounded-2xl bg-indigo-600 text-slate-900 dark:text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3
+          className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3
             hover:bg-indigo-500 transition-all active:scale-[0.98] shadow-xl shadow-indigo-600/25
             disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none group relative overflow-hidden"
         >

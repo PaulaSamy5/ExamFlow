@@ -112,7 +112,7 @@ function App() {
                   <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                     <div className="text-right hidden sm:block">
                       <p className="text-[11px] font-black text-slate-900 dark:text-white leading-tight uppercase tracking-wide">{user.name}</p>
-                      <p className="text-[9px] font-bold text-slate-400 leading-tight">Verified Academic</p>
+                      <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 leading-tight">Verified Academic</p>
                     </div>
                     <div className="bg-indigo-50 dark:bg-slate-800 h-10 w-10 rounded-2xl flex items-center justify-center border border-indigo-100 dark:border-slate-800 shadow-sm transition-all overflow-hidden">
                       {user.profileImage ? (
@@ -147,7 +147,7 @@ function App() {
                   >
                     {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                   </button>
-                  <Link to="/login" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 px-3 py-2 transition-colors">Log in</Link>
+                  <Link to="/login" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 px-3 py-2 rounded-lg transition-all">Log in</Link>
                   <Link to="/register" className="text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 px-5 py-2.5 rounded-full transition-all active:scale-95">
                     Get Started Free
                   </Link>

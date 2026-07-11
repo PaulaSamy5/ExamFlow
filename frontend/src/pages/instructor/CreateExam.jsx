@@ -471,7 +471,7 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                   key={val}
                   type="button"
                   onClick={() => onUpdate('correctAnswer', val)}
-                  className={`flex-1 py-2 rounded-xl font-bold text-sm border transition-all ${q.correctAnswer === val ? 'bg-indigo-600 border-indigo-500 text-slate-900 dark:text-white' : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white'}`}
+                  className={`flex-1 py-2 rounded-xl font-bold text-sm border transition-all ${q.correctAnswer === val ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}
                 >
                   {val}
                 </button>
@@ -644,7 +644,7 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                             <span className="text-[9px] font-black uppercase text-slate-600">Expected Output</span>
                             <textarea className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 outline-none focus:border-fuchsia-500 rounded p-2 text-xs font-mono resize-none text-slate-600 dark:text-slate-300" placeholder="Expected Output" rows={2} value={tc.expectedOutput} onChange={e => { const newTc = [...codingOpts.testCases]; newTc[tcIdx].expectedOutput = e.target.value; onUpdate('options', JSON.stringify({ ...codingOpts, testCases: newTc })); }} />
                           </div>
-                          <button type="button" onClick={() => { const newTc = codingOpts.testCases.filter((_, i) => i !== tcIdx); onUpdate('options', JSON.stringify({ ...codingOpts, testCases: newTc })); }} className="absolute -top-2 -right-2 bg-rose-500 text-slate-900 dark:text-white rounded-full p-1 opacity-0 group-hover/tc:opacity-100 transition-all hover:scale-110 shadow-lg"><XCircle className="h-3.5 w-3.5" /></button>
+                          <button type="button" onClick={() => { const newTc = codingOpts.testCases.filter((_, i) => i !== tcIdx); onUpdate('options', JSON.stringify({ ...codingOpts, testCases: newTc })); }} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 opacity-0 group-hover/tc:opacity-100 transition-all hover:scale-110 shadow-lg"><XCircle className="h-3.5 w-3.5" /></button>
                         </div>
                       ))}
                     </div>

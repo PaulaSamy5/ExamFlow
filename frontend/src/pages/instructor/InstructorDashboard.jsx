@@ -259,7 +259,7 @@ const InstructorDashboard = () => {
             </div>
           </div>
 
-          <Link to="/exams/new" className="h-12 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 w-full sm:w-auto shrink-0 btn-lift">
+          <Link to="/exams/new" className="h-12 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 w-full sm:w-auto shrink-0 btn-lift">
             <Plus className="h-5 w-5" />
             Create Exam
           </Link>
@@ -489,8 +489,8 @@ const InstructorDashboard = () => {
                                   onClick={() => handleToggleResults(exam.id, exam.title)}
                                   className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all border shrink-0 btn-lift ${
                                     isManual 
-                                      ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-600 hover:text-slate-900 dark:text-white hover:border-rose-500' 
-                                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-600 hover:text-slate-900 dark:text-white hover:border-emerald-500'
+                                      ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-600 hover:text-white hover:border-rose-500' 
+                                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-600 hover:text-white hover:border-emerald-500'
                                   }`}
                                   title={isManual ? 'Publish Results' : 'Hide Results'}
                                 >

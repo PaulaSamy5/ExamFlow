@@ -375,7 +375,7 @@ const ExamResult = () => {
                                              link.download = `Diagram_${submission.studentName}_Q${idx+1}.png`;
                                              link.click();
                                            }}
-                                           className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-slate-900 dark:text-white transition-all backdrop-blur-md shadow-xl btn-lift"
+                                           className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/50 rounded-2xl text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 transition-all backdrop-blur-md shadow-xl btn-lift"
                                          >
                                            <Download className="h-3.5 w-3.5 text-cyan-400" /> Export PNG
                                          </button>
@@ -500,11 +500,11 @@ const ExamResult = () => {
                                               return (
                                                 <div className="space-y-6">
                                                    <div className="grid grid-cols-2 gap-3">
-                                                      <div className="p-3 bg-white/5 border border-white/5 rounded-2xl text-center">
+                                                      <div className="p-3 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-center shadow-sm dark:shadow-none">
                                                          <div className="text-[10px] font-black text-slate-500 uppercase tracking-tighter mb-1">Graph Core</div>
                                                          <div className="text-xl font-black text-indigo-400 tracking-tighter">{r.graphScore || 0}%</div>
                                                       </div>
-                                                      <div className="p-3 bg-white/5 border border-white/5 rounded-2xl text-center">
+                                                      <div className="p-3 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl text-center shadow-sm dark:shadow-none">
                                                          <div className="text-[10px] font-black text-slate-500 uppercase tracking-tighter mb-1">AI Semantic</div>
                                                          <div className="text-xl font-black text-fuchsia-400 tracking-tighter">{r.aiScore || 0}%</div>
                                                       </div>
@@ -517,7 +517,7 @@ const ExamResult = () => {
                                                          <div className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter drop-shadow-2xl">{studentAns.scoreEarned || r.blendedScore || 0}%</div>
                                                          <div className="mt-4 flex items-center justify-center gap-1">
                                                             {[1,2,3,4,5].map(s => (
-                                                               <div key={s} className={`w-3 h-1 rounded-full ${s <= Math.ceil((studentAns.scoreEarned || r.blendedScore || 0) / 20) ? 'bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-white/10'}`} />
+                                                               <div key={s} className={`w-3 h-1 rounded-full ${s <= Math.ceil((studentAns.scoreEarned || r.blendedScore || 0) / 20) ? 'bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-slate-200 dark:bg-white/10'}`} />
                                                             ))}
                                                          </div>
                                                       </div>

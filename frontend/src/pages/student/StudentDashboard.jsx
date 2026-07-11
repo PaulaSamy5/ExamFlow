@@ -122,7 +122,7 @@ const StudentDashboard = () => {
             <button 
               type="submit" 
               disabled={joining || joinCode.length < 6}
-              className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2 shrink-0 btn-lift"
+              className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2 shrink-0 btn-lift"
             >
               <PlayCircle className="h-4 w-4" />
               {joining ? 'Joining...' : 'Join'}
