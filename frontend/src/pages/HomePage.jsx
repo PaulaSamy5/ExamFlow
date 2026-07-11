@@ -224,7 +224,7 @@ function WhatIsSection() {
       icon: Brain,
       color: 'from-violet-500 to-purple-600',
       title: 'AI Grading',
-      desc: 'Our AI engine evaluates answers semantically — understanding meaning, not just keywords — for fair and accurate scoring.',
+      desc: 'Our AI engine evaluates answers semantically, understanding meaning, not just keywords, for fair and accurate scoring.',
     },
     {
       icon: PenTool,
