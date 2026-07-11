@@ -390,13 +390,13 @@ const InstructorDashboard = () => {
                         <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No online exams yet</p>
                         <p className="text-xs text-slate-500 mt-0.5">You haven&rsquo;t created any online exams yet.</p>
                       </div>
-                      <Link
+                      {/* <Link
                         to="/exams/new"
                         className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-all active:scale-95"
                       >
                         <Plus className="h-3 w-3" />
                         Create
-                      </Link>
+                      </Link> */}
                     </div>
                   )
                 ) : (
@@ -562,13 +562,13 @@ const InstructorDashboard = () => {
                         <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No printable exams yet</p>
                         <p className="text-xs text-slate-500 mt-0.5">Create a paper-based exam for classroom printing.</p>
                       </div>
-                      <Link
+                      {/* <Link
                         to="/exams/new"
                         className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg transition-all active:scale-95"
                       >
                         <Plus className="h-3 w-3" />
                         Create
-                      </Link>
+                      </Link> */}
                     </div>
                   )
                 ) : (
