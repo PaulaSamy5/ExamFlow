@@ -439,17 +439,20 @@ html:not(.dark) .chip-cyan {
   color: hsl(192, 60%, 28%);
 }
 
-/* ── Gradient text with glow ── */
+/* ── Gradient text ── */
+/* NOTE: filter: drop-shadow() breaks background-clip: text — do NOT add filter here */
 .hero-gradient-text {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 40%, #db2777 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.15));
+  display: inline-block;
 }
 html.dark .hero-gradient-text {
   background: linear-gradient(135deg, #818cf8 0%, #a78bfa 30%, #c084fc 60%, #e879f9 100%);
-  filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* ── Primary CTA with animated gradient border ── */
