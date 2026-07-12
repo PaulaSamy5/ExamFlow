@@ -2519,11 +2519,13 @@ const CreateExam = () => {
                       </div>
                     </div>
 
-                    {/* Inline error message */}
+                    {/* Inline error message alert banner */}
                     {errors.duration && (
-                      <div className="mt-2 flex items-center gap-2 px-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                        <AlertCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-                        <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{errors.duration}</p>
+                      <div className="mt-3 flex items-start gap-2.5 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-rose-700 dark:text-rose-350 font-medium leading-relaxed">
+                          {errors.duration}
+                        </p>
                       </div>
                     )}
                     {/* Duration mismatch friendly warning */}
