@@ -15,6 +15,42 @@ const analyticsRoutes = require('./modules/analytics/analytics.routes');
 
 const app = express();
 
+const contextStorage = require('./utils/context');
+
+// Context Propagation Middleware
+app.use((req, res, next) => {
+  contextStorage.run({ req, res }, () => {
+    next();
+  });
+});
+
+// Graceful Database Error Interceptor Middleware
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (body) {
+    const isLimitErr = req.isDbLimitExceeded || 
+      (body && typeof body.error === 'string' && (
+        body.error.includes('DB_LIMIT_EXCEEDED') ||
+        body.error.toLowerCase().includes('storage limit') ||
+        body.error.toLowerCase().includes('disk full') ||
+        body.error.toLowerCase().includes('insufficient disk space') ||
+        body.error.toLowerCase().includes('out of disk space') ||
+        body.error.toLowerCase().includes('read-only') ||
+        body.error.toLowerCase().includes('read-only transaction') ||
+        body.error.toLowerCase().includes('temporarily unavailable')
+      ));
+
+    if (isLimitErr) {
+      res.status(503);
+      return originalJson.call(this, { 
+        error: 'The service is temporarily unavailable. Please try again later.' 
+      });
+    }
+    return originalJson.call(this, body);
+  };
+  next();
+});
+
 // Trust Railway's reverse proxy — required for express-rate-limit and correct client IP detection
 app.set('trust proxy', 1);
 
@@ -95,6 +131,9 @@ app.get('/health', (req, res) => res.json({ status: 'OK' }));
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
+  if (err.code === 'DB_LIMIT_EXCEEDED' || err.message?.includes('DB_LIMIT_EXCEEDED')) {
+    return res.status(503).json({ error: 'The service is temporarily unavailable. Please try again later.' });
+  }
   res.status(500).json({ error: 'Something went wrong!' });
 });
 

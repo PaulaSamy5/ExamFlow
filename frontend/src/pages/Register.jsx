@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../store/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Loader2, ArrowRight, GraduationCap, ShieldCheck, ArrowLeft,
   Mail, User, Lock, Eye, EyeOff, Check, Camera, ImagePlus, KeyRound, Trash2
@@ -11,6 +11,7 @@ import { FieldError, inputStateClass } from '../components/FieldError';
 const Register = () => {
   const { register, verifyOTP, updateProfile, setOnboardingInProgress } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -20,7 +21,8 @@ const Register = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [role, setRole] = useState(null);
-  const [email, setEmail] = useState('');
+  // Pre-fill email if arriving via Forgot Password → Create Account CTA
+  const [email, setEmail] = useState(location.state?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [confirmBlurred, setConfirmBlurred] = useState(false);

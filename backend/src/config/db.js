@@ -1,5 +1,6 @@
 const { Pool, types } = require('pg');
 require('dotenv').config();
+const contextStorage = require('../utils/context');
 
 // pg parses TIMESTAMP WITHOUT TIME ZONE as local time by default.
 // Neon stores NOW() as UTC, so we must tell pg to treat these values as UTC
@@ -310,39 +311,125 @@ async function seedAdminAccount(client) {
   }
 })();
 
+// ─── DB Capacity Warning & Limit Handler ───
+let lastLimitEmailSent = 0;
+
+const isStorageLimitError = (err) => {
+  if (!err || !err.message) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes('storage limit') ||
+    msg.includes('disk full') ||
+    msg.includes('insufficient disk space') ||
+    msg.includes('out of disk space') ||
+    msg.includes('database is read-only') ||
+    msg.includes('read-only transaction') ||
+    msg.includes('read-only') ||
+    err.code === '53100' || // disk_full code in postgres
+    err.code === '53200'    // out_of_memory code in postgres
+  );
+};
+
+const handleDbError = async (err) => {
+  if (isStorageLimitError(err)) {
+    console.error('❌ DATABASE STORAGE LIMIT EXCEEDED:', err.message);
+    
+    // Set flag in current request context if available
+    const store = contextStorage.getStore();
+    if (store && store.req) {
+      store.req.isDbLimitExceeded = true;
+    }
+
+    // Send email to administrator with a 10-minute cooldown
+    const now = Date.now();
+    if (now - lastLimitEmailSent > 10 * 60 * 1000) {
+      lastLimitEmailSent = now;
+      const adminEmail = process.env.ADMIN_EMAIL || 'examflowplatform@gmail.com';
+      try {
+        const { sendEmail } = require('../utils/mailer');
+        await sendEmail({
+          to: adminEmail,
+          subject: '🚨 CRITICAL: Database Storage Limit Reached!',
+          text: `The database has reached its storage limit or encountered a disk-full/read-only state. Errors are currently being served to users. Error detail: ${err.message}`,
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 16px; color: #721c24;">
+              <h2 style="color: #721c24; margin-top: 0; font-size: 20px; font-weight: 800;">🚨 Database Storage Limit Reached!</h2>
+              <p style="font-size: 14px; line-height: 1.6;">
+                ExamFlow has detected a database storage limit/disk-full/read-only transaction error. Users are currently seeing generic failure screens to protect UI stability.
+              </p>
+              <div style="background-color: #ffffff; border-radius: 12px; border: 1px solid #f5c6cb; padding: 16px; margin: 20px 0; color: #333333; font-family: monospace; font-size: 13px; word-break: break-all;">
+                <strong>Error Details:</strong><br/>
+                ${err.message}
+              </div>
+              <p style="margin-top: 20px; font-size: 12px; font-weight: bold;">
+                Immediate action is required to clear disk space, delete old tables, or upgrade the Neon database tier.
+              </p>
+            </div>
+          `
+        });
+        console.log(`[DB Monitor] Critical limit email alert sent to admin (${adminEmail}).`);
+      } catch (mailErr) {
+        console.error('[DB Monitor] Failed to send email alert:', mailErr.message);
+      }
+    }
+
+    const limitErr = new Error('Database limit reached. Please try again later.');
+    limitErr.code = 'DB_LIMIT_EXCEEDED';
+    limitErr.originalError = err;
+    throw limitErr;
+  }
+  throw err;
+};
+
 // ─── Query Helpers ───
 
 const query = async (sqlText, params = []) => {
-  const { sql, values } = convertParams(sqlText, params);
-  const result = await pool.query(sql, values);
-  return result.rows.map(camelizeRow);
+  try {
+    const { sql, values } = convertParams(sqlText, params);
+    const result = await pool.query(sql, values);
+    return result.rows.map(camelizeRow);
+  } catch (err) {
+    await handleDbError(err);
+  }
 };
 
 const run = async (sqlText, params = []) => {
-  let { sql, values } = convertParams(sqlText, params);
-  const isInsert = sql.trim().toUpperCase().startsWith('INSERT');
-  if (isInsert && !sql.toUpperCase().includes('RETURNING')) {
-    sql += ' RETURNING id';
+  try {
+    let { sql, values } = convertParams(sqlText, params);
+    const isInsert = sql.trim().toUpperCase().startsWith('INSERT');
+    if (isInsert && !sql.toUpperCase().includes('RETURNING')) {
+      sql += ' RETURNING id';
+    }
+    const result = await pool.query(sql, values);
+    return {
+      lastID: isInsert ? (result.rows[0]?.id ?? null) : null,
+      changes: result.rowCount || 0,
+    };
+  } catch (err) {
+    await handleDbError(err);
   }
-  const result = await pool.query(sql, values);
-  return {
-    lastID: isInsert ? (result.rows[0]?.id ?? null) : null,
-    changes: result.rowCount || 0,
-  };
 };
 
 const get = async (sqlText, params = []) => {
-  const { sql, values } = convertParams(sqlText, params);
-  const result = await pool.query(sql, values);
-  return camelizeRow(result.rows[0] ?? null);
+  try {
+    const { sql, values } = convertParams(sqlText, params);
+    const result = await pool.query(sql, values);
+    return camelizeRow(result.rows[0] ?? null);
+  } catch (err) {
+    await handleDbError(err);
+  }
 };
 
 const withTransaction = async (callback) => {
   const client = await pool.connect();
   const runTx = async (sqlText, params = []) => {
-    const { sql, values } = convertParams(sqlText, params);
-    const result = await client.query(sql, values);
-    return { changes: result.rowCount || 0 };
+    try {
+      const { sql, values } = convertParams(sqlText, params);
+      const result = await client.query(sql, values);
+      return { changes: result.rowCount || 0 };
+    } catch (err) {
+      await handleDbError(err);
+    }
   };
   try {
     await client.query('BEGIN');
@@ -351,7 +438,7 @@ const withTransaction = async (callback) => {
     return result;
   } catch (err) {
     await client.query('ROLLBACK');
-    throw err;
+    await handleDbError(err);
   } finally {
     client.release();
   }

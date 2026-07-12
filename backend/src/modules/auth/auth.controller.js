@@ -276,11 +276,11 @@ const forgotPassword = async (req, res) => {
   try {
     const user = await get('SELECT * FROM Users WHERE email = ?', [email]);
     
-    // Always return same message (prevent email enumeration)
-    const safeMessage = 'If an account exists, a reset link has been sent.';
-    
     if (!user) {
-      return res.json({ message: safeMessage });
+      return res.status(404).json({ 
+        code: 'EMAIL_NOT_FOUND', 
+        error: "We couldn't find an account with this email." 
+      });
     }
 
     // ─── Rate Limiting: Check cooldown (return same message to avoid email enumeration) ───
@@ -289,8 +289,8 @@ const forgotPassword = async (req, res) => {
       const nodeCreatedAt = new Date(existing.expiresAt).getTime() - RESET_TOKEN_EXPIRY_MS;
       const elapsed = Date.now() - nodeCreatedAt;
       if (elapsed < RESEND_COOLDOWN_MS) {
-        // Return same generic message — do NOT return 429 or retryAfter which would confirm the email exists
-        return res.json({ message: safeMessage });
+        // Silently succeed — do NOT return 429 or retryAfter which would confirm the email exists
+        return res.json({ message: 'If an account exists, a reset link has been sent.' });
       }
     }
 
@@ -316,7 +316,7 @@ const forgotPassword = async (req, res) => {
     // Send the link via email
     await sendResetLink(email, resetLink);
 
-    res.json({ message: safeMessage });
+    res.json({ message: 'If an account exists, a reset link has been sent.' });
   } catch (err) {
     return handleError(res, err, 'forgotPassword');
   }

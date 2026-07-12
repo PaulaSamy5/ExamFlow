@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"e:\\\\TA\\\\Exams Site\" log --oneline -5)",
+      "Bash(git -C \"e:\\\\TA\\\\Exams Site\" remote -v)",
+      "Bash(Test-Path \"e:\\\\TA\\\\Exams Site\\\\frontend\\\\.env.production\")",
+      "Bash(git -C \"e:\\\\TA\\\\Exams Site\" status)",
+      "Bash(git -C \"e:\\\\TA\\\\Exams Site\" add backend/src/app.js backend/src/config/db.js backend/src/modules/admin/admin.controller.js backend/src/modules/submissions/submission.controller.js frontend/src/pages/student/ExamResult.jsx tests/audit.spec.js tests/playwright.config.js railway.json frontend/.gitignore frontend/public/.htaccess backend/scripts/)",
+      "Bash(git -C 'e:\\\\TA\\\\Exams Site' commit -m ' *)",
+      "Bash(git -C \"e:\\\\TA\\\\Exams Site\" push origin main)",
+      "Bash(git -C \"e:\\\\TA\\\\Exams Site\" add backend/src/config/db.js backend/src/modules/admin/admin.controller.js backend/src/modules/analytics/analytics.controller.js backend/src/modules/exams/exam.controller.js backend/src/modules/submissions/submission.controller.js backend/package.json backend/package-lock.json)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const { Pool } = require\\('pg'\\); const pool = new Pool\\(process.env.DATABASE_URL ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } } : { host: process.env.DB_HOST || 'localhost', port: process.env.DB_PORT || 5432, database: process.env.DB_NAME, user: process.env.DB_USER, password: process.env.DB_PASSWORD }\\); pool.query\\('SELECT 1'\\).then\\(\\(\\) => console.log\\('OK'\\)\\).catch\\(e => console.error\\('ERROR:', e.message\\)\\);\")",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s https://examflow-production-68ac.up.railway.app/health)"
+    ]
+  }
+}

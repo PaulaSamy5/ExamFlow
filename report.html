@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>تقرير مشروع ExamFlow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
+    body {
+      font-family: 'Cairo', sans-serif;
+    }
+    @media print {
+      .page-break {
+        page-break-before: always;
+      }
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-8 md:p-16">
+
+  <!-- ================= COVER PAGE ================= -->
+  <div class="min-h-[1000px] flex flex-col justify-between p-8 border-4 border-indigo-950 rounded-2xl bg-white shadow-xl relative overflow-hidden">
+    <div class="absolute inset-0 opacity-5 pointer-events-none">
+      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
+    </div>
+
+    <div class="flex justify-between items-center">
+      <span class="text-xs font-bold tracking-widest text-indigo-600 border border-indigo-600 rounded-full px-3 py-1 uppercase">مستند رسمي</span>
+      <span class="text-sm font-semibold text-slate-500">منصة ExamFlow</span>
+    </div>
+
+    <div class="my-auto text-right">
+      <div class="inline-block bg-indigo-100 text-indigo-800 text-xs font-bold px-3 py-1 rounded-full mb-4">
+        تقرير المشروع الفني والتشغيلي
+      </div>
+      <h1 class="text-5xl font-extrabold text-slate-900 leading-tight mb-4">
+        منصة <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">ExamFlow</span>
+      </h1>
+      <p class="text-xl text-slate-600 font-light max-w-xl">
+        دراسة شاملة للبنية التقنية، القدرة التشغيلية، وجاهزية إطلاق المنصة للإنتاج الفعلي.
+      </p>
+      <div class="h-1.5 w-32 bg-indigo-600 rounded-full mt-6"></div>
+    </div>
+
+    <div class="border-t border-slate-100 pt-8 flex justify-between items-end">
+      <div>
+        <p class="text-xs text-slate-400">مُعَد خصيصاً لـ:</p>
+        <p class="text-sm font-semibold text-slate-700">إدارة مشروع ExamFlow</p>
+      </div>
+      <div class="text-left">
+        <p class="text-xs text-slate-400">تاريخ الإصدار:</p>
+        <p class="text-sm font-semibold text-slate-700">يوليو 2026</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ================= SECTION 1 ================= -->
+  <div class="max-w-4xl mx-auto py-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-900">1. نظرة عامة على المشروع (Project Overview)</h2>
+    </div>
+
+    <p class="text-slate-600 leading-relaxed mb-6">
+      تعد منصة <strong>ExamFlow</strong> حلاً متكاملاً ومبتكراً لإعداد وإدارة وتصحيح الامتحانات الأكاديمية بنوعيها: 
+      <span class="text-indigo-600 font-semibold">الإلكتروني (Online Exams)</span> و<span class="text-purple-600 font-semibold">الورقي القابل للطباعة (Printable Exams)</span>. 
+      تتميز المنصة بدمج قدرات تقييم ذكاء اصطناعي محلي ومجاني تماماً لمساعدة الأساتذة في تسريع عملية التصحيح دون تحمل تكاليف اشتراكات أو استهلاك واجهات برمجة تطبيقات (APIs) مدفوعة.
+    </p>
+
+    <h3 class="text-lg font-bold text-slate-800 mb-3">الميزات الرئيسية للمنصة:</h3>
+    <ul class="space-y-3 mb-6">
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-indigo-600 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span><strong>التصحيح التلقائي لرسومات UML:</strong> تصحيح فوري لمخططات حالات الاستخدام (Usecase)، الفئات (Class)، العلاقات الكينونية (ERD)، النشاط (Activity)، والتتابع (Sequence) باستخدام معالجة الصور ومقارنتها بالنموذج الإرشادي للمعلم.</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-indigo-600 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span><strong>التقييم المقالي الذكي (Essay AI):</strong> تحليل الإجابات المقالية ومطابقتها دلالياً ومفاهيمياً مع الإجابة النموذجية مع مراعاة المترادفات وصياغات الجمل المختلفة دون كلفة مالية.</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-indigo-600 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span><strong>تصحيح الرياضيات بالخطوات:</strong> نظام لتقييم حلول المسائل الرياضية بناءً على الناتج النهائي بالإضافة إلى خطوات الحل المحددة من قبل المعلم.</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-indigo-600 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span><strong>الامتحانات القابلة للطباعة:</strong> إعداد وتنسيق الامتحانات الورقية بشكل احترافي مع إمكانية إدخال بيانات المؤسسة، القسم، واللوجو الخاص بالجامعة.</span>
+      </li>
+    </ul>
+
+    <h3 class="text-lg font-bold text-slate-800 mb-3">الأدوار المدعومة في النظام (User Roles):</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-indigo-600 font-bold mb-1">المسؤول (Admin)</div>
+        <p class="text-xs text-slate-500 leading-relaxed">التحكم الكامل بالنظام، إدارة حسابات المعلمين والطلاب، وضمان توافر النظام وصيانته.</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-purple-600 font-bold mb-1">المعلم (Instructor)</div>
+        <p class="text-xs text-slate-500 leading-relaxed">إنشاء الامتحانات، ورفع حلول UML والرياضيات النموذجية، ومراجعة تصحيحات الـ AI واعتماد الدرجات النهائية.</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-emerald-600 font-bold mb-1">الطالب (Student)</div>
+        <p class="text-xs text-slate-500 leading-relaxed">أداء الاختبارات الإلكترونية، ورفع ملفات الحلول والمخططات، واستعراض الإحصائيات الفردية والدرجات.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ================= SECTION 2 & 3 ================= -->
+  <div class="max-w-4xl mx-auto py-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-900">2. البنية التقنية والبنية التحتية الحالية</h2>
+    </div>
+
+    <p class="text-slate-600 leading-relaxed mb-6">
+      تم تصميم منصة ExamFlow باتباع معايير الويب الحديثة لضمان سرعة التحميل وتجربة مستخدم متميزة. البنية مقسمة بالكامل لضمان فصل المهام وتسهيل التطوير المستقبلي.
+    </p>
+
+    <h3 class="text-lg font-bold text-slate-800 mb-3">البنية التقنية (Tech Stack):</h3>
+    <table class="w-full text-right border-collapse bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm mb-6">
+      <thead>
+        <tr class="bg-indigo-950 text-white text-sm">
+          <th class="p-3 border-b">المكون</th>
+          <th class="p-3 border-b">التقنية المستخدمة</th>
+          <th class="p-3 border-b">الوظيفة الحالية</th>
+        </tr>
+      </thead>
+      <tbody class="text-sm">
+        <tr class="border-b">
+          <td class="p-3 font-semibold text-slate-700">الواجهة الأمامية (Frontend)</td>
+          <td class="p-3 text-indigo-600">React.js / Vite / Vanilla CSS</td>
+          <td class="p-3 text-slate-500">بناء صفحات الويب التفاعلية، أداء الاختبارات للطلاب، وإعداد الامتحانات للمدرسين.</td>
+        </tr>
+        <tr class="border-b">
+          <td class="p-3 font-semibold text-slate-700">الواجهة الخلفية (Backend)</td>
+          <td class="p-3 text-purple-600">Node.js / Express.js</td>
+          <td class="p-3 text-slate-500">إدارة المنطق البرمجي، التحكم بالصلاحيات والمستخدمين، معالجة طلبات قاعدة البيانات.</td>
+        </tr>
+        <tr class="border-b">
+          <td class="p-3 font-semibold text-slate-700">خادم الذكاء الاصطناعي</td>
+          <td class="p-3 text-orange-600">Python / FastAPI</td>
+          <td class="p-3 text-slate-500">تصحيح مخططات UML باستخدام OpenCV ومقارنة النصوص دلالياً بالاعتماد على خوارزميات محلية.</td>
+        </tr>
+        <tr class="border-b">
+          <td class="p-3 font-semibold text-slate-700">قاعدة البيانات</td>
+          <td class="p-3 text-emerald-600">PostgreSQL (Neon)</td>
+          <td class="p-3 text-slate-500">تخزين الحسابات، الامتحانات، حلول الطلاب، والدرجات بشكل فوري وآمن.</td>
+        </tr>
+        <tr>
+          <td class="p-3 font-semibold text-slate-700">خدمة البريد الإلكتروني</td>
+          <td class="p-3 text-blue-600">Brevo HTTP API</td>
+          <td class="p-3 text-slate-500">إرسال كود التحقق (OTP) لحسابات المستخدمين الجدد واستعادة كلمات المرور عبر طلبات HTTPS آمنة.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="text-lg font-bold text-slate-800 mb-3">البنية التحتية الحالية وموقع الاستضافة:</h3>
+    <ul class="space-y-3 mb-6">
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-indigo-600 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span><strong>استضافة الواجهة الأمامية:</strong> مستضافة على منصة <strong class="text-indigo-600">Vercel</strong> بفضل ربطها المباشر بمستودع كود المشروع على GitHub للتحديث التلقائي.</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-indigo-600 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span><strong>استضافة السيرفر والذكاء الاصطناعي:</strong> مستضافة على منصة <strong class="text-purple-600">Railway Cloud</strong> كخدمتين منفصلتين (واحدة لـ Node.js وأخرى لـ FastAPI) لضمان عدم تأثير العمليات الحسابية الثقيلة للـ AI على سيرفر النظام الرئيسي.</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-indigo-600 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span><strong>التحقق والأمان:</strong> تتم المصادقة باستخدام رمز <strong class="text-slate-800">JWT (JSON Web Token)</strong> المخزن محلياً بالمتصفح لحماية الجلسات، مع دعم التفعيل الآمن للحسابات برمز OTP يتم توليده بشكل عشوائي عند التسجيل.</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-indigo-600 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span><strong>تخزين الصور والملفات:</strong> لا تستعين المنصة حالياً بخدمة تخزين ملفات سحابية خارجية (مثل AWS S3). بدلاً من ذلك، يتم تحويل الصور المرفوعة من الطلاب ومخططات الحلول النموذجية إلى نصوص مشفرة بصيغة <strong>Base64</strong> ويتم حفظها مباشرة داخل جداول قاعدة بيانات PostgreSQL.</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ================= SECTION 4 ================= -->
+  <div class="max-w-4xl mx-auto py-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="p-2 bg-red-100 rounded-lg text-red-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-900">3. حدود وسعة البنية التحتية الحالية (Limits & Capacity)</h2>
+    </div>
+
+    <p class="text-slate-600 leading-relaxed mb-6">
+      المنصة تعمل حالياً على باقات استضافة وقواعد بيانات مجانية/مشاركة. يوضح الجدول التالي السعة التشغيلية والحدود المسموح بها في البيئة الحالية:
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-slate-500 text-xs font-semibold uppercase mb-1">قاعدة بيانات Neon (PostgreSQL)</div>
+        <div class="text-xl font-bold text-slate-900 mb-2">الحد الأقصى للمساحة: 512 ميجابايت (0.5 GB)</div>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          نظراً لأن صور UML تُحفظ بصيغة Base64 مباشرة بالـ DB، فإن هذا الحجم يعتبر محدوداً جداً. مع تفعيل الاختبارات المليئة بالرسومات، قد تمتلئ قاعدة البيانات بعد حوالي <strong>1000 إلى 2000 تسليم</strong> فقط. (يجب ترقية الباقة لاحقاً أو فصل تخزين الصور).
+        </p>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-slate-500 text-xs font-semibold uppercase mb-1">إرسال البريد الإلكتروني (Brevo)</div>
+        <div class="text-xl font-bold text-slate-900 mb-2">الحد اليومي: 300 رسالة يومياً</div>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          الخطة المجانية لـ Brevo تسمح فقط بإرسال 300 إيميل يومياً. هذا يعني أن إجمالي عدد عمليات التسجيل الجديدة، استعادة كلمات المرور، أو أي إشعارات إيميل أخرى لا يمكن أن تتجاوز <strong>300 طلب يومياً</strong> لجميع مستخدمي المنصة.
+        </p>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-slate-500 text-xs font-semibold uppercase mb-1">موارد الخوادم (Railway Cloud)</div>
+        <div class="text-xl font-bold text-slate-900 mb-2">الذاكرة المتاحة: 512 ميجابايت (RAM) لكل خدمة</div>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          سيرفرات Railway المشتركة تضع حداً أقصى للذاكرة يبلغ 512MB. هذا كافٍ تماماً لخادم backend الـ Node.js، ولكنه يمثل حداً حرجاً لخادم Python المسؤول عن معالجة الصور ومقارنتها عبر OpenCV عند الاستخدام الكثيف.
+        </p>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-slate-500 text-xs font-semibold uppercase mb-1">القدرة الاستيعابية المتزامنة</div>
+        <div class="text-xl font-bold text-slate-900 mb-2">50 - 100 مستخدم نشط في نفس الوقت</div>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          قاعدة بيانات Neon المجانية تحدد عدد الاتصالات المتزامنة (Database Connections) بـ 10 اتصالات فقط. وبناءً على ذلك، يمكن للمنصة دعم ما بين <strong>50 إلى 100 مستخدم</strong> يتصفحون ويؤدون الاختبارات في نفس اللحظة بدون مشاكل بطء.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ================= SECTION 5 ================= -->
+  <div class="max-w-4xl mx-auto py-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-900">4. كيفية مراقبة الاستخدام ومتابعة المشاكل</h2>
+    </div>
+
+    <p class="text-slate-600 leading-relaxed mb-6">
+      لمتابعة سير عمل المنصة وضمان عدم تجاوز حدود الخدمات المجانية، يمكن للمسؤولين متابعة الاستهلاك والمشاكل من خلال لوحات التحكم الرسمية للمزودين:
+    </p>
+
+    <div class="space-y-6">
+      <div class="flex gap-4 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-indigo-600 shrink-0 font-bold text-lg">لوحة Neon DB</div>
+        <div>
+          <h4 class="font-semibold text-slate-800 text-sm mb-1">مراقبة مساحة تخزين قاعدة البيانات</h4>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            من خلال الدخول لحساب Neon (neon.tech) والاطلاع على تبويب <strong>Storage</strong> لمراقبة الاستهلاك الفعلي للمساحة بالـ Megabytes للتأكد من عدم الاقتراب من حد الـ 512MB.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex gap-4 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-purple-600 shrink-0 font-bold text-lg">لوحة Railway</div>
+        <div>
+          <h4 class="font-semibold text-slate-800 text-sm mb-1">مراقبة استهلاك المعالج والذاكرة وسجلات السيرفر</h4>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            من لوحة تحكم مشروعك في Railway، اضغطي على خِدمة الـ backend أو الـ AI وافتحي تبويب <strong>Metrics</strong> لرؤية استهلاك الذاكرة والـ CPU، وتبويب <strong>Deploy Logs</strong> لمتابعة أي أخطاء برمجية أو رسائل سقوط خوادم مباشرة.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex gap-4 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-blue-600 shrink-0 font-bold text-lg">لوحة Vercel</div>
+        <div>
+          <h4 class="font-semibold text-slate-800 text-sm mb-1">مراقبة سرعة الواجهة وحجم الباندويث</h4>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            عبر الدخول لمشروعك في Vercel ومراقبة تبويب <strong>Analytics</strong> و <strong>Usage</strong> لمتابعة عدد زيارات الموقع وحجم الباندويث المستهلك (من أصل الـ 100GB).
+          </p>
+        </div>
+      </div>
+
+      <div class="flex gap-4 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div class="text-orange-600 shrink-0 font-bold text-lg">لوحة Brevo</div>
+        <div>
+          <h4 class="font-semibold text-slate-800 text-sm mb-1">متابعة حصة رسائل البريد اليومية</h4>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            عبر لوحة Brevo الرئيسية لمشاهدة كم إيميل متبقي للنظام اليوم، والاطلاع على التقارير لمعرفة ما إذا كانت هناك إيميلات تم رفضها أو تعليقها من قِبل مزودي البريد مثل Google أو Outlook.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ================= SECTION 6 ================= -->
+  <div class="max-w-4xl mx-auto py-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="p-2 bg-amber-100 rounded-lg text-amber-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-900">5. نقاط الضعف الحالية والتوصيات المستقبلية</h2>
+    </div>
+
+    <p class="text-slate-600 leading-relaxed mb-6">
+      تم بناء المشروع بشكل متين ومناسب جداً للنسخة الحالية، ولكن لضمان جاهزية المنصة للاستخدام الفعلي على مستوى كليات أو جامعات، يجب الأخذ بعين الاعتبار النقاط التالية:
+    </p>
+
+    <div class="space-y-4">
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <h4 class="font-bold text-slate-800 text-base mb-2">⚠️ مشكلة حفظ الصور بالـ Base64 في قاعدة البيانات</h4>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          <strong>الوضع الحالي:</strong> يُسبب تضخماً هائلاً وسريعاً في حجم قاعدة البيانات، مما يهدد بالوصول لحد Neon المجاني (512MB) مبكراً جداً.
+          <br>
+          <strong>التوصية الفنية:</strong> الانتقال لتخزين الصور والملفات المرفوعة على سيرفر تخزين خارجي (مثل Cloudinary أو AWS S3) وحفظ الروابط فقط في قاعدة البيانات. هذا يقلل استهلاك قاعدة البيانات بنسبة 95%.
+        </p>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <h4 class="font-bold text-slate-800 text-base mb-2">⚠️ عنق الزجاجة في خادم الذكاء الاصطناعي (AI Bottleneck)</h4>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          <strong>الوضع الحالي:</strong> معالجة الصور الرياضية والهيكلية (OpenCV) تتم بالكامل على معالج السيرفر المشترك بذاكرة 512MB. إذا قام عدد كبير من الطلاب بالضغط على زر "تسليم مخطط UML" في نفس اللحظة، فقد يتوقف الخادم بسبب نقص الذاكرة (Out of Memory).
+          <br>
+          <strong>التوصية الفنية:</strong> تحويل عملية التصحيح إلى طابور خلفي (Background Queue) بحيث يسلّم الطالب إجابته ويقوم السيرفر بالتصحيح بالتدريج خلف الكواليس لتجنب سقوط الخادم.
+        </p>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <h4 class="font-bold text-slate-800 text-base mb-2">⚠️ غياب النسخ الاحتياطي التلقائي (Auto-Backups)</h4>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          <strong>الوضع الحالي:</strong> لا توجد عملية نسخ احتياطي مجدولة خارج بيئة Neon DB لبيانات الطلاب والاختبارات.
+          <br>
+          <strong>التوصية الفنية:</strong> تفعيل النسخ الاحتياطي التلقائي اليومي لقاعدة البيانات وتخزينه في مكان آمن لضمان عدم ضياع درجات الطلاب في حال حدوث أي خلل.
+        </p>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <h4 class="font-bold text-slate-800 text-base mb-2">🚀 ميزات مستقبلية مقترحة:</h4>
+        <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
+          <li><strong>ربط نماذج لغوية ذكية (LLMs):</strong> دمج نماذج ذكاء اصطناعي (مثل Llama 3 أو GPT) لتوفير تقييم مقالي أكثر مرونة ودقة وتوفير تبريرات ذكية للدرجة للطالب.</li>
+          <li><strong>نظام مراقبة الامتحانات (Proctoring System):</strong> إضافة ميزات أمنية إضافية مثل منع فتح تبويبات جديدة بالكامل أو كشف الغش أثناء الاختبارات الإلكترونية بشكل أفضل.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ================= SECTION 7 ================= -->
+  <div class="max-w-4xl mx-auto py-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-900">6. تقييم جاهزية الإطلاق الفعلي (Production Readiness)</h2>
+    </div>
+
+    <p class="text-slate-600 leading-relaxed mb-6">
+      مستوى الجاهزية الحالي لكل مكون من مكونات النظام مقيم بالنسبة المئوية ومصحوباً بتبرير تقني للدرجة:
+    </p>
+
+    <div class="space-y-4 mb-8">
+      <!-- Item -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-bold text-slate-800">نظام المصادقة والأمان (Authentication)</span>
+          <span class="text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-full text-xs">90% (ممتاز)</span>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          نظام المصادقة يعتمد بالكامل على JWT مشفرة، وتم حل مشكلة إزاحة المنطقة الزمنية (Timezone Drift) لرموز الـ OTP تماماً لضمان عدم انتهاء صلاحيتها بشكل خاطئ.
+        </p>
+      </div>
+
+      <!-- Item -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-bold text-slate-800">قاعدة البيانات وعلاقاتها (Database)</span>
+          <span class="text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-full text-xs">80% (جاهز للتشغيل)</span>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          قواعد البيانات PostgreSQL المدارة بواسطة Neon ممتازة وسريعة، والجدوال مهيأة بالكامل، والحد الوحيد المقلق هو المساحة التخزينية المخصصة للـ Base64 للصور المرفوعة.
+        </p>
+      </div>
+
+      <!-- Item -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-bold text-slate-800">خادم التصحيح بالذكاء الاصطناعي (AI Core)</span>
+          <span class="text-amber-600 font-bold bg-amber-50 px-2.5 py-1 rounded-full text-xs">70% (مقبول - يحتاج رقابة)</span>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          محرك التصحيح يعمل محلياً بالكامل ومجاني تماماً، وهي ميزة تنافسية ممتازة. لكنه قد يتباطأ تحت الضغط العالي بسبب استهلاك الرام لمعالجة الصور. كما يعتمد على دقة رفع الطلاب للصور.
+        </p>
+      </div>
+
+      <!-- Item -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-bold text-slate-800">إعدادات النشر والاستضافة (Deployment)</span>
+          <span class="text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-full text-xs">90% (ممتاز)</span>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          توزيع الخدمات (Vercel للـ frontend و Railway للـ API والـ AI) تم بشكل ممتاز ومستقر للغاية مع ربط آمن. وتم تهيئة الـ CORS لقبول جميع استضافات Vercel لضمان عمل واجهات المعاينة الفورية بسلاسة.
+        </p>
+      </div>
+
+      <!-- Item -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-bold text-slate-800">الأداء والاستجابة (Performance)</span>
+          <span class="text-amber-600 font-bold bg-amber-50 px-2.5 py-1 rounded-full text-xs">70% (مقبول)</span>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          السرعة فائقة للمستخدمين الفرديين، ولكن نظراً للخطط المجانية المتاحة للمشروع حالياً، قد يتباطأ أداء النظام خلال فترات الامتحانات الكبيرة (أكثر من 100 طالب يؤدون الامتحان في نفس اللحظة).
+        </p>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

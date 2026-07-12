@@ -1049,7 +1049,7 @@ const AdminDashboard = () => {
                 ))}
               </div>
 
-              {/* ── Database Health ── */}
+               {/* ── Database Health ── */}
               <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-8 space-y-5">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
@@ -1063,13 +1063,17 @@ const AdminDashboard = () => {
                 {[
                   { k: 'DB Engine', v: sysInfo?.database?.version || '—' },
                   { k: 'Active Tables', v: sysInfo?.database?.tables ? `${sysInfo.database.tables} tables` : '—' },
-                  { k: 'Database Size', v: sysInfo?.database?.sizeFormatted || '—' },
+                  { 
+                    k: 'Database Size', 
+                    v: sysInfo?.database?.sizeFormatted || '—',
+                    alertStyle: sysInfo?.database?.storageAlert?.alert ? 'text-rose-500 dark:text-rose-400 font-bold' : ''
+                  },
                   { k: 'Connection', v: 'SSL / Encrypted' },
                   { k: 'Status', v: sysInfo?.database?.status === 'online' ? '✓ Connected' : '✗ Offline' },
                 ].map((item) => (
                   <div key={item.k} className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{item.k}</span>
-                    <span className="text-sm font-black text-slate-900 dark:text-white">{item.v}</span>
+                    <span className={`text-sm ${item.alertStyle || 'font-black text-slate-900 dark:text-white'}`}>{item.v}</span>
                   </div>
                 ))}
               </div>
@@ -1122,10 +1126,26 @@ const AdminDashboard = () => {
               </div>
             </div>
 
+            {/* ── Database Low Space Warning ── */}
+            {sysInfo?.database?.storageAlert?.alert && (
+              <div className="p-5 rounded-2xl border border-rose-500/20 bg-rose-500/5 flex items-start gap-4 animate-pulse mb-6">
+                <div className="p-2 rounded-xl bg-rose-500/10 text-rose-500 shrink-0 mt-0.5 animate-bounce">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-rose-600 dark:text-rose-400">CRITICAL: Database Storage Low!</p>
+                  <p className="text-xs text-rose-500/80 dark:text-rose-400/80 font-medium mt-1 leading-relaxed">
+                    Remaining storage: <strong className="text-rose-700 dark:text-rose-300">{sysInfo.database.storageAlert.remainingMB} MB</strong> / 512 MB.
+                    The database is approaching its capacity limit. Please clean up old submissions/analytics or contact administration immediately.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* ── Capacity Warning Banner ── */}
             {sysInfo?.database?.sizeFormatted && (
-              <div className="p-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 flex items-start gap-4">
-                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 shrink-0 mt-0.5">
+              <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 flex items-start gap-4">
+                <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0 mt-0.5">
                   <AlertTriangle className="h-5 w-5" />
                 </div>
                 <div>

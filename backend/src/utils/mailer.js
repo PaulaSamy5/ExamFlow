@@ -176,4 +176,4 @@ const sendResetLink = async (recipientEmail, resetLink) => {
   });
 };
 
-module.exports = { sendOTP, sendResetLink };
+module.exports = { sendEmail, sendOTP, sendResetLink };

@@ -1,4 +1,5 @@
 const { query, get, run, withTransaction } = require('../../config/db');
+const dbMonitor = require('../../services/dbMonitor');
 
 // ─── Admin Dashboard Analytics ───
 const getDashboardStats = async (req, res) => {
@@ -245,6 +246,7 @@ const getSystemInfo = async (req, res) => {
       tables: dbTables,
       sizeFormatted: dbSizeMB,
       status: dbStatus,
+      storageAlert: dbMonitor.getStatus(),
     },
     platform: {
       totalUsers,
