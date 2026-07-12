@@ -1847,8 +1847,18 @@ const CreateExam = () => {
                         className="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                         value={exam.startTime}
                         onChange={e => {
-                          setExam({ ...exam, startTime: e.target.value });
+                          let val = e.target.value;
+                          if (val && val < minStartDatetimeLocal) {
+                            val = minStartDatetimeLocal;
+                          }
+                          setExam({ ...exam, startTime: val });
                           setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                        }}
+                        onBlur={e => {
+                          let val = e.target.value;
+                          if (val && val < minStartDatetimeLocal) {
+                            setExam(prev => ({ ...prev, startTime: minStartDatetimeLocal }));
+                          }
                         }}
                       />
                     </div>
@@ -1871,11 +1881,22 @@ const CreateExam = () => {
                         }`}
                         value={exam.endTime}
                         onChange={e => {
-                          setExam({ ...exam, endTime: e.target.value });
+                          let val = e.target.value;
+                          if (val && val < minEndDatetimeLocal) {
+                            val = minEndDatetimeLocal;
+                          }
+                          setExam({ ...exam, endTime: val });
                           setErrors(prev => ({ ...prev, endTime: null }));
                         }}
-                        onBlur={() => {
-                          if (!exam.endTime) setErrors(prev => ({ ...prev, endTime: 'End time is required' }));
+                        onBlur={e => {
+                          if (!exam.endTime) {
+                            setErrors(prev => ({ ...prev, endTime: 'End time is required' }));
+                          } else {
+                            let val = e.target.value;
+                            if (val && val < minEndDatetimeLocal) {
+                              setExam(prev => ({ ...prev, endTime: minEndDatetimeLocal }));
+                            }
+                          }
                         }}
                       />
 
