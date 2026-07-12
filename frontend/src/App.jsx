@@ -55,10 +55,13 @@ function App() {
 
   const handleLogout = () => {
     setIsLoggingOut(true);
-    // Clear user data immediately from context but skip context-level redirect
-    logout('/', true);
-    // Wait for the transition to finish and navigate to the landing page '/'
+    // Delay clearing the session until after the animation finishes.
+    // If we call logout() immediately, setUser(null) triggers route guards
+    // which redirect to /login before our navigate('/') fires — causing a
+    // jarring double-redirect. By deferring the clear + navigate together
+    // we keep the user object alive for the duration of the overlay.
     setTimeout(() => {
+      logout('/', true); // clears localStorage + context, skips built-in navigate
       setIsLoggingOut(false);
       navigate('/');
     }, 800);

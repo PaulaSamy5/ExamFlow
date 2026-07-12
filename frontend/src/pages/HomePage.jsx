@@ -154,7 +154,7 @@ function HeroSection() {
           transition={{ duration: 0.8, delay: 0.5 }}
           className="text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed"
         >
-          Create exams, evaluate answers with AI, and review UML diagrams — all in one beautiful, easy-to-use platform built for modern education.
+          Create exams, evaluate answers with AI, and review UML diagrams all in one beautiful, easy-to-use platform built for modern education.
         </motion.p>
 
         {/* CTA Buttons */}
