@@ -538,7 +538,60 @@ html.dark .hero-gradient-text {
   animation: logoutScaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+
 .animate-loading-bar {
   animation: loadingBarProgress 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* ═══ Mobile Nav Drawer Animation ═══ */
+
+/* Drawer wrapper — controls slide + fade in/out via CSS grid trick */
+.mobile-nav-drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    grid-template-rows 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity           250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-nav-drawer.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Inner child must have min-height: 0 for the grid trick to work */
+.mobile-nav-drawer > .mobile-nav-drawer-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Content inside the drawer — upward slide as it enters */
+.mobile-nav-drawer-content {
+  transform: translateY(-10px);
+  opacity: 0;
+  transition:
+    transform 300ms cubic-bezier(0.4, 0, 0.2, 1) 50ms,
+    opacity   250ms cubic-bezier(0.4, 0, 0.2, 1) 50ms;
+}
+
+.mobile-nav-drawer.open .mobile-nav-drawer-content {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* ── Hamburger ↔ Close icon morph ── */
+.hamburger-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity   150ms ease;
+}
+
+.hamburger-icon.is-open {
+  transform: rotate(90deg);
+}

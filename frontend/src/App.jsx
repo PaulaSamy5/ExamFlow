@@ -186,16 +186,20 @@ function App() {
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-transparent dark:hover:border-slate-700"
+                aria-label="Toggle navigation menu"
+                aria-expanded={isMobileMenuOpen}
               >
-                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                <span className={`hamburger-icon ${isMobileMenuOpen ? 'is-open' : ''}`}>
+                  {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </span>
               </button>
             </div>
           </div>
 
-          {/* Mobile Dropdown Panel */}
-          {isMobileMenuOpen && (
-            <div className="md:hidden border-t border-slate-200/80 dark:border-indigo-500/10 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300">
-              <div className="px-4 py-6 space-y-6">
+          {/* Mobile Dropdown Panel — always rendered, animated via CSS class */}
+          <div className={`md:hidden mobile-nav-drawer border-t border-slate-200/80 dark:border-indigo-500/10 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-xl${isMobileMenuOpen ? ' open' : ''}`}>
+            <div className="mobile-nav-drawer-inner">
+              <div className="mobile-nav-drawer-content px-4 py-6 space-y-6">
                 {user ? (
                   <div className="space-y-6">
                     {/* User Profile Card */}
@@ -228,7 +232,7 @@ function App() {
                         onClick={handleLogout}
                         className="w-full h-12 rounded-2xl border border-rose-200/50 dark:border-rose-500/10 bg-rose-50 dark:bg-rose-500/15 text-xs font-black uppercase tracking-[0.2em] text-rose-600 dark:text-rose-400 flex items-center justify-center gap-2 transition-all hover:bg-rose-100 dark:hover:bg-rose-500/25"
                       >
-                        <LogOut className="h-4.5 w-4.5" />
+                        <LogOut className="h-4 w-4" />
                         Sign Out
                       </button>
                     </div>
@@ -253,7 +257,7 @@ function App() {
                 )}
               </div>
             </div>
-          )}
+          </div>
         </nav>
       )}
 
