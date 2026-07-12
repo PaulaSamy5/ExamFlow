@@ -91,6 +91,7 @@ const COLUMN_MAP = {
   loggedinusers:           'loggedInUsers',
   pageviews:               'pageViews',
   uniqueviews:             'uniqueViews',
+  questioncount:           'questionCount',
 };
 
 const camelizeRow = (row) => {

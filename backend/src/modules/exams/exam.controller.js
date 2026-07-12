@@ -125,7 +125,7 @@ const getExams = async (req, res) => {
         ...e,
         examMeta: parsedMeta,
         instructor: { name: e.instructorName },
-        _count: { questions: e.questionCount }
+        _count: { questions: parseInt(e.questionCount, 10) || 0 }
       };
     });
 
