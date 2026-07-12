@@ -2464,63 +2464,85 @@ const CreateExam = () => {
               })()}
 
               {/* ── Duration ── */}
-              <div className={`${exam.examType === 'PRINTABLE_ONLY' ? '' : 'border-t border-slate-100 dark:border-slate-800 pt-5'}`}>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400">
-                      <Clock className="h-3.5 w-3.5" />
+              {(() => {
+                const durationEmpty = !exam.duration || parseFloat(exam.duration) <= 0;
+                const durationErr = durationEmpty
+                  ? errors.duration || null
+                  : null;
+                // Show border error immediately if errors.duration is set OR field was cleared while was previously valid
+                const showDurationError = !!errors.duration;
+
+                return (
+                  <div className={`${exam.examType === 'PRINTABLE_ONLY' ? '' : 'border-t border-slate-100 dark:border-slate-800 pt-5'}`}>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className={`p-1.5 rounded-lg transition-colors ${showDurationError ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500' : 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400'}`}>
+                          <Clock className="h-3.5 w-3.5" />
+                        </div>
+                        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          Exam Duration
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 50"
+                          className={`w-28 h-10 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm font-semibold text-center transition-all focus:outline-none focus:ring-2 ${
+                            showDurationError
+                              ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-500/20 bg-rose-50/50 dark:bg-rose-950/10'
+                              : 'border-slate-200 dark:border-slate-700 focus:border-violet-400 focus:ring-violet-500/20'
+                          }`}
+                          value={exam.duration}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setExam({ ...exam, duration: val });
+                            // Live clear: if the user typed a valid number, clear the error immediately
+                            if (val && parseFloat(val) > 0) {
+                              setErrors(prev => ({ ...prev, duration: null }));
+                            } else {
+                              // Live set: show error as soon as field becomes empty/invalid
+                              setErrors(prev => ({ ...prev, duration: 'Exam duration is required' }));
+                            }
+                          }}
+                          onBlur={() => {
+                            if (!exam.duration || parseFloat(exam.duration) <= 0)
+                              setErrors(prev => ({ ...prev, duration: 'Exam duration is required' }));
+                          }}
+                        />
+                        <span className="text-sm text-slate-500 font-medium">minutes</span>
+                        {exam.duration > 0 && (
+                          <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                            · {Math.floor(exam.duration / 60) > 0 ? `${Math.floor(exam.duration / 60)}h ` : ''}{exam.duration % 60 > 0 ? `${exam.duration % 60}m` : ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                      Exam Duration
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2 flex-1">
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="e.g. 50"
-                      className={`w-28 h-10 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm font-semibold text-center transition-all focus:outline-none focus:ring-2 focus:ring-violet-500/20 ${
-                        errors.duration
-                          ? 'border-rose-400 focus:border-rose-400 bg-rose-50/50 dark:bg-rose-950/10'
-                          : 'border-slate-200 dark:border-slate-700 focus:border-violet-400'
-                      }`}
-                      value={exam.duration}
-                      onChange={e => {
-                        setExam({ ...exam, duration: e.target.value });
-                        if (errors.duration) setErrors(prev => ({ ...prev, duration: null }));
-                      }}
-                      onBlur={() => {
-                        if (!exam.duration || parseFloat(exam.duration) <= 0)
-                          setErrors(prev => ({ ...prev, duration: 'Valid duration is required' }));
-                      }}
-                    />
-                    <span className="text-sm text-slate-500 font-medium">minutes</span>
-                    {exam.duration > 0 && (
-                      <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                        · {Math.floor(exam.duration / 60) > 0 ? `${Math.floor(exam.duration / 60)}h ` : ''}{exam.duration % 60 > 0 ? `${exam.duration % 60}m` : ''}
-                      </span>
+
+                    {/* Inline error message */}
+                    {errors.duration && (
+                      <div className="mt-2 flex items-center gap-2 px-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <AlertCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                        <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{errors.duration}</p>
+                      </div>
+                    )}
+                    {/* Duration mismatch friendly warning */}
+                    {durationMismatch && (
+                      <div className="mt-3 flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 animate-in fade-in slide-in-from-top-1 duration-300">
+                        <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                            Please provide enough time for students to complete the exam.
+                          </p>
+                          <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                            The selected time window is <strong>{durationMismatch.windowMins} min</strong> but the exam duration is <strong>{exam.duration} min</strong> — {durationMismatch.shortfall} minute{durationMismatch.shortfall !== 1 ? 's' : ''} short. Extend the end time or shorten the duration.
+                          </p>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  {errors.duration && (
-                    <p className="text-xs text-rose-500 font-medium">{errors.duration}</p>
-                  )}
-                </div>
-
-                {/* Duration mismatch friendly warning */}
-                {durationMismatch && (
-                  <div className="mt-3 flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 animate-in fade-in slide-in-from-top-1 duration-300">
-                    <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
-                        Please provide enough time for students to complete the exam.
-                      </p>
-                      <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
-                        The selected time window is <strong>{durationMismatch.windowMins} min</strong> but the exam duration is <strong>{exam.duration} min</strong> — {durationMismatch.shortfall} minute{durationMismatch.shortfall !== 1 ? 's' : ''} short. Extend the end time or shorten the duration.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
+                );
+              })()}
             </div>
 
 
