@@ -1786,7 +1786,7 @@ const CreateExam = () => {
       const missing = [];
       if (!exam.title.trim()) missing.push("Exam Title");
       if (!exam.duration || parseFloat(exam.duration) <= 0) missing.push("Exam Duration");
-      
+
       const isPrintable = exam.examType === 'PRINTABLE_ONLY';
       if (!isPrintable) {
         if (!exam.startTime) missing.push("Start Time");
@@ -1795,20 +1795,72 @@ const CreateExam = () => {
       }
 
       if (missing.length > 0) {
-        toast.error(`Almost there! Please complete: ${missing.join(', ')}`);
+        toast.custom((t) => (
+          <div className={`flex items-start gap-3 px-4 py-3.5 rounded-2xl shadow-xl border max-w-sm w-full
+            bg-amber-50 dark:bg-[#1e1a0e] border-amber-200 dark:border-amber-500/30
+            transition-all duration-300 ${t.visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}
+          >
+            <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+              <AlertCircle className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-900 dark:text-amber-200 mb-1.5">
+                Almost there! Please complete:
+              </p>
+              <ul className="space-y-1">
+                {missing.map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ), { duration: 4000 });
         validateStep1();
         return;
       }
 
       // Block if duration is incompatible with the window (friendly gate)
       if (durationMismatch) {
-        toast.error("Please provide enough time for students to complete the exam. The selected time window is shorter than the exam duration.");
+        toast.custom((t) => (
+          <div className={`flex items-start gap-3 px-4 py-3.5 rounded-2xl shadow-xl border max-w-sm w-full
+            bg-amber-50 dark:bg-[#1e1a0e] border-amber-200 dark:border-amber-500/30
+            transition-all duration-300 ${t.visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}
+          >
+            <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+              <AlertCircle className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-900 dark:text-amber-200 mb-0.5">Time window too short</p>
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                The selected window is {durationMismatch.windowMins} min but the exam duration is {exam.duration} min. Extend the end time or shorten the duration.
+              </p>
+            </div>
+          </div>
+        ), { duration: 5000 });
         validateStep1();
         return;
       }
 
       if (!validateStep1()) {
-        toast.error("Please correct the schedule errors before moving to Construction.");
+        toast.custom((t) => (
+          <div className={`flex items-start gap-3 px-4 py-3.5 rounded-2xl shadow-xl border max-w-sm w-full
+            bg-rose-50 dark:bg-[#1e0f0f] border-rose-200 dark:border-rose-500/30
+            transition-all duration-300 ${t.visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}
+          >
+            <div className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">
+              <AlertCircle className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-rose-900 dark:text-rose-200 mb-0.5">Schedule conflict</p>
+              <p className="text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
+                Please fix the schedule errors highlighted below before continuing.
+              </p>
+            </div>
+          </div>
+        ), { duration: 4000 });
         return;
       }
       setStep(2);
