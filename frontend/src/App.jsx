@@ -56,14 +56,14 @@ function App() {
   const handleLogout = () => {
     setIsLoggingOut(true);
     // Delay clearing the session until after the animation finishes.
-    // If we call logout() immediately, setUser(null) triggers route guards
-    // which redirect to /login before our navigate('/') fires — causing a
-    // jarring double-redirect. By deferring the clear + navigate together
-    // we keep the user object alive for the duration of the overlay.
     setTimeout(() => {
-      logout('/', true); // clears localStorage + context, skips built-in navigate
-      setIsLoggingOut(false);
+      // Navigate to the public landing page first to avoid triggering protected route guards.
       navigate('/');
+      // Clear the session on the next tick once navigation has initiated.
+      setTimeout(() => {
+        logout('/', true);
+        setIsLoggingOut(false);
+      }, 50);
     }, 800);
   };
 
