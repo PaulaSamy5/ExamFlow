@@ -1783,32 +1783,32 @@ const CreateExam = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (step === 1) {
-      if (!exam.title.trim()) {
-        toast.error("Exam title is required");
+      const missing = [];
+      if (!exam.title.trim()) missing.push("Exam Title");
+      if (!exam.duration || parseFloat(exam.duration) <= 0) missing.push("Exam Duration");
+      
+      const isPrintable = exam.examType === 'PRINTABLE_ONLY';
+      if (!isPrintable) {
+        if (!exam.startTime) missing.push("Start Time");
+        if (!exam.endTime) missing.push("End Time");
+        if (exam.showResults === null) missing.push("Result Visibility");
+      }
+
+      if (missing.length > 0) {
+        toast.error(`Almost there! Please complete: ${missing.join(', ')}`);
         validateStep1();
         return;
       }
-      if (!exam.duration || parseFloat(exam.duration) <= 0) {
-        toast.error("Exam duration is required");
-        validateStep1();
-        return;
-      }
+
       // Block if duration is incompatible with the window (friendly gate)
       if (durationMismatch) {
         toast.error("Please provide enough time for students to complete the exam. The selected time window is shorter than the exam duration.");
         validateStep1();
         return;
       }
+
       if (!validateStep1()) {
-        const isPrintable = exam.examType === 'PRINTABLE_ONLY';
-        if (!isPrintable) {
-          if (!exam.startTime) toast.error("Start time is required");
-          else if (!exam.endTime) toast.error("End time is required");
-          else if (exam.showResults === null) toast.error("Please choose result visibility");
-          else toast.error("Please correct the errors before moving to Construction.");
-        } else {
-          toast.error("Please correct the errors before moving to Construction.");
-        }
+        toast.error("Please correct the schedule errors before moving to Construction.");
         return;
       }
       setStep(2);
