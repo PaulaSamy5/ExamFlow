@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom'
-import { Sun, Moon, LogOut, Layout, User, BookOpen, PlusCircle, Sparkles } from 'lucide-react'
+import { Sun, Moon, LogOut, Layout, User, BookOpen, PlusCircle, Sparkles, Menu, X } from 'lucide-react'
 import { useAuth } from './store/AuthContext'
 import { useTheme } from './store/ThemeContext'
 import { Toaster } from 'react-hot-toast'
@@ -43,6 +43,11 @@ function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   const isHomePage = location.pathname === '/';
@@ -99,7 +104,8 @@ function App() {
               <span className="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white">ExamFlow</span>
             </Link>
 
-            <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
+            {/* Desktop Navigation Menu (md and up) */}
+            <div className="hidden md:flex items-center gap-2 sm:gap-4 lg:gap-6">
               {user ? (
                 <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
                   {/* Dashboard Link for logged-in users */}
@@ -168,7 +174,86 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* Mobile Navigation Controls (md:hidden) */}
+            <div className="flex md:hidden items-center gap-2">
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-transparent dark:hover:border-slate-700"
+              >
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </button>
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-transparent dark:hover:border-slate-700"
+              >
+                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
           </div>
+
+          {/* Mobile Dropdown Panel */}
+          {isMobileMenuOpen && (
+            <div className="md:hidden border-t border-slate-200/80 dark:border-indigo-500/10 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="px-4 py-6 space-y-6">
+                {user ? (
+                  <div className="space-y-6">
+                    {/* User Profile Card */}
+                    <Link to="/profile" className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/50">
+                      <div className="bg-indigo-50 dark:bg-slate-800 h-12 w-12 rounded-2xl flex items-center justify-center border border-indigo-100 dark:border-slate-800 overflow-hidden shrink-0">
+                        {user.profileImage ? (
+                          <img src={user.profileImage} alt="Profile" className="h-full w-full object-cover" />
+                        ) : (
+                          <User className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-slate-900 dark:text-white leading-tight uppercase tracking-wide truncate">{user.name}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <div className={`h-1.5 w-1.5 rounded-full ${user.role === 'ADMIN' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]' : user.role === 'INSTRUCTOR' ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'}`} />
+                          <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{user.role}</span>
+                        </div>
+                      </div>
+                    </Link>
+
+                    {/* Navigation Buttons */}
+                    <div className="space-y-2">
+                      <Link
+                        to={user.role === 'ADMIN' ? '/admin' : user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'}
+                        className="w-full h-12 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      >
+                        {user.role === 'ADMIN' ? 'Admin Console' : 'Control Panel'}
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full h-12 rounded-2xl border border-rose-200/50 dark:border-rose-500/10 bg-rose-50 dark:bg-rose-500/15 text-xs font-black uppercase tracking-[0.2em] text-rose-600 dark:text-rose-400 flex items-center justify-center gap-2 transition-all hover:bg-rose-100 dark:hover:bg-rose-500/25"
+                      >
+                        <LogOut className="h-4.5 w-4.5" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Log In */}
+                    <Link
+                      to="/login"
+                      className="w-full h-12 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    >
+                      Log in
+                    </Link>
+                    {/* Get Started Free CTA */}
+                    <Link
+                      to="/register"
+                      className="w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold text-white flex items-center justify-center transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/20"
+                    >
+                      Get Started Free
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </nav>
       )}
 
