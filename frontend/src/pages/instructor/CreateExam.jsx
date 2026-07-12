@@ -1835,97 +1835,153 @@ const CreateExam = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                {exam.examType !== 'PRINTABLE_ONLY' && (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                        Start Date <span className="text-xs text-slate-400 font-normal">Optional</span>
-                      </label>
-                      <input
-                        type="datetime-local"
-                        min={minStartDatetimeLocal}
-                        className="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        value={exam.startTime}
-                        onChange={e => {
-                          let val = e.target.value;
-                          if (val && val < minStartDatetimeLocal) {
-                            val = minStartDatetimeLocal;
-                          }
-                          setExam({ ...exam, startTime: val });
-                          setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
-                        }}
-                        onBlur={e => {
-                          let val = e.target.value;
-                          if (val && val < minStartDatetimeLocal) {
-                            setExam(prev => ({ ...prev, startTime: minStartDatetimeLocal }));
-                          }
-                        }}
-                      />
-                    </div>
+                {exam.examType !== 'PRINTABLE_ONLY' && (() => {
+                  const { date: startDateVal, time: startTimeVal } = parseDateTime(exam.startTime);
+                  const { date: endDateVal, time: endTimeVal } = parseDateTime(exam.endTime);
 
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                        End Date <span className="text-rose-500">*</span>
-                      </label>
-                      <input
-                        type="datetime-local"
-                        min={minEndDatetimeLocal}
-                        className={`w-full h-11 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
-                          endTimeStatus?.type === 'error' || errors.endTime
-                            ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10'
-                            : endTimeStatus?.type === 'warn'
-                            ? 'border-amber-400 focus:border-amber-400 bg-amber-50/30 dark:bg-amber-900/10'
-                            : endTimeStatus?.type === 'ok'
-                            ? 'border-emerald-500 focus:border-emerald-500'
-                            : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
-                        }`}
-                        value={exam.endTime}
-                        onChange={e => {
-                          let val = e.target.value;
-                          if (val && val < minEndDatetimeLocal) {
-                            val = minEndDatetimeLocal;
-                          }
-                          setExam({ ...exam, endTime: val });
-                          setErrors(prev => ({ ...prev, endTime: null }));
-                        }}
-                        onBlur={e => {
-                          if (!exam.endTime) {
-                            setErrors(prev => ({ ...prev, endTime: 'End time is required' }));
-                          } else {
-                            let val = e.target.value;
-                            if (val && val < minEndDatetimeLocal) {
-                              setExam(prev => ({ ...prev, endTime: minEndDatetimeLocal }));
-                            }
-                          }
-                        }}
-                      />
+                  return (
+                    <>
+                      {/* Start Date & Time */}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                          Start Date & Time <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="date"
+                            min={minStartDatetimeLocal.split('T')[0]}
+                            className={`flex-[3] h-11 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
+                              errors.startTime ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10' : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
+                            }`}
+                            value={startDateVal}
+                            onChange={e => {
+                              const newDate = e.target.value;
+                              const minStartDate = minStartDatetimeLocal.split('T')[0];
+                              let finalDate = newDate;
+                              if (finalDate && finalDate < minStartDate) {
+                                finalDate = minStartDate;
+                              }
+                              let finalTime = startTimeVal;
+                              const minStartTime = minStartDatetimeLocal.split('T')[1];
+                              if (finalDate === minStartDate) {
+                                if (!finalTime || finalTime < minStartTime) {
+                                  finalTime = minStartTime;
+                                }
+                              } else if (!finalTime) {
+                                finalTime = '09:00';
+                              }
+                              setExam({ ...exam, startTime: combineDateTime(finalDate, finalTime) });
+                              setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                            }}
+                          />
+                          <select
+                            className={`flex-[2] h-11 rounded-xl border bg-white dark:bg-slate-900 px-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer ${
+                              errors.startTime ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10' : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
+                            }`}
+                            value={startTimeVal}
+                            onChange={e => {
+                              const newTime = e.target.value;
+                              let finalDate = startDateVal || minStartDatetimeLocal.split('T')[0];
+                              setExam({ ...exam, startTime: combineDateTime(finalDate, newTime) });
+                              setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                            }}
+                          >
+                            <option value="">Time</option>
+                            {filteredStartTimeOptions.map(opt => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <FieldError message={errors.startTime} />
+                      </div>
 
-                      {/* Live intelligent warning — replaces static FieldError */}
-                      {(endTimeStatus?.type === 'error' || errors.endTime) && (
-                        <div className="flex items-start gap-2.5 mt-2 px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-                          <p className="text-xs text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
-                            {endTimeStatus?.msg || errors.endTime}
-                          </p>
+                      {/* End Date & Time */}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                          End Date & Time <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="date"
+                            min={minEndDatetimeLocal.split('T')[0]}
+                            className={`flex-[3] h-11 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
+                              endTimeStatus?.type === 'error' || errors.endTime
+                                ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10'
+                                : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
+                            }`}
+                            value={endDateVal}
+                            onChange={e => {
+                              const newDate = e.target.value;
+                              const minEndDate = minEndDatetimeLocal.split('T')[0];
+                              let finalDate = newDate;
+                              if (finalDate && finalDate < minEndDate) {
+                                finalDate = minEndDate;
+                              }
+                              let finalTime = endTimeVal;
+                              const minEndTime = minEndDatetimeLocal.split('T')[1];
+                              if (finalDate === minEndDate) {
+                                if (!finalTime || finalTime < minEndTime) {
+                                  finalTime = minEndTime;
+                                }
+                              } else if (!finalTime) {
+                                finalTime = startTimeVal || '10:00';
+                              }
+                              setExam({ ...exam, endTime: combineDateTime(finalDate, finalTime) });
+                              setErrors(prev => ({ ...prev, endTime: null }));
+                            }}
+                          />
+                          <select
+                            className={`flex-[2] h-11 rounded-xl border bg-white dark:bg-slate-900 px-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer ${
+                              endTimeStatus?.type === 'error' || errors.endTime
+                                ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10'
+                                : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
+                            }`}
+                            value={endTimeVal}
+                            onChange={e => {
+                              const newTime = e.target.value;
+                              let finalDate = endDateVal || minEndDatetimeLocal.split('T')[0];
+                              setExam({ ...exam, endTime: combineDateTime(finalDate, newTime) });
+                              setErrors(prev => ({ ...prev, endTime: null }));
+                            }}
+                          >
+                            <option value="">Time</option>
+                            {filteredEndTimeOptions.map(opt => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                      )}
-                      {endTimeStatus?.type === 'warn' && (
-                        <div className="flex items-start gap-2.5 mt-2 px-3.5 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                          <p className="text-xs text-amber-700 dark:text-amber-300 font-medium leading-relaxed">
-                            {endTimeStatus.msg}
-                          </p>
-                        </div>
-                      )}
-                      {endTimeStatus?.type === 'ok' && (
-                        <div className="flex items-center gap-2 mt-1.5 px-1">
-                          <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">Valid — enough time for the full exam.</p>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
+
+                        {/* Live intelligent warning */}
+                        {(endTimeStatus?.type === 'error' || errors.endTime) && (
+                          <div className="flex items-start gap-2.5 mt-2 px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                            <p className="text-xs text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
+                              {endTimeStatus?.msg || errors.endTime}
+                            </p>
+                          </div>
+                        )}
+                        {endTimeStatus?.type === 'warn' && (
+                          <div className="flex items-start gap-2.5 mt-2 px-3.5 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                            <p className="text-xs text-amber-700 dark:text-amber-300 font-medium leading-relaxed">
+                              {endTimeStatus.msg}
+                            </p>
+                          </div>
+                        )}
+                        {endTimeStatus?.type === 'ok' && (
+                          <div className="flex items-center gap-2 mt-1.5 px-1">
+                            <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">Valid — enough time for the full exam.</p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <div className={`space-y-1.5 ${exam.examType === 'PRINTABLE_ONLY' ? 'sm:col-span-3' : ''}`}>
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
