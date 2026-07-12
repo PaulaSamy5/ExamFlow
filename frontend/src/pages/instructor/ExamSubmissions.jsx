@@ -280,10 +280,14 @@ const ExamSubmissions = () => {
 
           {/* Sort */}
           <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-[1.5rem] border border-slate-200 dark:border-slate-700/50 w-full lg:w-auto overflow-x-auto">
-            <div className="px-4 py-2 flex items-center gap-2 shrink-0">
-              <Filter className="h-4 w-4 text-slate-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Sort</span>
+            {/* Label — non-interactive, clearly a section label */}
+            <div className="flex items-center gap-1.5 pl-3 pr-2 shrink-0 opacity-50">
+              <Filter className="h-3.5 w-3.5 text-slate-500" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Sort by</span>
             </div>
+
+            {/* Divider */}
+            <div className="h-5 w-px bg-slate-300 dark:bg-slate-600 shrink-0" />
             {[
               { label: 'Latest', type: 'time', order: 'desc' },
               { label: 'Oldest', type: 'time', order: 'asc' },
