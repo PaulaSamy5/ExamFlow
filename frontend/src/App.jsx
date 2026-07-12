@@ -47,6 +47,9 @@ function App() {
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    if (location.pathname === '/') {
+      setIsLoggingOut(false);
+    }
   }, [location.pathname]);
 
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
@@ -59,18 +62,29 @@ function App() {
     setTimeout(() => {
       // Clear local storage and set user context to null
       logout('/', true);
-      // Navigate to the landing page in the same tick so React batches the route change 
-      // with the state update, showing the landing page directly
+      // Navigate to the landing page. Once the router mounts '/', the location pathname
+      // change will set isLoggingOut to false, bypassing protected route guards.
       navigate('/');
-      setIsLoggingOut(false);
     }, 800);
   };
 
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#040814] font-outfit select-none">
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative animate-pulse">
+            <div className="bg-indigo-600 p-3 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center h-[60px] w-[60px]">
+              <Layout className="h-8 w-8 text-white" />
+            </div>
+          </div>
+          <div className="text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-purple-400">
+            ExamFlow
+          </div>
+          <div className="w-[130px] h-[3px] bg-indigo-600/10 dark:bg-indigo-400/10 rounded-full overflow-hidden relative">
+            <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full animate-loading-bar" style={{ width: '100%' }} />
+          </div>
+        </div>
       </div>
     )
   }
@@ -270,27 +284,26 @@ function App() {
 
         <Routes>
           <Route path="/" element={!user ? <HomePage /> : <Navigate to={user.role === 'ADMIN' ? '/admin' : user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} />} />
-          <Route path="/dashboard" element={user ? <Navigate to={user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} replace /> : <Navigate to="/login" />} />
-          <Route path="/student/dashboard" element={user && user.role === 'STUDENT' ? <Dashboard /> : <Navigate to="/login" />} />
-          <Route path="/instructor/dashboard" element={user && user.role === 'INSTRUCTOR' ? <Dashboard /> : <Navigate to="/login" />} />
-          <Route path="/admin" element={user && user.role === 'ADMIN' ? <AdminDashboard /> : <Navigate to="/login" />} />
+          <Route path="/dashboard" element={user ? <Navigate to={user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} replace /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/student/dashboard" element={user && user.role === 'STUDENT' ? <Dashboard /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/instructor/dashboard" element={user && user.role === 'INSTRUCTOR' ? <Dashboard /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/admin" element={user && user.role === 'ADMIN' ? <AdminDashboard /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
           <Route path="/login" element={!user ? <Login /> : <Navigate to={user.role === 'ADMIN' ? '/admin' : user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} />} />
           <Route path="/register" element={(!user || onboardingInProgress) ? <Register /> : <Navigate to={user.role === 'ADMIN' ? '/admin' : user.role === 'INSTRUCTOR' ? '/instructor/dashboard' : '/student/dashboard'} />} />
           <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
           <Route path="/reset-password" element={!user ? <ResetPassword /> : <Navigate to="/dashboard" />} />
           
           {/* Protected Routes */}
-          <Route path="/exams/new" element={user && user.role === 'INSTRUCTOR' ? <CreateExam /> : <Navigate to="/login" />} />
-          <Route path="/exams/:id/edit" element={user && user.role === 'INSTRUCTOR' ? <CreateExam /> : <Navigate to="/login" />} />
-          <Route path="/exams/:id" element={user ? <ExamDetail /> : <Navigate to="/login" />} />
-          <Route path="/session/:id" element={user ? <ExamSession /> : <Navigate to="/login" />} />
-          <Route path="/exams/:id/submissions" element={user && user.role === 'INSTRUCTOR' ? <ExamSubmissions /> : <Navigate to="/login" />} />
-          <Route path="/submissions/:id" element={user ? <ExamResult /> : <Navigate to="/login" />} />
-          <Route path="/exams/join/:code" element={user ? <ExamJoin /> : <Navigate to="/login" />} />
-          <Route path="/exams/:id/print" element={user && user.role === 'INSTRUCTOR' ? <PrintableExamView /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={user ? <ProfileSettings /> : <Navigate to="/login" />} />
+          <Route path="/exams/new" element={user && user.role === 'INSTRUCTOR' ? <CreateExam /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/exams/:id/edit" element={user && user.role === 'INSTRUCTOR' ? <CreateExam /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/exams/:id" element={user ? <ExamDetail /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/session/:id" element={user ? <ExamSession /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/exams/:id/submissions" element={user && user.role === 'INSTRUCTOR' ? <ExamSubmissions /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/submissions/:id" element={user ? <ExamResult /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/exams/join/:code" element={user ? <ExamJoin /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/exams/:id/print" element={user && user.role === 'INSTRUCTOR' ? <PrintableExamView /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
+          <Route path="/profile" element={user ? <ProfileSettings /> : (isLoggingOut ? null : <Navigate to="/login" />)} />
 
-          
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
 
