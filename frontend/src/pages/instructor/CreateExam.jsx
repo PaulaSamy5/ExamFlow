@@ -952,7 +952,179 @@ const formatToLocalISO = (dateStr) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-// ── Main Page ────────────────────────────────────────────
+// ── Compact custom time picker popover ──
+const CompactTimePicker = ({ value, options, onChange, placeholder = "Select time", hasError }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const isDisabled = !options || options.length === 0;
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const parseCurrentTime = (timeStr) => {
+    if (!timeStr) return { hour: '09', minute: '00', ampm: 'AM' };
+    const [hStr, mStr] = timeStr.split(':');
+    let h = parseInt(hStr, 10);
+    const m = mStr || '00';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return {
+      hour: String(h).padStart(2, '0'),
+      minute: m,
+      ampm
+    };
+  };
+
+  const { hour, minute, ampm } = parseCurrentTime(value);
+
+  const handleSelect = (newHour, newMinute, newAmpm) => {
+    let h = parseInt(newHour, 10);
+    if (newAmpm === 'PM' && h < 12) h += 12;
+    if (newAmpm === 'AM' && h === 12) h = 0;
+    const hh = String(h).padStart(2, '0');
+    const mm = String(newMinute).padStart(2, '0');
+    onChange(`${hh}:${mm}`);
+  };
+
+  const displayLabel = value ? (() => {
+    const { hour, minute, ampm } = parseCurrentTime(value);
+    return `${parseInt(hour, 10)}:${minute} ${ampm}`;
+  })() : placeholder;
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <button
+        type="button"
+        disabled={isDisabled}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full h-10 px-3 rounded-xl border text-sm font-semibold flex items-center justify-between transition-all bg-white dark:bg-slate-900 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+          hasError
+            ? 'border-rose-400 dark:border-rose-500/50 text-rose-500 bg-rose-50/10'
+            : value
+            ? 'border-indigo-500 dark:border-indigo-400 text-slate-900 dark:text-white'
+            : 'border-slate-200 dark:border-slate-700 text-slate-405 hover:border-slate-300'
+        }`}
+      >
+        <span className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-slate-400 shrink-0" />
+          {isDisabled ? 'Select date first' : displayLabel}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 mt-2 p-3 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-2xl shadow-xl dark:shadow-slate-950/80 z-[100] w-64 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="space-y-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 px-0.5">Hour</p>
+              <div className="grid grid-cols-6 gap-1">
+                {['12', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'].map(h => {
+                  const isSel = hour === h;
+                  const testValHour = (() => {
+                    let hourNum = parseInt(h, 10);
+                    if (ampm === 'PM' && hourNum < 12) hourNum += 12;
+                    if (ampm === 'AM' && hourNum === 12) hourNum = 0;
+                    return String(hourNum).padStart(2, '0');
+                  })();
+                  const isValid = options.some(opt => opt.value.startsWith(testValHour));
+                  return (
+                    <button
+                      key={h}
+                      type="button"
+                      disabled={!isValid}
+                      onClick={() => handleSelect(h, minute, ampm)}
+                      className={`h-7 text-xs font-bold rounded-lg transition-all ${
+                        isSel
+                          ? 'bg-indigo-650 text-white shadow-sm shadow-indigo-600/20'
+                          : isValid
+                          ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                          : 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-40'
+                      }`}
+                    >
+                      {parseInt(h, 10)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 px-0.5">Minute</p>
+              <div className="grid grid-cols-4 gap-1">
+                {['00', '15', '30', '45'].map(m => {
+                  const isSel = minute === m;
+                  const testValMin = (() => {
+                    let hourNum = parseInt(hour, 10);
+                    if (ampm === 'PM' && hourNum < 12) hourNum += 12;
+                    if (ampm === 'AM' && hourNum === 12) hourNum = 0;
+                    const hh = String(hourNum).padStart(2, '0');
+                    return `${hh}:${m}`;
+                  })();
+                  const isValid = options.some(opt => opt.value === testValMin);
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      disabled={!isValid}
+                      onClick={() => handleSelect(hour, m, ampm)}
+                      className={`h-7 text-xs font-bold rounded-lg transition-all ${
+                        isSel
+                          ? 'bg-indigo-650 text-white shadow-sm shadow-indigo-600/20'
+                          : isValid
+                          ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                          : 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-40'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl">
+              {['AM', 'PM'].map(ap => {
+                const isSel = ampm === ap;
+                const isValid = options.some(opt => {
+                  const [hh] = opt.value.split(':');
+                  const h = parseInt(hh, 10);
+                  const optAmpm = h >= 12 ? 'PM' : 'AM';
+                  return optAmpm === ap;
+                });
+                return (
+                  <button
+                    key={ap}
+                    type="button"
+                    disabled={!isValid}
+                    onClick={() => handleSelect(hour, minute, ap)}
+                    className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all ${
+                      isSel
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : isValid
+                        ? 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                        : 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-40'
+                    }`}
+                  >
+                    {ap}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Main Page ────────────────────────────────────────────
 const CreateExam = () => {
   const { id } = useParams();
@@ -1871,186 +2043,285 @@ const CreateExam = () => {
             {/* ── 5. Schedule & Timing ── */}
             <div className={cardClass}>
               <div className="flex items-center gap-3 mb-6">
-                 <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400">
-                    <Calendar className="h-5 w-5" />
-                 </div>
-                 <div>
-                    <h2 className="text-base font-bold text-slate-900 dark:text-white">Schedule & Timing</h2>
-                    <p className="text-xs text-slate-500">
-                      {exam.examType === 'PRINTABLE_ONLY' 
-                        ? 'Set the duration of the exam.' 
-                        : 'Set the date, time, and duration of the exam.'}
-                    </p>
-                 </div>
+                <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                  <Calendar className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Schedule & Timing</h2>
+                  <p className="text-xs text-slate-500">
+                    {exam.examType === 'PRINTABLE_ONLY'
+                      ? 'Set the duration of the exam.'
+                      : 'Define when the exam window opens and closes.'}
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                {exam.examType !== 'PRINTABLE_ONLY' && (() => {
-                  const { date: startDateVal, time: startTimeVal } = parseDateTime(exam.startTime);
-                  const { date: endDateVal, time: endTimeVal } = parseDateTime(exam.endTime);
+              {exam.examType !== 'PRINTABLE_ONLY' && (() => {
+                const { date: startDateVal, time: startTimeVal } = parseDateTime(exam.startTime);
+                const { date: endDateVal, time: endTimeVal } = parseDateTime(exam.endTime);
 
-                  return (
-                    <>
-                      {/* Start Date & Time */}
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                          Start Date & Time <span className="text-rose-500">*</span>
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="date"
-                            min={minStartDatetimeLocal.split('T')[0]}
-                            className={`flex-[3] h-11 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
-                              errors.startTime ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10' : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
-                            }`}
-                            value={startDateVal}
-                            onChange={e => {
-                              const newDate = e.target.value;
-                              const minStartDate = minStartDatetimeLocal.split('T')[0];
-                              let finalDate = newDate;
-                              if (finalDate && finalDate < minStartDate) {
-                                finalDate = minStartDate;
-                              }
-                              let finalTime = startTimeVal;
-                              const minStartTime = minStartDatetimeLocal.split('T')[1];
-                              if (finalDate === minStartDate) {
-                                if (!finalTime || finalTime < minStartTime) {
-                                  finalTime = minStartTime;
-                                }
-                              } else if (!finalTime) {
-                                finalTime = '09:00';
-                              }
-                              setExam({ ...exam, startTime: combineDateTime(finalDate, finalTime) });
-                              setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
-                            }}
-                          />
-                          <select
-                            className={`flex-[2] h-11 rounded-xl border bg-white dark:bg-slate-900 px-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer ${
-                              errors.startTime ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10' : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
-                            }`}
+                // format "HH:MM" → "H:MM AM/PM"
+                const formatDisplayTime = (t) => {
+                  if (!t) return null;
+                  const [hStr, mStr] = t.split(':');
+                  let h = parseInt(hStr, 10);
+                  const m = mStr || '00';
+                  const ampm = h >= 12 ? 'PM' : 'AM';
+                  h = h % 12 || 12;
+                  return `${h}:${m} ${ampm}`;
+                };
+
+                // format "YYYY-MM-DD" → "MMM D, YYYY"
+                const formatDisplayDate = (d) => {
+                  if (!d) return null;
+                  const dt = new Date(d + 'T00:00:00');
+                  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                };
+
+                // Compute window duration in minutes (end - start)
+                const windowMins = exam.startTime && exam.endTime
+                  ? Math.round((new Date(exam.endTime) - new Date(exam.startTime)) / 60000)
+                  : null;
+
+                const windowLabel = windowMins && windowMins > 0
+                  ? windowMins >= 60
+                    ? `${Math.floor(windowMins / 60)}h ${windowMins % 60 > 0 ? windowMins % 60 + 'm' : ''} window`.trim()
+                    : `${windowMins}m window`
+                  : null;
+
+                const hasError = endTimeStatus?.type === 'error' || errors.endTime || errors.startTime;
+                const hasWarn = endTimeStatus?.type === 'warn';
+                const hasOk = endTimeStatus?.type === 'ok';
+
+                return (
+                  <div className="mb-6">
+                    {/* ── Exam Window Flow Card ── */}
+                    <div className={`relative rounded-2xl border-2 transition-all duration-300 ${
+                      hasError
+                        ? 'border-rose-400 dark:border-rose-500/50 bg-rose-50/30 dark:bg-rose-500/5'
+                        : hasWarn
+                        ? 'border-amber-400 dark:border-amber-500/40 bg-amber-50/20 dark:bg-amber-500/5'
+                        : hasOk
+                        ? 'border-emerald-400 dark:border-emerald-500/40 bg-emerald-50/20 dark:bg-emerald-500/5'
+                        : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/20'
+                    }`}>
+
+                      {/* Window label pill — top center */}
+                      {windowLabel && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                          <span className={`px-3 py-0.5 rounded-full text-[11px] font-bold tracking-wide shadow-sm ${
+                            hasError ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-300'
+                            : hasOk ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300'
+                            : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                          }`}>{windowLabel}</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-[1fr_auto_1fr] items-stretch divide-x divide-slate-200 dark:divide-slate-700/80">
+
+                        {/* ── START block ── */}
+                        <div className="p-4 space-y-3">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
+                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Start</span>
+                            <span className="text-rose-500 text-xs ml-auto">*</span>
+                          </div>
+
+                          {/* Date picker */}
+                          <div className="relative">
+                            <input
+                              type="date"
+                              min={minStartDatetimeLocal.split('T')[0]}
+                              className={`w-full h-10 rounded-xl border pl-9 pr-3 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white dark:bg-slate-900 ${
+                                errors.startTime ? 'border-rose-400 dark:border-rose-500/50' : 'border-slate-200 dark:border-slate-700 focus:border-indigo-400'
+                              }`}
+                              value={startDateVal}
+                              onChange={e => {
+                                const newDate = e.target.value;
+                                const minStartDate = minStartDatetimeLocal.split('T')[0];
+                                let finalDate = newDate;
+                                if (finalDate && finalDate < minStartDate) finalDate = minStartDate;
+                                let finalTime = startTimeVal;
+                                const minStartTime = minStartDatetimeLocal.split('T')[1];
+                                if (finalDate === minStartDate && (!finalTime || finalTime < minStartTime)) finalTime = minStartTime;
+                                else if (!finalTime) finalTime = '09:00';
+                                setExam({ ...exam, startTime: combineDateTime(finalDate, finalTime) });
+                                setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                              }}
+                            />
+                            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                          </div>
+
+                          {/* Compact custom time picker */}
+                          <CompactTimePicker
                             value={startTimeVal}
-                            onChange={e => {
-                              const newTime = e.target.value;
-                              let finalDate = startDateVal || minStartDatetimeLocal.split('T')[0];
+                            options={filteredStartTimeOptions}
+                            placeholder="Pick time"
+                            hasError={!!errors.startTime}
+                            onChange={newTime => {
+                              const finalDate = startDateVal || minStartDatetimeLocal.split('T')[0];
                               setExam({ ...exam, startTime: combineDateTime(finalDate, newTime) });
                               setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
                             }}
-                          >
-                            <option value="">Time</option>
-                            {filteredStartTimeOptions.map(opt => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <FieldError message={errors.startTime} />
-                      </div>
-
-                      {/* End Date & Time */}
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                          End Date & Time <span className="text-rose-500">*</span>
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="date"
-                            min={minEndDatetimeLocal.split('T')[0]}
-                            className={`flex-[3] h-11 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
-                              endTimeStatus?.type === 'error' || errors.endTime
-                                ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10'
-                                : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
-                            }`}
-                            value={endDateVal}
-                            onChange={e => {
-                              const newDate = e.target.value;
-                              const minEndDate = minEndDatetimeLocal.split('T')[0];
-                              let finalDate = newDate;
-                              if (finalDate && finalDate < minEndDate) {
-                                finalDate = minEndDate;
-                              }
-                              let finalTime = endTimeVal;
-                              const minEndTime = minEndDatetimeLocal.split('T')[1];
-                              if (finalDate === minEndDate) {
-                                if (!finalTime || finalTime < minEndTime) {
-                                  finalTime = minEndTime;
-                                }
-                              } else if (!finalTime) {
-                                finalTime = startTimeVal || '10:00';
-                              }
-                              setExam({ ...exam, endTime: combineDateTime(finalDate, finalTime) });
-                              setErrors(prev => ({ ...prev, endTime: null }));
-                            }}
                           />
-                          <select
-                            className={`flex-[2] h-11 rounded-xl border bg-white dark:bg-slate-900 px-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer ${
-                              endTimeStatus?.type === 'error' || errors.endTime
-                                ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10'
-                                : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
-                            }`}
+
+                          {/* Display selected */}
+                          {startDateVal && startTimeVal && (
+                            <div className="flex items-center gap-1.5 px-0.5">
+                              <CheckCircle className="h-3 w-3 text-indigo-400 shrink-0" />
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                {formatDisplayDate(startDateVal)} · {formatDisplayTime(startTimeVal)}
+                              </span>
+                            </div>
+                          )}
+                          {errors.startTime && (
+                            <p className="text-[11px] text-rose-500 font-medium px-0.5">{errors.startTime}</p>
+                          )}
+                        </div>
+
+                        {/* ── Arrow connector ── */}
+                        <div className="flex flex-col items-center justify-center px-3 gap-1.5 bg-slate-50/80 dark:bg-slate-800/40">
+                          <div className="h-px w-5 bg-slate-300 dark:bg-slate-600"></div>
+                          <div className="flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                            <svg viewBox="0 0 16 8" className="w-8 h-3 text-slate-300 dark:text-slate-600">
+                              <path d="M0 4 L12 4 M9 1 L12 4 L9 7" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                          {windowMins && windowMins > 0 && (
+                            <span className="text-[9px] text-slate-400 dark:text-slate-500 font-semibold text-center leading-tight">{windowMins}m</span>
+                          )}
+                        </div>
+
+                        {/* ── END block ── */}
+                        <div className="p-4 space-y-3">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <div className={`h-2 w-2 rounded-full ${hasError ? 'bg-rose-500' : hasOk ? 'bg-emerald-500' : 'bg-violet-500'}`}></div>
+                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">End</span>
+                            <span className="text-rose-500 text-xs ml-auto">*</span>
+                          </div>
+
+                          {/* Date picker */}
+                          <div className="relative">
+                            <input
+                              type="date"
+                              min={minEndDatetimeLocal.split('T')[0]}
+                              className={`w-full h-10 rounded-xl border pl-9 pr-3 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white dark:bg-slate-900 ${
+                                hasError ? 'border-rose-400 dark:border-rose-500/50' : 'border-slate-200 dark:border-slate-700 focus:border-indigo-400'
+                              }`}
+                              value={endDateVal}
+                              onChange={e => {
+                                const newDate = e.target.value;
+                                const minEndDate = minEndDatetimeLocal.split('T')[0];
+                                let finalDate = newDate;
+                                if (finalDate && finalDate < minEndDate) finalDate = minEndDate;
+                                let finalTime = endTimeVal;
+                                const minEndTime = minEndDatetimeLocal.split('T')[1];
+                                if (finalDate === minEndDate && (!finalTime || finalTime < minEndTime)) finalTime = minEndTime;
+                                else if (!finalTime) finalTime = startTimeVal || '10:00';
+                                setExam({ ...exam, endTime: combineDateTime(finalDate, finalTime) });
+                                setErrors(prev => ({ ...prev, endTime: null }));
+                              }}
+                            />
+                            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                          </div>
+
+                          {/* Compact custom time picker */}
+                          <CompactTimePicker
                             value={endTimeVal}
-                            onChange={e => {
-                              const newTime = e.target.value;
-                              let finalDate = endDateVal || minEndDatetimeLocal.split('T')[0];
+                            options={filteredEndTimeOptions}
+                            placeholder="Pick time"
+                            hasError={hasError}
+                            onChange={newTime => {
+                              const finalDate = endDateVal || minEndDatetimeLocal.split('T')[0];
                               setExam({ ...exam, endTime: combineDateTime(finalDate, newTime) });
                               setErrors(prev => ({ ...prev, endTime: null }));
                             }}
-                          >
-                            <option value="">Time</option>
-                            {filteredEndTimeOptions.map(opt => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
+
+                          {/* Display selected */}
+                          {endDateVal && endTimeVal && (
+                            <div className="flex items-center gap-1.5 px-0.5">
+                              {hasOk
+                                ? <CheckCircle className="h-3 w-3 text-emerald-500 shrink-0" />
+                                : hasError
+                                ? <AlertCircle className="h-3 w-3 text-rose-400 shrink-0" />
+                                : <CheckCircle className="h-3 w-3 text-violet-400 shrink-0" />
+                              }
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                {formatDisplayDate(endDateVal)} · {formatDisplayTime(endTimeVal)}
+                              </span>
+                            </div>
+                          )}
                         </div>
-
-                        {/* Live intelligent warning */}
-                        {(endTimeStatus?.type === 'error' || errors.endTime) && (
-                          <div className="flex items-start gap-2.5 mt-2 px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 animate-in fade-in slide-in-from-top-1 duration-200">
-                            <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-                            <p className="text-xs text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
-                              {endTimeStatus?.msg || errors.endTime}
-                            </p>
-                          </div>
-                        )}
-                        {endTimeStatus?.type === 'warn' && (
-                          <div className="flex items-start gap-2.5 mt-2 px-3.5 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 animate-in fade-in slide-in-from-top-1 duration-200">
-                            <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                            <p className="text-xs text-amber-700 dark:text-amber-300 font-medium leading-relaxed">
-                              {endTimeStatus.msg}
-                            </p>
-                          </div>
-                        )}
-                        {endTimeStatus?.type === 'ok' && (
-                          <div className="flex items-center gap-2 mt-1.5 px-1">
-                            <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">Valid — enough time for the full exam.</p>
-                          </div>
-                        )}
                       </div>
-                    </>
-                  );
-                })()}
 
-                <div className={`space-y-1.5 ${exam.examType === 'PRINTABLE_ONLY' ? 'sm:col-span-3' : ''}`}>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                    Duration <span className="text-xs text-slate-400 font-normal">Minutes</span>
-                  </label>
-                  <input type="number" min="1"
-                    className={`w-full h-11 rounded-xl border bg-white dark:bg-slate-900 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${errors.duration ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10' : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'}`}
-                    value={exam.duration}
-                    onChange={e => {
-                      setExam({ ...exam, duration: e.target.value });
-                      if (errors.duration) setErrors(prev => ({ ...prev, duration: null }));
-                    }}
-                    onBlur={() => {
-                      if (!exam.duration || parseFloat(exam.duration) <= 0) setErrors(prev => ({ ...prev, duration: 'Valid duration is required' }));
-                    }} />
-                  <FieldError message={errors.duration} />
+                      {/* ── Validation footer ── */}
+                      {(endTimeStatus?.type === 'error' || errors.endTime || endTimeStatus?.type === 'warn' || endTimeStatus?.type === 'ok') && (
+                        <div className={`px-4 py-2.5 rounded-b-2xl border-t text-xs font-medium flex items-center gap-2 ${
+                          hasError
+                            ? 'border-rose-300 dark:border-rose-500/30 bg-rose-50/80 dark:bg-rose-500/10 text-rose-600 dark:text-rose-300'
+                            : hasWarn
+                            ? 'border-amber-300 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                            : 'border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/60 dark:bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
+                        }`}>
+                          {hasError && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
+                          {hasWarn && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
+                          {hasOk && <CheckCircle className="h-3.5 w-3.5 shrink-0" />}
+                          <span>{endTimeStatus?.msg || errors.endTime}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Duration ── */}
+              <div className={`${exam.examType === 'PRINTABLE_ONLY' ? '' : 'border-t border-slate-100 dark:border-slate-800 pt-5'}`}>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                      <Clock className="h-3.5 w-3.5" />
+                    </div>
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                      Exam Duration
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 50"
+                      className={`w-28 h-10 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm font-semibold text-center transition-all focus:outline-none focus:ring-2 focus:ring-violet-500/20 ${
+                        errors.duration
+                          ? 'border-rose-400 focus:border-rose-400 bg-rose-50/50 dark:bg-rose-950/10'
+                          : 'border-slate-200 dark:border-slate-700 focus:border-violet-400'
+                      }`}
+                      value={exam.duration}
+                      onChange={e => {
+                        setExam({ ...exam, duration: e.target.value });
+                        if (errors.duration) setErrors(prev => ({ ...prev, duration: null }));
+                      }}
+                      onBlur={() => {
+                        if (!exam.duration || parseFloat(exam.duration) <= 0)
+                          setErrors(prev => ({ ...prev, duration: 'Valid duration is required' }));
+                      }}
+                    />
+                    <span className="text-sm text-slate-500 font-medium">minutes</span>
+                    {exam.duration > 0 && (
+                      <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                        · {Math.floor(exam.duration / 60) > 0 ? `${Math.floor(exam.duration / 60)}h ` : ''}{exam.duration % 60 > 0 ? `${exam.duration % 60}m` : ''}
+                      </span>
+                    )}
+                  </div>
+                  {errors.duration && (
+                    <p className="text-xs text-rose-500 font-medium">{errors.duration}</p>
+                  )}
                 </div>
               </div>
             </div>
+
+
+
 
           </div>
         )}
