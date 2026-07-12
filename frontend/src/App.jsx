@@ -55,15 +55,14 @@ function App() {
 
   const handleLogout = () => {
     setIsLoggingOut(true);
-    // Delay clearing the session until after the animation finishes.
+    // Wait for the logout transition overlay to complete
     setTimeout(() => {
-      // Navigate to the public landing page first to avoid triggering protected route guards.
+      // Clear local storage and set user context to null
+      logout('/', true);
+      // Navigate to the landing page in the same tick so React batches the route change 
+      // with the state update, showing the landing page directly
       navigate('/');
-      // Clear the session on the next tick once navigation has initiated.
-      setTimeout(() => {
-        logout('/', true);
-        setIsLoggingOut(false);
-      }, 50);
+      setIsLoggingOut(false);
     }, 800);
   };
 
