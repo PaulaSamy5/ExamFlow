@@ -1185,6 +1185,56 @@ const CreateExam = () => {
     return { type: 'ok' };
   }, [exam.endTime, exam.startTime, exam.duration]);
 
+  // ── Helper: parse "YYYY-MM-DDTHH:MM" into { date, time } parts ──
+  const parseDateTime = (dtStr) => {
+    if (!dtStr) return { date: '', time: '' };
+    const parts = dtStr.split('T');
+    return { date: parts[0] || '', time: parts[1] ? parts[1].slice(0, 5) : '' };
+  };
+
+  // ── Helper: combine a date string and time string into "YYYY-MM-DDTHH:MM" ──
+  const combineDateTime = (date, time) => {
+    if (!date) return '';
+    return `${date}T${time || '00:00'}`;
+  };
+
+  // ── 15-minute interval time slot options (static) ──
+  const timeOptions = useMemo(() => {
+    const list = [];
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const hh = String(h).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+        const displayHour = h % 12 === 0 ? 12 : h % 12;
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        list.push({ value: `${hh}:${mm}`, label: `${displayHour}:${mm} ${ampm}` });
+      }
+    }
+    return list;
+  }, []);
+
+  // ── Filtered start time options — removes past slots when today is selected ──
+  const filteredStartTimeOptions = useMemo(() => {
+    const minStartDate = minStartDatetimeLocal.split('T')[0];
+    const minStartTime = minStartDatetimeLocal.split('T')[1];
+    const { date: selectedDate } = parseDateTime(exam.startTime);
+    if (selectedDate === minStartDate) {
+      return timeOptions.filter(opt => opt.value >= minStartTime);
+    }
+    return timeOptions;
+  }, [exam.startTime, minStartDatetimeLocal, timeOptions]);
+
+  // ── Filtered end time options — removes invalid slots when min-end-date is selected ──
+  const filteredEndTimeOptions = useMemo(() => {
+    const minEndDate = minEndDatetimeLocal.split('T')[0];
+    const minEndTime = minEndDatetimeLocal.split('T')[1];
+    const { date: selectedDate } = parseDateTime(exam.endTime);
+    if (selectedDate === minEndDate) {
+      return timeOptions.filter(opt => opt.value >= minEndTime);
+    }
+    return timeOptions;
+  }, [exam.endTime, minEndDatetimeLocal, timeOptions]);
+
 
   // ── Validation Logic ──
   const validateStep1 = () => {
