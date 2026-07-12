@@ -1126,6 +1126,68 @@ const CreateExam = () => {
 
   const pointsOk = isAutoGrade ? true : totalPoints === parseFloat(exam.totalGrade || 0);
 
+  // ── Helper: format a Date as YYYY-MM-DDThh:mm (local) for datetime-local min attr ──
+  const toDatetimeLocal = (date) => {
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  // ── Minimum valid end time: max(now, start+duration) ──
+  const minEndDatetimeLocal = useMemo(() => {
+    const now = new Date();
+    const dur = parseFloat(exam.duration) || 0;
+    if (exam.startTime) {
+      const start = new Date(exam.startTime);
+      const startPlusDur = new Date(start.getTime() + dur * 60000);
+      return toDatetimeLocal(new Date(Math.max(now.getTime(), startPlusDur.getTime())));
+    }
+    return toDatetimeLocal(new Date(now.getTime() + dur * 60000));
+  }, [exam.startTime, exam.duration]);
+
+  // ── Minimum valid start time: now ──
+  const minStartDatetimeLocal = useMemo(() => toDatetimeLocal(new Date()), []);
+
+  // ── Live end-time status (drives inline warning, clears automatically) ──
+  const endTimeStatus = useMemo(() => {
+    if (!exam.endTime) return null;
+    const end = new Date(exam.endTime);
+    const now = new Date();
+    const dur = parseFloat(exam.duration) || 0;
+
+    if (end < now) {
+      return { type: 'error', msg: 'End time is in the past — students cannot join an exam that has already ended.' };
+    }
+
+    if (exam.startTime) {
+      const start = new Date(exam.startTime);
+      if (end <= start) {
+        return { type: 'error', msg: 'End time must be after the start time.' };
+      }
+      if (dur > 0) {
+        const minEnd = new Date(start.getTime() + dur * 60000);
+        if (end < minEnd) {
+          const diff = Math.ceil((minEnd.getTime() - end.getTime()) / 60000);
+          return {
+            type: 'error',
+            msg: `The selected End Time is earlier than the minimum required time based on the exam duration. ` +
+                 `With a ${dur}-minute exam, students need at least ${diff} more minute${diff !== 1 ? 's' : ''} from the start.`,
+          };
+        }
+      }
+    } else if (dur > 0) {
+      const minEnd = new Date(now.getTime() + dur * 60000);
+      if (end < minEnd) {
+        return {
+          type: 'warn',
+          msg: `Based on the current time and a ${dur}-minute exam duration, students may not have enough time to complete this exam.`,
+        };
+      }
+    }
+
+    return { type: 'ok' };
+  }, [exam.endTime, exam.startTime, exam.duration]);
+
+
   // ── Validation Logic ──
   const validateStep1 = () => {
     const newErrors = {};
@@ -1139,15 +1201,24 @@ const CreateExam = () => {
       if (!exam.endTime) newErrors.endTime = 'End time is required';
       if (exam.showResults === null) newErrors.showResults = 'Please choose result visibility';
 
-      if (exam.startTime && exam.endTime) {
-        const start = new Date(exam.startTime);
+      // Use the same logic as endTimeStatus for consistency
+      if (exam.endTime) {
         const end = new Date(exam.endTime);
         const now = new Date();
-        if (end < now) newErrors.endTime = 'End time cannot be in the past';
-        else if (end <= start) newErrors.endTime = 'End time must be after start time';
-        else if (exam.duration > 0) {
-          const minEnd = new Date(start.getTime() + exam.duration * 60000);
-          if (end < minEnd) newErrors.endTime = `End time must be at least ${exam.duration} mins after start`;
+        const dur = parseFloat(exam.duration) || 0;
+        if (end < now) {
+          newErrors.endTime = 'End time is in the past — students cannot join an exam that has already ended.';
+        } else if (exam.startTime) {
+          const start = new Date(exam.startTime);
+          if (end <= start) {
+            newErrors.endTime = 'End time must be after the start time.';
+          } else if (dur > 0) {
+            const minEnd = new Date(start.getTime() + dur * 60000);
+            if (end < minEnd) {
+              const diff = Math.ceil((minEnd.getTime() - end.getTime()) / 60000);
+              newErrors.endTime = `The selected End Time is too early. With a ${dur}-minute exam duration, students need at least ${diff} more minute${diff !== 1 ? 's' : ''} from the start.`;
+            }
+          }
         }
       }
     }
@@ -1772,31 +1843,67 @@ const CreateExam = () => {
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
                         Start Date <span className="text-xs text-slate-400 font-normal">Optional</span>
                       </label>
-                      <input type="datetime-local" className="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        value={exam.startTime} onChange={e => {
-                            setExam({ ...exam, startTime: e.target.value });
-                            setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
-                        }} />
+                      <input
+                        type="datetime-local"
+                        min={minStartDatetimeLocal}
+                        className="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        value={exam.startTime}
+                        onChange={e => {
+                          setExam({ ...exam, startTime: e.target.value });
+                          setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                        }}
+                      />
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
                         End Date <span className="text-rose-500">*</span>
                       </label>
-                      <input type="datetime-local"
-                        className={`w-full h-11 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${errors.endTime ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10' : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'}`}
+                      <input
+                        type="datetime-local"
+                        min={minEndDatetimeLocal}
+                        className={`w-full h-11 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
+                          endTimeStatus?.type === 'error' || errors.endTime
+                            ? 'border-rose-500 focus:border-rose-500 bg-rose-50/50 dark:bg-rose-950/10'
+                            : endTimeStatus?.type === 'warn'
+                            ? 'border-amber-400 focus:border-amber-400 bg-amber-50/30 dark:bg-amber-900/10'
+                            : endTimeStatus?.type === 'ok'
+                            ? 'border-emerald-500 focus:border-emerald-500'
+                            : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500'
+                        }`}
                         value={exam.endTime}
                         onChange={e => {
                           setExam({ ...exam, endTime: e.target.value });
-                          if (errors.endTime) setErrors(prev => ({ ...prev, endTime: null }));
+                          setErrors(prev => ({ ...prev, endTime: null }));
                         }}
                         onBlur={() => {
-                          if (!exam.endTime) { setErrors(prev => ({ ...prev, endTime: 'End time is required' })); return; }
-                          const end = new Date(exam.endTime);
-                          if (end < new Date()) setErrors(prev => ({ ...prev, endTime: 'End time cannot be in the past' }));
-                          else if (exam.startTime && end <= new Date(exam.startTime)) setErrors(prev => ({ ...prev, endTime: 'End time must be after start time' }));
-                        }} />
-                      <FieldError message={errors.endTime} />
+                          if (!exam.endTime) setErrors(prev => ({ ...prev, endTime: 'End time is required' }));
+                        }}
+                      />
+
+                      {/* Live intelligent warning — replaces static FieldError */}
+                      {(endTimeStatus?.type === 'error' || errors.endTime) && (
+                        <div className="flex items-start gap-2.5 mt-2 px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                          <p className="text-xs text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
+                            {endTimeStatus?.msg || errors.endTime}
+                          </p>
+                        </div>
+                      )}
+                      {endTimeStatus?.type === 'warn' && (
+                        <div className="flex items-start gap-2.5 mt-2 px-3.5 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                          <p className="text-xs text-amber-700 dark:text-amber-300 font-medium leading-relaxed">
+                            {endTimeStatus.msg}
+                          </p>
+                        </div>
+                      )}
+                      {endTimeStatus?.type === 'ok' && (
+                        <div className="flex items-center gap-2 mt-1.5 px-1">
+                          <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">Valid — enough time for the full exam.</p>
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
