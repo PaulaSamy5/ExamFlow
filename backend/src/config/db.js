@@ -66,6 +66,9 @@ const COLUMN_MAP = {
   // Submissions
   studentid:               'studentId',
   submittedat:             'submittedAt',
+  // JOIN aliases used in getExamSubmissions / getSubmission
+  studentname:             'studentName',
+  studentemail:            'studentEmail',
   // Answers
   submissionid:            'submissionId',
   questionid:              'questionId',

@@ -36,6 +36,17 @@ const ExamSubmissions = () => {
         ]);
 
         const rawSubs = Array.isArray(subRes.data) ? subRes.data : [];
+        // Data-integrity guard: every submission must have a student name since
+        // only authenticated students can submit. Log broken records so they
+        // are immediately visible during debugging.
+        const broken = rawSubs.filter(s => !s.studentName);
+        if (broken.length > 0) {
+          console.error(
+            `[ExamSubmissions] ${broken.length} submission(s) are missing studentName — ` +
+            `possible JOIN/camelCase issue in the backend. Submission IDs: ` +
+            broken.map(s => s.id).join(', ')
+          );
+        }
         setSubmissions(rawSubs);
         setExam(examRes.data ?? null);
       } catch (err) {
@@ -337,10 +348,23 @@ const ExamSubmissions = () => {
                       <div className="absolute inset-0 bg-indigo-500 rounded-2xl blur-lg opacity-0 group-hover:opacity-40 transition-opacity duration-500" />
                     </div>
                     <div className="space-y-1 min-w-0">
-                      <h3 className="text-xl font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-400 transition-colors">
-                        {sub.studentName ?? 'Unknown Student'}
-                      </h3>
-                      <p className="text-sm font-medium text-slate-500 truncate">{sub.studentEmail ?? ''}</p>
+                      {sub.studentName ? (
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-400 transition-colors">
+                          {sub.studentName}
+                        </h3>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xl font-bold text-rose-500 truncate">
+                            [Student data missing]
+                          </h3>
+                          <span className="shrink-0 text-[9px] font-black uppercase tracking-widest bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 px-2 py-0.5 rounded-full">
+                            Data Error
+                          </span>
+                        </div>
+                      )}
+                      <p className="text-sm font-medium text-slate-500 truncate">
+                        {sub.studentEmail ?? <span className="text-rose-400 italic text-xs">No email returned</span>}
+                      </p>
                     </div>
                   </div>
 
