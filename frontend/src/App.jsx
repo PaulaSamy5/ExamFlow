@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom'
 import { Sun, Moon, LogOut, Layout, User, BookOpen, PlusCircle, Sparkles } from 'lucide-react'
 import { useAuth } from './store/AuthContext'
 import { useTheme } from './store/ThemeContext'
@@ -41,9 +41,23 @@ function App() {
   const { user, logout, loading, onboardingInProgress } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
+  const navigate = useNavigate()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   const isHomePage = location.pathname === '/';
   const isPrintPage = location.pathname.includes('/print');
+
+  const handleLogout = () => {
+    setIsLoggingOut(true);
+    // Clear user data immediately from context but skip context-level redirect
+    logout('/', true);
+    // Wait for the transition to finish and navigate to the landing page '/'
+    setTimeout(() => {
+      setIsLoggingOut(false);
+      navigate('/');
+    }, 800);
+  };
 
 
   if (loading) {
@@ -131,7 +145,7 @@ function App() {
                       {theme === 'dark' ? <Sun className="h-5 w-5 transition-transform group-hover:rotate-45" /> : <Moon className="h-5 w-5" />}
                     </button>
                     <button 
-                      onClick={logout}
+                      onClick={handleLogout}
                       className="p-2.5 rounded-xl text-slate-500 hover:bg-rose-500/10 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-all group"
                       title="Secure Sign Out"
                     >
@@ -236,6 +250,32 @@ function App() {
       )}
 
       {!isPrintPage && <ScrollToTopButton />}
+
+      {/* Premium Fullscreen Logout Transition Overlay */}
+      {isLoggingOut && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-2xl animate-logout-fade">
+          <div className="flex flex-col items-center space-y-7 animate-logout-scale text-center px-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-indigo-500 rounded-3xl blur-2xl opacity-30 animate-pulse" />
+              <div className="h-20 w-20 rounded-[1.75rem] bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center relative z-10 shadow-inner">
+                <LogOut className="h-9 w-9 text-indigo-400 animate-pulse" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-3xl font-black text-white font-outfit tracking-tight leading-none">See you soon!</h2>
+              <p className="text-[10px] font-black tracking-[0.2em] text-indigo-400/80 uppercase">
+                Signing out securely...
+              </p>
+            </div>
+
+            {/* Premium Linear Progress Loader */}
+            <div className="h-[3px] w-36 bg-slate-800 rounded-full overflow-hidden relative">
+              <div className="absolute inset-y-0 left-0 bg-indigo-500 rounded-full animate-loading-bar" style={{ width: '100%' }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

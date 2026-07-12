@@ -514,3 +514,31 @@ html.dark .hero-gradient-text {
   background: radial-gradient(ellipse at center, var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to, transparent));
 }
 
+/* Premium Logout Transition animations */
+@keyframes loadingBarProgress {
+  0% { transform: scaleX(0); transform-origin: left; }
+  100% { transform: scaleX(1); transform-origin: left; }
+}
+
+@keyframes logoutFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes logoutScaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-logout-fade {
+  animation: logoutFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-logout-scale {
+  animation: logoutScaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-loading-bar {
+  animation: loadingBarProgress 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+

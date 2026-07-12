@@ -89,11 +89,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = (redirectTo = '/', skipNavigation = false) => {
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    navigate('/login');
+    if (!skipNavigation) {
+      navigate(redirectTo);
+    }
   };
 
   return (
