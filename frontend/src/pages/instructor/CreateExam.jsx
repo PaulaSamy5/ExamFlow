@@ -1148,15 +1148,13 @@ const CreateExam = () => {
   const minStartDatetimeLocal = useMemo(() => toDatetimeLocal(new Date()), []);
 
   // ── Live end-time status (drives inline warning, clears automatically) ──
+  // NOTE: "past" case is intentionally omitted — the `min` attr on the input disables past times
+  // in the date picker UI, so no redundant error banner is needed for that case.
   const endTimeStatus = useMemo(() => {
     if (!exam.endTime) return null;
     const end = new Date(exam.endTime);
     const now = new Date();
     const dur = parseFloat(exam.duration) || 0;
-
-    if (end < now) {
-      return { type: 'error', msg: 'End time is in the past — students cannot join an exam that has already ended.' };
-    }
 
     if (exam.startTime) {
       const start = new Date(exam.startTime);
