@@ -1783,13 +1783,35 @@ const CreateExam = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (step === 1) {
-      // Block if duration is incompatible with the window (friendly gate)
-      if (durationMismatch) {
-        // Scroll to the Schedule section — validateStep1 will also set errors
+      if (!exam.title.trim()) {
+        toast.error("Exam title is required");
         validateStep1();
         return;
       }
-      if (validateStep1()) setStep(2);
+      if (!exam.duration || parseFloat(exam.duration) <= 0) {
+        toast.error("Exam duration is required");
+        validateStep1();
+        return;
+      }
+      // Block if duration is incompatible with the window (friendly gate)
+      if (durationMismatch) {
+        toast.error("Please provide enough time for students to complete the exam. The selected time window is shorter than the exam duration.");
+        validateStep1();
+        return;
+      }
+      if (!validateStep1()) {
+        const isPrintable = exam.examType === 'PRINTABLE_ONLY';
+        if (!isPrintable) {
+          if (!exam.startTime) toast.error("Start time is required");
+          else if (!exam.endTime) toast.error("End time is required");
+          else if (exam.showResults === null) toast.error("Please choose result visibility");
+          else toast.error("Please correct the errors before moving to Construction.");
+        } else {
+          toast.error("Please correct the errors before moving to Construction.");
+        }
+        return;
+      }
+      setStep(2);
       return;
     }
 
