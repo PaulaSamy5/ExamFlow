@@ -1532,6 +1532,27 @@ const CreateExam = () => {
     return { type: 'ok' };
   }, [exam.endTime, exam.startTime, exam.duration]);
 
+  // ── Duration compatibility check — friendly amber reminder ──
+  // Fires whenever start + end are both set AND the window is shorter than duration.
+  // Distinct from endTimeStatus (which is an error). This is a UX nudge.
+  const durationMismatch = useMemo(() => {
+    if (exam.examType === 'PRINTABLE_ONLY') return null;
+    const dur = parseFloat(exam.duration);
+    if (!exam.startTime || !exam.endTime || !dur || dur <= 0) return null;
+    const start = new Date(exam.startTime);
+    const end = new Date(exam.endTime);
+    const windowMins = (end - start) / 60000;
+    if (windowMins <= 0) return null; // endTimeStatus will handle end < start
+    if (windowMins < dur) {
+      const shortfall = Math.ceil(dur - windowMins);
+      return {
+        windowMins: Math.round(windowMins),
+        shortfall,
+      };
+    }
+    return null;
+  }, [exam.startTime, exam.endTime, exam.duration, exam.examType]);
+
   // ── Helper: parse "YYYY-MM-DDTHH:MM" into { date, time } parts ──
   const parseDateTime = (dtStr) => {
     if (!dtStr) return { date: '', time: '' };
@@ -1762,6 +1783,12 @@ const CreateExam = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (step === 1) {
+      // Block if duration is incompatible with the window (friendly gate)
+      if (durationMismatch) {
+        // Scroll to the Schedule section — validateStep1 will also set errors
+        validateStep1();
+        return;
+      }
       if (validateStep1()) setStep(2);
       return;
     }
@@ -2478,6 +2505,21 @@ const CreateExam = () => {
                     <p className="text-xs text-rose-500 font-medium">{errors.duration}</p>
                   )}
                 </div>
+
+                {/* Duration mismatch friendly warning */}
+                {durationMismatch && (
+                  <div className="mt-3 flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 animate-in fade-in slide-in-from-top-1 duration-300">
+                    <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                        Please provide enough time for students to complete the exam.
+                      </p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                        The selected time window is <strong>{durationMismatch.windowMins} min</strong> but the exam duration is <strong>{exam.duration} min</strong> — {durationMismatch.shortfall} minute{durationMismatch.shortfall !== 1 ? 's' : ''} short. Extend the end time or shorten the duration.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
