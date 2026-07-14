@@ -401,6 +401,15 @@ const run = async (sqlText, params = []) => {
       sql += ' RETURNING id';
     }
     const result = await pool.query(sql, values);
+
+    // Asynchronously monitor database size on write operations (insert, update, delete)
+    const sqlUpper = sql.trim().toUpperCase();
+    if (sqlUpper.startsWith('INSERT') || sqlUpper.startsWith('UPDATE') || sqlUpper.startsWith('DELETE')) {
+      // Require dynamically to prevent circular dependencies
+      const dbMonitor = require('../services/dbMonitor');
+      dbMonitor.checkDatabaseSize().catch((err) => console.error('[DB Size Check Error]', err.message));
+    }
+
     return {
       lastID: isInsert ? (result.rows[0]?.id ?? null) : null,
       changes: result.rowCount || 0,
@@ -435,6 +444,11 @@ const withTransaction = async (callback) => {
     await client.query('BEGIN');
     const result = await callback(runTx);
     await client.query('COMMIT');
+
+    // Monitor database size on transaction completion (commit)
+    const dbMonitor = require('../services/dbMonitor');
+    dbMonitor.checkDatabaseSize().catch((err) => console.error('[DB Size Check Error]', err.message));
+
     return result;
   } catch (err) {
     await client.query('ROLLBACK');

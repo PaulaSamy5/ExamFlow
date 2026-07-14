@@ -2,7 +2,7 @@ const { get } = require('../config/db');
 const { sendEmail } = require('../utils/mailer');
 
 const LIMIT_BYTES = 512 * 1024 * 1024; // 512 MB Neon limit
-const ALERT_THRESHOLD_BYTES = 20 * 1024 * 1024; // 20 MB
+const ALERT_THRESHOLD_PERCENT = 90.0; // 90% threshold used
 
 let alertSent = false;
 let dbStatusAlert = null; // 'warning' | null
@@ -19,8 +19,9 @@ async function checkDatabaseSize() {
 
     dbUsedBytes = bytesUsed;
     dbRemainingBytes = LIMIT_BYTES - bytesUsed;
+    const percentUsed = (bytesUsed / LIMIT_BYTES) * 100;
 
-    if (dbRemainingBytes < ALERT_THRESHOLD_BYTES) {
+    if (percentUsed >= ALERT_THRESHOLD_PERCENT) {
       dbStatusAlert = 'warning';
       if (!alertSent) {
         // Send email to admin
@@ -30,13 +31,13 @@ async function checkDatabaseSize() {
 
         await sendEmail({
           to: adminEmail,
-          subject: '⚠️ WARNING: ExamFlow Database Capacity Low (< 20MB Remaining)',
-          text: `The ExamFlow database storage is running low. Remaining storage: ${remainingMB} MB (Used: ${usedMB} MB / 512 MB). Please take immediate action to clean up database tables or upgrade the tier.`,
+          subject: '⚠️ WARNING: ExamFlow Database Capacity Low (>= 90% Used)',
+          text: `The ExamFlow database storage is running low. Used: ${usedMB} MB / 512 MB (${percentUsed.toFixed(2)}%). Please take immediate action to clean up database tables or upgrade the tier.`,
           html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; background-color: #fcf8e3; border: 1px solid #faebcc; border-radius: 16px;">
               <h2 style="color: #8a6d3b; margin-top: 0; font-size: 20px; font-weight: 800;">⚠️ Database Storage Alert</h2>
               <p style="color: #66512c; font-size: 14px; line-height: 1.6;">
-                The ExamFlow database remaining storage has dropped below <strong>20 MB</strong>.
+                The ExamFlow database remaining storage has exceeded <strong>90%</strong> capacity.
               </p>
               <div style="background-color: #ffffff; border-radius: 12px; border: 1px solid #f1f5f9; padding: 16px; margin: 20px 0;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
@@ -46,7 +47,7 @@ async function checkDatabaseSize() {
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-weight: 600;">Storage Used</td>
-                    <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; text-align: right; color: #0f172a; font-weight: 700;">${usedMB} MB</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; text-align: right; color: #0f172a; font-weight: 700;">${usedMB} MB (${percentUsed.toFixed(1)}%)</td>
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Remaining Space</td>
@@ -61,10 +62,10 @@ async function checkDatabaseSize() {
           `
         });
         alertSent = true;
-        console.log(`[DB Monitor] Warning email sent to admin (${adminEmail}). Remaining space: ${remainingMB} MB`);
+        console.log(`[DB Monitor] Warning email sent to admin (${adminEmail}). Used space: ${usedMB} MB (${percentUsed.toFixed(1)}%)`);
       }
     } else {
-      // Reset alert status if remaining storage gets cleaned up/expanded
+      // Reset alert status if remaining storage gets cleaned up/expanded below threshold
       alertSent = false;
       dbStatusAlert = null;
     }
@@ -73,16 +74,9 @@ async function checkDatabaseSize() {
   }
 }
 
-let checkInterval = null;
-
-function startMonitoring(intervalMs = 15 * 60 * 1000) {
-  if (checkInterval) {
-    clearInterval(checkInterval);
-  }
-  // Run once immediately
-  checkDatabaseSize();
-  checkInterval = setInterval(checkDatabaseSize, intervalMs);
-  console.log(`[DB Monitor] Database capacity monitoring started (Interval: ${intervalMs / 1000 / 60} minutes)`);
+function startMonitoring() {
+  // No-op for Vercel serverless compatibility.
+  console.log('[DB Monitor] Background timers disabled for Vercel serverless compatibility.');
 }
 
 function getStatus() {
