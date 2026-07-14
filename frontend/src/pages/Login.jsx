@@ -43,7 +43,12 @@ const Login = () => {
     setLoading(true);
     const result = await login(email, password);
     if (result && result.success) {
-      toast.success(`Welcome back to ExamFlow!`);
+      const firstName = result.user?.name ? result.user.name.trim().split(/\s+/)[0] : '';
+      if (firstName) {
+        toast.success(`Welcome back, ${firstName}!`);
+      } else {
+        toast.success('Welcome back!');
+      }
     } else {
       toast.error((result && result.error) || 'Login failed. Please check your credentials.');
     }

@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(data.user));
       localStorage.setItem('token', data.token);
       navigate(getRedirectPath(data.user.role));
-      return { success: true };
+      return { success: true, user: data.user };
     } catch (err) {
       const errorMessage = err.response?.data?.error || (err.request ? 'Unable to reach the server. Please try again later.' : 'Login failed: ' + err.message);
       return { success: false, error: errorMessage, verificationRequired: err.response?.data?.requiresVerification, email: err.response?.data?.email };
