@@ -2393,10 +2393,10 @@ const CreateExam = () => {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-[1fr_auto_1fr] items-stretch divide-x divide-slate-200 dark:divide-slate-700/80">
+                      <div className="flex flex-col sm:grid sm:grid-cols-[1fr_auto_1fr] items-stretch divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-700/80">
 
                         {/* ── START block ── */}
-                        <div className="p-4 space-y-3">
+                        <div className="p-4 sm:p-5 space-y-3">
                           <div className="flex items-center gap-1.5 mb-1">
                             <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Start</span>
@@ -2449,7 +2449,7 @@ const CreateExam = () => {
                         </div>
 
                         {/* ── Arrow connector ── */}
-                        <div className="flex flex-col items-center justify-center px-3 gap-1.5 bg-slate-50/80 dark:bg-slate-800/40">
+                        <div className="hidden sm:flex flex-col items-center justify-center px-3 gap-1.5 bg-slate-50/80 dark:bg-slate-800/40">
                           <div className="h-px w-5 bg-slate-300 dark:bg-slate-600"></div>
                           <div className="flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
                             <svg viewBox="0 0 16 8" className="w-8 h-3 text-slate-300 dark:text-slate-600">
@@ -2462,7 +2462,7 @@ const CreateExam = () => {
                         </div>
 
                         {/* ── END block ── */}
-                        <div className="p-4 space-y-3">
+                        <div className="p-4 sm:p-5 space-y-3">
                           <div className="flex items-center gap-1.5 mb-1">
                             <div className={`h-2 w-2 rounded-full ${hasError ? 'bg-rose-500' : hasOk ? 'bg-emerald-500' : 'bg-violet-500'}`}></div>
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">End</span>
@@ -2548,7 +2548,7 @@ const CreateExam = () => {
 
                 return (
                   <div className={`${exam.examType === 'PRINTABLE_ONLY' ? '' : 'border-t border-slate-100 dark:border-slate-800 pt-5'}`}>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                       <div className="flex items-center gap-2 shrink-0">
                         <div className={`p-1.5 rounded-lg transition-colors ${showDurationError ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500' : 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400'}`}>
                           <Clock className="h-3.5 w-3.5" />
@@ -2557,12 +2557,12 @@ const CreateExam = () => {
                           Exam Duration
                         </label>
                       </div>
-                      <div className="flex items-center gap-2 flex-1">
+                      <div className="flex items-center gap-2 flex-1 w-full">
                         <input
                           type="number"
                           min="1"
                           placeholder="e.g. 50"
-                          className={`w-28 h-10 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm font-semibold text-center transition-all focus:outline-none focus:ring-2 ${
+                          className={`w-full sm:w-28 h-10 rounded-xl border bg-white dark:bg-slate-900 px-3 text-sm font-semibold text-center transition-all focus:outline-none focus:ring-2 ${
                             showDurationError
                               ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-500/20 bg-rose-50/50 dark:bg-rose-950/10'
                               : 'border-slate-200 dark:border-slate-700 focus:border-violet-400 focus:ring-violet-500/20'
