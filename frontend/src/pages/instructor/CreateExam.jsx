@@ -1406,13 +1406,15 @@ const CreateExam = () => {
   const [isAutoGrade, setIsAutoGrade] = useState(true);
   const [submissionCount, setSubmissionCount] = useState(0);
   const [showLockedModal, setShowLockedModal] = useState(false);
+  const [forceSaveMode, setForceSaveMode] = useState(false);
 
-  // Derive locked state: online exams only, once submissions have started
-  const isQuestionsLocked = !!id && exam.examType === 'ONLINE' && submissionCount > 0;
+  // Derive locked state: online exams only, once submissions have started & exam has started
+  const hasStarted = exam.startTime && new Date() >= new Date(exam.startTime);
+  const isQuestionsLocked = !!id && exam.examType === 'ONLINE' && hasStarted && submissionCount > 0;
 
   // Guard: attempt to navigate to Question Construction while questions are locked
   const handleGoToStep2 = () => {
-    if (isQuestionsLocked) {
+    if (isQuestionsLocked && !forceSaveMode) {
       setShowLockedModal(true);
     } else {
       setStep(2);
@@ -1918,9 +1920,12 @@ const CreateExam = () => {
         return;
       }
 
-      // If questions are locked (active submissions), skip Step 2 — go straight to save
-      if (isQuestionsLocked) {
-        // Fall through to the save logic below by NOT returning here
+      // If questions are locked (active submissions) and not forcing general info edit mode
+      if (isQuestionsLocked && !forceSaveMode) {
+        setShowLockedModal(true);
+        return;
+      } else if (isQuestionsLocked && forceSaveMode) {
+        // Fall through to save logic immediately
       } else {
         handleGoToStep2();
         return;
@@ -3372,7 +3377,7 @@ const CreateExam = () => {
                 disabled={loading || (step === 2 && !pointsOk && !isPrintable && !isQuestionsLocked)}
                 style={{ touchAction: 'manipulation' }}
                 className={`h-11 px-6 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2.5 transition-all duration-300 active:scale-[0.98] shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
-                  step === 1 && isQuestionsLocked
+                  step === 1 && isQuestionsLocked && forceSaveMode
                     ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg shadow-amber-500/20'
                     : step === 1
                     ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'
@@ -3386,13 +3391,13 @@ const CreateExam = () => {
                 ) : (
                   <>
                     <span>
-                      {step === 1 && isQuestionsLocked ? 'Save Changes'
+                      {step === 1 && isQuestionsLocked && forceSaveMode ? 'Save Changes'
                         : step === 1 ? 'Go to Construction' 
                         : step === 2 && isPrintable ? 'Continue to Paper Details'
                         : step === 3 ? (id ? 'Update & Finalize' : 'Publish Exam')
                         : (id ? 'Update Assessment' : 'Broadcast Live')}
                     </span>
-                    {step === 1 && isQuestionsLocked ? <Save className="h-4 w-4" /> : step === 3 ? <Printer className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                    {step === 1 && isQuestionsLocked && forceSaveMode ? <Save className="h-4 w-4" /> : step === 3 ? <Printer className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                   </>
                 )}
               </button>
@@ -3450,11 +3455,11 @@ const CreateExam = () => {
               </button>
               <button
                 type="button"
-                onClick={() => { setShowLockedModal(false); setStep(1); }}
+                onClick={() => { setShowLockedModal(false); setForceSaveMode(true); setStep(1); }}
                 className="flex-1 h-11 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98] shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                Edit General Info
+                Continue Editing
               </button>
             </div>
           </div>
