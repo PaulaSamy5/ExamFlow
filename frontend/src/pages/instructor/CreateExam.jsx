@@ -1269,10 +1269,10 @@ const CompactTimePicker = ({ value, options, onChange, placeholder = "Select tim
                       onClick={() => handleSelect(h, minute, ampm)}
                       className={`h-7 text-xs font-bold rounded-lg transition-all ${
                         isSel
-                          ? 'bg-indigo-650 text-white shadow-sm shadow-indigo-600/20'
+                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
                           : isValid
-                          ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
-                          : 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-40'
+                          ? 'text-slate-800 dark:text-slate-100 hover:bg-indigo-50 dark:hover:bg-slate-800'
+                          : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
                       }`}
                     >
                       {parseInt(h, 10)}
@@ -1303,10 +1303,10 @@ const CompactTimePicker = ({ value, options, onChange, placeholder = "Select tim
                       onClick={() => handleSelect(hour, m, ampm)}
                       className={`h-7 text-xs font-bold rounded-lg transition-all ${
                         isSel
-                          ? 'bg-indigo-650 text-white shadow-sm shadow-indigo-600/20'
+                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
                           : isValid
-                          ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
-                          : 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-40'
+                          ? 'text-slate-800 dark:text-slate-100 hover:bg-indigo-50 dark:hover:bg-slate-800'
+                          : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
                       }`}
                     >
                       {m}
@@ -1335,8 +1335,8 @@ const CompactTimePicker = ({ value, options, onChange, placeholder = "Select tim
                       isSel
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : isValid
-                        ? 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                        : 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-40'
+                        ? 'text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white'
+                        : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
                     }`}
                   >
                     {ap}
@@ -1996,7 +1996,10 @@ const CreateExam = () => {
         examMeta: { ...(exam.examMeta || {}), sections: sectionsMeta },
       };
       if (id) {
-        await api.put(`/exams/${id}`, { ...finalExam, questions });
+        // When questions are locked (exam has started), omit the questions array entirely.
+        // The backend only updates exam metadata; sending questions would trigger a 409.
+        const updatePayload = isQuestionsLocked ? finalExam : { ...finalExam, questions };
+        await api.put(`/exams/${id}`, updatePayload);
         const examTitle = exam.title?.trim() || 'Exam';
         toast.success(`${examTitle} updated successfully.`);
       } else {
@@ -2520,44 +2523,78 @@ const CreateExam = () => {
                           <div className="flex items-center gap-1.5 mb-1">
                             <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Start</span>
-                            <span className="text-rose-500 text-xs ml-auto">*</span>
+                            {!isStartTimeDisabled && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const now = new Date();
+                                  // Round up to next 15-min slot
+                                  const mins = now.getMinutes();
+                                  const roundedMins = Math.ceil(mins / 15) * 15;
+                                  now.setMinutes(roundedMins, 0, 0);
+                                  const pad = n => String(n).padStart(2, '0');
+                                  const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+                                  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                                  setExam(prev => ({ ...prev, startTime: `${dateStr}T${timeStr}` }));
+                                  setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                                }}
+                                className="ml-auto px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/25 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all"
+                              >
+                                Now
+                              </button>
+                            )}
+                            {isStartTimeDisabled && <span className="text-rose-500 text-xs ml-auto">*</span>}
                           </div>
 
-                          {/* Date picker */}
-                          <CompactDatePicker
-                            value={startDateVal}
-                            min={minStartDatetimeLocal.split('T')[0]}
-                            hasError={!!errors.startTime}
-                            disabled={isStartTimeDisabled}
-                            onChange={newDate => {
-                              const minStartDate = minStartDatetimeLocal.split('T')[0];
-                              let finalDate = newDate;
-                              if (finalDate && finalDate < minStartDate) finalDate = minStartDate;
-                              let finalTime = startTimeVal;
-                              const minStartTime = minStartDatetimeLocal.split('T')[1];
-                              if (finalDate === minStartDate && (!finalTime || finalTime < minStartTime)) finalTime = minStartTime;
-                              else if (!finalTime) finalTime = '09:00';
-                              setExam({ ...exam, startTime: combineDateTime(finalDate, finalTime) });
-                              setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
-                            }}
-                          />
+                          {isStartTimeDisabled ? (
+                            /* Locked — show the saved values as read-only badges */
+                            <div className="flex flex-col gap-2">
+                              <div className="h-10 px-3 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/8 flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-amber-500 shrink-0" />
+                                <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">{formatDisplayDate(startDateVal)}</span>
+                              </div>
+                              <div className="h-10 px-3 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/8 flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-amber-500 shrink-0" />
+                                <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">{formatDisplayTime(startTimeVal)}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Date picker */}
+                              <CompactDatePicker
+                                value={startDateVal}
+                                min={minStartDatetimeLocal.split('T')[0]}
+                                hasError={!!errors.startTime}
+                                onChange={newDate => {
+                                  const minStartDate = minStartDatetimeLocal.split('T')[0];
+                                  let finalDate = newDate;
+                                  if (finalDate && finalDate < minStartDate) finalDate = minStartDate;
+                                  let finalTime = startTimeVal;
+                                  const minStartTime = minStartDatetimeLocal.split('T')[1];
+                                  if (finalDate === minStartDate && (!finalTime || finalTime < minStartTime)) finalTime = minStartTime;
+                                  else if (!finalTime) finalTime = '09:00';
+                                  setExam({ ...exam, startTime: combineDateTime(finalDate, finalTime) });
+                                  setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                                }}
+                              />
 
-                          {/* Compact custom time picker */}
-                          <CompactTimePicker
-                            value={startTimeVal}
-                            options={filteredStartTimeOptions}
-                            placeholder="Pick time"
-                            hasError={!!errors.startTime}
-                            disabled={isStartTimeDisabled}
-                            onChange={newTime => {
-                              const finalDate = startDateVal || minStartDatetimeLocal.split('T')[0];
-                              setExam({ ...exam, startTime: combineDateTime(finalDate, newTime) });
-                              setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
-                            }}
-                          />
+                              {/* Compact custom time picker */}
+                              <CompactTimePicker
+                                value={startTimeVal}
+                                options={filteredStartTimeOptions}
+                                placeholder="Pick time"
+                                hasError={!!errors.startTime}
+                                onChange={newTime => {
+                                  const finalDate = startDateVal || minStartDatetimeLocal.split('T')[0];
+                                  setExam({ ...exam, startTime: combineDateTime(finalDate, newTime) });
+                                  setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                                }}
+                              />
+                            </>
+                          )}
 
                           {/* Display selected */}
-                          {startDateVal && startTimeVal && (
+                          {!isStartTimeDisabled && startDateVal && startTimeVal && (
                             <div className="flex items-center gap-1.5 px-0.5 animate-fade-in">
                               <CheckCircle className="h-3 w-3 text-indigo-400 shrink-0" />
                               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
