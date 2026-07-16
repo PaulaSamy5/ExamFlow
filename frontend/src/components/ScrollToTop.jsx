@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowUp } from 'lucide-react';
 
-const ScrollToTop = () => {
+const ScrollToTop = ({ hasBottomBar = false }) => {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -22,7 +22,7 @@ const ScrollToTop = () => {
       onClick={scrollToTop}
       aria-label="Scroll to top"
       className={`
-        fixed bottom-8 right-8 z-[9999]
+        fixed ${hasBottomBar ? 'bottom-[165px] sm:bottom-8' : 'bottom-8'} right-8 z-[9999]
         h-12 w-12 rounded-2xl
         flex items-center justify-center
         bg-indigo-600/90 backdrop-blur-md

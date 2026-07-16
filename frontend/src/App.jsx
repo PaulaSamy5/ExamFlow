@@ -353,7 +353,11 @@ function App() {
         </footer>
       )}
 
-      {!isPrintPage && <ScrollToTopButton />}
+      {!isPrintPage && (
+        <ScrollToTopButton
+          hasBottomBar={location.pathname === '/exams/new' || location.pathname.endsWith('/edit')}
+        />
+      )}
 
       {/* Premium Fullscreen Logout Transition Overlay */}
       {isLoggingOut && (
