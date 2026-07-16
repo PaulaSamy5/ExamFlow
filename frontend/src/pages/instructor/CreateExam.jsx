@@ -1907,12 +1907,18 @@ const CreateExam = () => {
         ), { duration: 4000 });
         return;
       }
-      setStep(2);
-      return;
+
+      // If questions are locked (active submissions), skip Step 2 — go straight to save
+      if (isQuestionsLocked) {
+        // Fall through to the save logic below by NOT returning here
+      } else {
+        setStep(2);
+        return;
+      }
     }
 
     // Block publish/launch if any question is incomplete — show the summary modal and mark cards
-    if (liveQuestionErrors.length > 0) {
+    if (!isQuestionsLocked && liveQuestionErrors.length > 0) {
       if (step === 3) setStep(2);
       setValidationTriggered(true);
       setShowValidationModal(true);
@@ -2017,10 +2023,10 @@ const CreateExam = () => {
         <div className="flex items-center gap-8 pr-2">
           <div className="text-right hidden sm:block">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-              {step === 1 ? 'Next: Build Questions' : step === 2 ? (isPrintable ? 'Next: Exam Paper Details' : 'Total Grade Allocation') : 'Final Step — Complete Details'}
+              {step === 1 ? (isQuestionsLocked ? 'Next: Save Assessment' : 'Next: Build Questions') : step === 2 ? (isPrintable ? 'Next: Exam Paper Details' : 'Total Grade Allocation') : 'Final Step — Complete Details'}
             </p>
             <p className="text-sm font-black text-indigo-400">
-              {step === 1 ? 'Configuration Phase' : step === 2 ? `${totalPoints} Points Established` : `${getMetaCompletion().completed} / ${getMetaCompletion().total} Fields Complete`}
+              {step === 1 ? (isQuestionsLocked ? 'Questions Locked' : 'Configuration Phase') : step === 2 ? `${totalPoints} Points Established` : `${getMetaCompletion().completed} / ${getMetaCompletion().total} Fields Complete`}
             </p>
           </div>
           <div className="flex gap-2 h-12 items-center">
@@ -2694,34 +2700,44 @@ const CreateExam = () => {
 
         {step === 2 && (
           <div className="space-y-12 animate-in fade-in zoom-in-95 duration-500">
-            {/* Locked notification banner */}
-            {isQuestionsLocked && (
-              <div className="flex items-start gap-3.5 px-5 py-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-slate-800 dark:text-amber-305 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="p-2 bg-amber-100 dark:bg-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
-                  <ShieldCheck className="h-5 w-5" />
+            {isQuestionsLocked ? (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-5 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border-2 border-amber-300 dark:border-amber-500/40 text-slate-800 dark:text-amber-305">
+                <div className="flex items-start gap-3.5">
+                  <div className="p-2.5 bg-amber-100 dark:bg-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                    <ShieldCheck className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-extrabold text-amber-950 dark:text-amber-200">Question Construction is Locked</p>
+                    <p className="text-xs text-slate-650 dark:text-slate-400 leading-relaxed">
+                      Active submissions: <strong>{submissionCount}</strong>. To preserve exam integrity, editing questions, options, or correctness here is fully blocked.
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-extrabold text-amber-950 dark:text-amber-200">Questions are Locked</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    This exam has started and has <strong>{submissionCount} student submission{submissionCount !== 1 ? 's' : ''}</strong>. 
-                    Questions, points, options, and model answers cannot be modified to preserve exam integrity. You can still modify general information (Title, Duration, Instructions, Dates) or extend the End Time.
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="h-10 px-5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all shadow-md shadow-amber-500/20 flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Edit General Info
+                </button>
+              </div>
+            ) : (
+              /* Sections explainer — subtle, always visible */
+              <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-500/5 border border-indigo-200/60 dark:border-indigo-500/15 text-xs text-slate-600 dark:text-slate-400">
+                <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg border border-indigo-200 dark:border-indigo-500/20 shrink-0 mt-0.5">
+                  <Layout className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="font-semibold text-slate-700 dark:text-slate-300">Sections help you organize questions into groups</p>
+                  <p className="text-slate-500 dark:text-slate-500 leading-relaxed">
+                    Each section gets its own title shown to students during the exam — e.g. "Part A: Multiple Choice" or "Part B: Essay". You can rename any section by clicking its title. Add more sections using the button at the bottom.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Sections explainer — subtle, always visible */}
-            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-500/5 border border-indigo-200/60 dark:border-indigo-500/15 text-xs text-slate-600 dark:text-slate-400">
-              <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg border border-indigo-200 dark:border-indigo-500/20 shrink-0 mt-0.5">
-                <Layout className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
-              </div>
-              <div className="space-y-0.5">
-                <p className="font-semibold text-slate-700 dark:text-slate-300">Sections help you organize questions into groups</p>
-                <p className="text-slate-500 dark:text-slate-500 leading-relaxed">
-                  Each section gets its own title shown to students during the exam — e.g. "Part A: Multiple Choice" or "Part B: Essay". You can rename any section by clicking its title. Add more sections using the button at the bottom.
-                </p>
-              </div>
-            </div>
+            <div className={isQuestionsLocked ? "pointer-events-none select-none opacity-70" : ""}>
 
             {sections.map((section, sIdx) => {
               let globalQNum = sections.slice(0, sIdx).reduce((acc, s) => acc + s.questions.length, 0);
@@ -2825,6 +2841,7 @@ const CreateExam = () => {
                 </div>
               );
             })}
+            </div>
           </div>
         )}
 
@@ -3342,10 +3359,12 @@ const CreateExam = () => {
 
               <button
                 type="submit"
-                disabled={loading || (step === 2 && !pointsOk && !isPrintable)}
+                disabled={loading || (step === 2 && !pointsOk && !isPrintable && !isQuestionsLocked)}
                 style={{ touchAction: 'manipulation' }}
                 className={`h-11 px-6 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2.5 transition-all duration-300 active:scale-[0.98] shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
-                  step === 1
+                  step === 1 && isQuestionsLocked
+                    ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg shadow-amber-500/20'
+                    : step === 1
                     ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'
                     : step === 3
                     ? 'bg-violet-600 text-white hover:bg-violet-500 shadow-lg shadow-violet-600/10'
@@ -3357,12 +3376,13 @@ const CreateExam = () => {
                 ) : (
                   <>
                     <span>
-                      {step === 1 ? 'Go to Construction' 
+                      {step === 1 && isQuestionsLocked ? 'Save Changes'
+                        : step === 1 ? 'Go to Construction' 
                         : step === 2 && isPrintable ? 'Continue to Paper Details'
                         : step === 3 ? (id ? 'Update & Finalize' : 'Publish Exam')
                         : (id ? 'Update Assessment' : 'Broadcast Live')}
                     </span>
-                    {step === 3 ? <Printer className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                    {step === 1 && isQuestionsLocked ? <Save className="h-4 w-4" /> : step === 3 ? <Printer className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                   </>
                 )}
               </button>
