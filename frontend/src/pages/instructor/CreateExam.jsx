@@ -2230,7 +2230,7 @@ const CreateExam = () => {
                   </div>
 
                   {/* Animated Result Release Mode */}
-                  <div className={`transition-all duration-700 overflow-hidden ${exam.examType === 'PRINTABLE_ONLY' ? 'max-h-[100px] opacity-100' : 'max-h-[300px] opacity-100'}`}>
+                  <div className={`transition-all duration-700 overflow-hidden ${exam.examType === 'PRINTABLE_ONLY' ? 'max-h-[100px] opacity-100' : 'max-h-[1000px] opacity-100'}`}>
                     {exam.examType === 'PRINTABLE_ONLY' ? (
                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-start gap-3">
                           <AlertCircle className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
