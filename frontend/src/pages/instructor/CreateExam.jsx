@@ -1423,21 +1423,10 @@ const CreateExam = () => {
   });
   const [isAutoGrade, setIsAutoGrade] = useState(true);
   const [submissionCount, setSubmissionCount] = useState(0);
-  const [showLockedModal, setShowLockedModal] = useState(false);
-  const [forceSaveMode, setForceSaveMode] = useState(false);
 
-  // Derive locked state: online exams only, once submissions have started & exam has started
+  // Derive locked state: online exams only, once exam has started and submissions exist
   const hasStarted = exam.startTime && new Date() >= new Date(exam.startTime);
   const isQuestionsLocked = !!id && exam.examType === 'ONLINE' && hasStarted && submissionCount > 0;
-
-  // Guard: attempt to navigate to Question Construction while questions are locked
-  const handleGoToStep2 = () => {
-    if (isQuestionsLocked && !forceSaveMode) {
-      setShowLockedModal(true);
-    } else {
-      setStep(2);
-    }
-  };
 
   useEffect(() => {
     if (id) {
@@ -1938,14 +1927,11 @@ const CreateExam = () => {
         return;
       }
 
-      // If questions are locked (active submissions) and not forcing general info edit mode
-      if (isQuestionsLocked && !forceSaveMode) {
-        setShowLockedModal(true);
-        return;
-      } else if (isQuestionsLocked && forceSaveMode) {
+      // If questions are locked, save general info directly — step 2 is completely bypassed
+      if (isQuestionsLocked) {
         // Fall through to save logic immediately
       } else {
-        handleGoToStep2();
+        setStep(2);
         return;
       }
     }
@@ -2031,7 +2017,7 @@ const CreateExam = () => {
       {/* Dynamic Progress Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-4">
-          <button type="button" onClick={() => step === 1 ? navigate(-1) : (step - 1 === 2 ? handleGoToStep2() : setStep(step - 1))}
+          <button type="button" onClick={() => step === 1 ? navigate(-1) : setStep(step - 1)}
             style={{ touchAction: 'manipulation' }}
             className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:text-white hover:border-slate-300 dark:border-slate-700 transition-all shadow-xl shadow-black/20 group">
             <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
@@ -2077,6 +2063,24 @@ const CreateExam = () => {
         {step === 1 && (
           <div className="space-y-6 animate-in zoom-in-95 duration-500 max-w-3xl mx-auto">
             
+            {/* ── Questions Locked Notice ── */}
+            {isQuestionsLocked && (
+              <div className="flex items-start gap-4 bg-amber-50 dark:bg-amber-500/8 border border-amber-200 dark:border-amber-500/25 rounded-2xl p-5 animate-in fade-in slide-in-from-top-2 duration-500">
+                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/25 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-amber-900 dark:text-amber-200 mb-1">Question Editing Locked</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                    This online exam has already started and{' '}
+                    <strong>{submissionCount} student{submissionCount !== 1 ? 's have' : ' has'} submitted</strong>.
+                    {' '}Question editing is disabled to preserve exam integrity and fairness.
+                    You can still update the general information below and save your changes.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* ── 1. Exam Delivery Mode ── */}
             <div className={cardClass}>
                {id ? (
@@ -3382,7 +3386,7 @@ const CreateExam = () => {
               {step > 1 && (
                 <button
                   type="button"
-                  onClick={() => step - 1 === 2 ? handleGoToStep2() : setStep(step - 1)}
+                  onClick={() => setStep(step - 1)}
                   style={{ touchAction: 'manipulation' }}
                   className="h-11 px-5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs uppercase tracking-wider border border-slate-200 dark:border-slate-700/80 transition-all active:scale-[0.98]"
                 >
@@ -3395,7 +3399,7 @@ const CreateExam = () => {
                 disabled={loading || (step === 2 && !pointsOk && !isPrintable && !isQuestionsLocked)}
                 style={{ touchAction: 'manipulation' }}
                 className={`h-11 px-6 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2.5 transition-all duration-300 active:scale-[0.98] shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
-                  step === 1 && isQuestionsLocked && forceSaveMode
+                  step === 1 && isQuestionsLocked
                     ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg shadow-amber-500/20'
                     : step === 1
                     ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'
@@ -3409,13 +3413,13 @@ const CreateExam = () => {
                 ) : (
                   <>
                     <span>
-                      {step === 1 && isQuestionsLocked && forceSaveMode ? 'Save Changes'
+                      {step === 1 && isQuestionsLocked ? 'Save Changes'
                         : step === 1 ? 'Go to Construction' 
                         : step === 2 && isPrintable ? 'Continue to Paper Details'
                         : step === 3 ? (id ? 'Update & Finalize' : 'Publish Exam')
                         : (id ? 'Update Assessment' : 'Broadcast Live')}
                     </span>
-                    {step === 1 && isQuestionsLocked && forceSaveMode ? <Save className="h-4 w-4" /> : step === 3 ? <Printer className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                    {step === 1 && isQuestionsLocked ? <Save className="h-4 w-4" /> : step === 3 ? <Printer className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                   </>
                 )}
               </button>
@@ -3424,66 +3428,6 @@ const CreateExam = () => {
         </div>
 
       </form>
-    {/* ── Question Construction Locked Modal ── */}
-    {showLockedModal && (
-      <div
-        className="fixed inset-0 z-[9998] flex items-center justify-center px-4 bg-slate-900/30 dark:bg-slate-950/70 backdrop-blur-md"
-        onClick={() => setShowLockedModal(false)}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-amber-500/25 rounded-[2.5rem] p-8 shadow-[0_25px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] relative overflow-hidden animate-in fade-in zoom-in-95 duration-300"
-        >
-          <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/4 translate-x-1/4 pointer-events-none" />
-
-          <div className="flex flex-col items-center text-center space-y-5 relative z-10">
-            <div className="h-16 w-16 rounded-[1.5rem] bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shadow-inner">
-              <ShieldCheck className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Question Editing Locked
-              </h3>
-              <p className="text-[10px] font-black tracking-[0.2em] text-amber-600 dark:text-amber-400 uppercase">
-                Exam Integrity Protection
-              </p>
-            </div>
-
-            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              This online exam has already started and{' '}
-              <strong className="text-slate-800 dark:text-slate-200">{submissionCount} student{submissionCount !== 1 ? 's have' : ' has'} submitted</strong>{' '}
-              their answers. To preserve exam fairness and integrity, question editing has been disabled.
-            </p>
-
-            <div className="w-full bg-amber-50 dark:bg-amber-500/8 border border-amber-200 dark:border-amber-500/20 rounded-2xl p-4 text-left space-y-1.5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Still available to edit:</p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Title, description, instructions, scheduling, and other general exam metadata can still be updated from Phase 01.
-              </p>
-            </div>
-
-            <div className="w-full flex flex-col sm:flex-row gap-3 pt-1">
-              <button
-                type="button"
-                onClick={() => setShowLockedModal(false)}
-                className="flex-1 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98]"
-              >
-                Back to Exam Details
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowLockedModal(false); setForceSaveMode(true); setStep(1); }}
-                className="flex-1 h-11 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98] shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Continue Editing
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
     </div>
   );
 };
