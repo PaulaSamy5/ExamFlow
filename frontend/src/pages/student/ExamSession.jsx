@@ -1092,19 +1092,20 @@ const ExamSession = () => {
         </div>
 
         {/* Global Control Bar */}
-         <footer className="glass border-t border-slate-200 dark:border-slate-800/50 px-8 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex items-center justify-between z-30">
+         <footer className="glass border-t border-slate-200 dark:border-slate-800/50 px-4 sm:px-8 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-3 z-30">
             <button 
               type="button"
               disabled={activeIdx === 0}
               onClick={(e) => { e.stopPropagation(); setActiveIdx(prev => prev - 1); }}
-              className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-6 py-3 rounded-xl glass glass-hover text-slate-500 hover:text-slate-900 dark:text-white disabled:opacity-20"
+              className="h-11 px-4 sm:px-6 rounded-xl glass glass-hover text-slate-700 hover:text-slate-950 dark:text-slate-200 dark:hover:text-white disabled:opacity-40 disabled:hover:text-slate-700 dark:disabled:hover:text-slate-200 flex items-center justify-center gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all active:scale-95 shrink-0"
             >
-              <ChevronLeft className="h-4 w-4" /> Previous
+              <ChevronLeft className="h-4 w-4" />
+              <span>Previous</span>
             </button>
             
-            <div className="flex lg:hidden items-center gap-3 p-4 glass rounded-2xl">
-               <Timer className="h-5 w-5 text-indigo-500" />
-               <span className="text-xl font-black tabular-nums text-slate-900 dark:text-white leading-none">{formatTime(timeLeft)}</span>
+            <div className="flex lg:hidden items-center gap-2 px-3.5 h-11 glass rounded-xl text-slate-850 dark:text-slate-200 shrink-0 border border-slate-200 dark:border-slate-800/40">
+               <Timer className="h-4.5 w-4.5 text-indigo-650 dark:text-indigo-400 animate-pulse" />
+               <span className="text-base font-extrabold tabular-nums leading-none tracking-tight">{formatTime(timeLeft)}</span>
             </div>
 
             {activeIdx >= questions.length - 1 ? (
@@ -1116,10 +1117,14 @@ const ExamSession = () => {
                   e.preventDefault();
                   setShowConfirmModal(true);
                 }}
-                className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-8 py-3 rounded-xl bg-emerald-600 text-white shadow-xl shadow-emerald-900/40 hover:bg-emerald-500 transition-all active:scale-95 group animate-in fade-in zoom-in duration-300"
+                className="h-11 px-4 sm:px-8 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 text-[10px] sm:text-xs uppercase tracking-wider transition-all active:scale-95 group shadow-lg shadow-emerald-600/20 disabled:opacity-50 shrink-0"
               >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : <Send className="h-4 w-4 group-hover:translate-x-1 transition-transform" />}
-                Final Submit
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                ) : (
+                  <Send className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                )}
+                <span>Final Submit</span>
               </button>
             ) : (
               <button 
@@ -1129,12 +1134,13 @@ const ExamSession = () => {
                   setActiveIdx(prev => prev + 1);
                   handleSave(true);
                 }}
-                className="flex items-center gap-3 font-black uppercase tracking-widest text-[10px] px-8 py-3 rounded-xl bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95"
+                className="h-11 px-4 sm:px-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center justify-center gap-2 text-[10px] sm:text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg shadow-indigo-600/20 shrink-0"
               >
-                Next Step <ChevronRight className="h-4 w-4" />
+                <span>Next Step</span>
+                <ChevronRight className="h-4 w-4" />
               </button>
             )}
-        </footer>
+         </footer>
       </main>
 
       {/* Confirmation Modal */}
