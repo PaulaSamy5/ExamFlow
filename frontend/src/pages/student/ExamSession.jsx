@@ -708,7 +708,7 @@ const ExamSession = () => {
                                        
                                        <FormattedText 
                                           text={text}
-                                          className="text-xl md:text-2xl font-medium text-slate-100 leading-[1.8] tracking-tight !font-outfit animate-in fade-in slide-in-from-left duration-700 whitespace-pre-wrap"
+                                          className="text-xl md:text-2xl font-medium text-slate-850 dark:text-slate-100 leading-[1.8] tracking-tight !font-outfit animate-in fade-in slide-in-from-left duration-700 whitespace-pre-wrap"
                                        />
                                     </div>
                                  </div>
@@ -762,15 +762,15 @@ const ExamSession = () => {
                           }}
                           className={`group flex items-center justify-between w-full p-6 h-20 rounded-[1.8rem] border-2 transition-all duration-500 ${
                             isSelected 
-                              ? 'bg-indigo-600/10 border-indigo-600 text-slate-900 dark:text-white shadow-2xl scale-[1.02]' 
-                              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 hover:border-slate-300 dark:border-slate-700 hover:text-slate-600 dark:text-slate-300'
+                              ? 'bg-indigo-600/10 border-indigo-600 text-slate-955 dark:text-white shadow-2xl scale-[1.02]' 
+                              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-350 dark:hover:border-slate-700 hover:text-slate-950 dark:hover:text-white'
                           }`}
                         >
                           <div className="flex items-center gap-6">
                             <div className={`h-8 w-8 rounded-xl border-2 flex items-center justify-center transition-all ${
                               isSelected ? 'bg-indigo-600 border-indigo-500 rotate-[360deg]' : 'border-slate-200 dark:border-slate-800/50 group-hover:border-slate-300 dark:border-slate-700'
                             }`}>
-                              {isSelected ? <CheckSquare className="h-4 w-4 text-slate-900 dark:text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-slate-100 dark:bg-slate-800" />}
+                              {isSelected ? <CheckSquare className="h-4 w-4 text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-slate-200 dark:bg-slate-800" />}
                             </div>
                             <span className="text-lg font-bold tracking-tight leading-none">{option}</span>
                           </div>
@@ -794,8 +794,8 @@ const ExamSession = () => {
                         onClick={(e) => { e.stopPropagation(); handleUpdateAnswer(currentQuestion.id, val); }}
                         className={`flex flex-col items-center justify-center p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] border-2 group transition-all duration-500 ${
                           answers[currentQuestion.id] === val
-                            ? 'bg-indigo-600/10 border-indigo-600 text-indigo-400 shadow-2xl'
-                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'
+                            ? 'bg-indigo-600/10 border-indigo-600 text-indigo-600 dark:text-indigo-450 shadow-2xl'
+                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-350 dark:hover:border-slate-700 hover:text-slate-955 dark:hover:text-white'
                         }`}
                       >
                         {val === 'True' ? <CheckCircle2 className="h-10 w-10 sm:h-16 sm:w-16 mb-3 sm:mb-4 group-hover:scale-110 transition-transform" /> : <XCircle className="h-10 w-10 sm:h-16 sm:w-16 mb-3 sm:mb-4 group-hover:scale-110 transition-transform" />}
@@ -810,7 +810,7 @@ const ExamSession = () => {
                      <label className="text-[10px] font-bold uppercase text-slate-600 tracking-widest ml-2">Text Input Response</label>
                      <input 
                        autoFocus
-                       className="w-full bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-800/80 rounded-2xl px-6 py-4 text-lg font-bold text-indigo-400 focus:border-indigo-600 outline-none transition-all placeholder:text-slate-800 shadow-inner"
+                       className="w-full bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-800/80 rounded-2xl px-6 py-4 text-lg font-bold text-slate-850 dark:text-indigo-450 focus:border-indigo-600 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 shadow-inner"
                        placeholder="Submit Answer Pattern..."
                        value={answers[currentQuestion.id] || ''}
                        onChange={(e) => handleUpdateAnswer(currentQuestion.id, e.target.value)}
@@ -822,7 +822,7 @@ const ExamSession = () => {
                   <div className="space-y-4">
                      <label className="text-xs font-black uppercase text-slate-600 tracking-widest ml-2">Open Response Lab</label>
                      <textarea
-                       className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-200 dark:border-slate-800/80 rounded-2xl sm:rounded-[2.5rem] px-4 sm:px-10 py-4 sm:py-10 min-h-[250px] sm:min-h-[350px] text-base sm:text-lg font-medium leading-relaxed focus:border-indigo-600 outline-none transition-all placeholder:text-slate-800 shadow-inner"
+                       className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-200 dark:border-slate-800/80 rounded-2xl sm:rounded-[2.5rem] px-4 sm:px-10 py-4 sm:py-10 min-h-[250px] sm:min-h-[350px] text-base sm:text-lg font-medium leading-relaxed text-slate-850 dark:text-slate-100 focus:border-indigo-600 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 shadow-inner"
                        placeholder="Synthesize your comprehensive response..."
                        value={answers[currentQuestion.id] || ''}
                        onChange={(e) => handleUpdateAnswer(currentQuestion.id, e.target.value)}
@@ -1028,7 +1028,7 @@ const ExamSession = () => {
 
                                   <div className="relative group">
                                      <textarea 
-                                       className={`w-full bg-[#1e1e1e] border-4 rounded-[2.5rem] px-10 py-12 min-h-[450px] text-lg font-mono text-slate-600 dark:text-slate-300 outline-none transition-all placeholder:text-slate-700 shadow-2xl ${isLocked && detected && detected !== requiredLangId ? 'border-rose-600 focus:border-rose-400' : 'border-slate-200 dark:border-slate-800/80 focus:border-fuchsia-600'}`}
+                                       className={`w-full bg-[#1e1e1e] border-4 rounded-[2.5rem] px-10 py-12 min-h-[450px] text-lg font-mono text-slate-100 outline-none transition-all placeholder:text-slate-600 shadow-2xl ${isLocked && detected && detected !== requiredLangId ? 'border-rose-600 focus:border-rose-400' : 'border-slate-200 dark:border-slate-800/80 focus:border-fuchsia-600'}`}
                                        placeholder={`// Write your ${selectedLangId} solution here...`}
                                        spellCheck="false"
                                        value={answers[currentQuestion.id] || ''}
@@ -1145,13 +1145,13 @@ const ExamSession = () => {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-[#0b1328]/95 border border-emerald-500/20 shadow-[-10px_-10px_30px_4px_rgba(0,0,0,0.1),_10px_10px_30px_4px_rgba(16,185,129,0.1)] rounded-3xl p-8 max-w-md w-full relative overflow-hidden backdrop-blur-xl"
+              className="bg-white dark:bg-[#0b1328]/95 border border-slate-200 dark:border-emerald-500/20 shadow-[-10px_-10px_30px_4px_rgba(0,0,0,0.05),_10px_10px_30px_4px_rgba(16,185,129,0.05)] rounded-3xl p-8 max-w-md w-full relative overflow-hidden backdrop-blur-xl"
             >
-              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
               
               <div className="flex flex-col items-center text-center space-y-5 relative z-10">
-                <div className="h-16 w-16 bg-gradient-to-br from-emerald-500/20 to-emerald-900/40 rounded-full flex items-center justify-center text-emerald-400 border border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)]">
+                <div className="h-16 w-16 bg-gradient-to-br from-emerald-500/10 to-emerald-900/20 dark:from-emerald-500/20 dark:to-emerald-900/40 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 dark:border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]">
                   <CheckSquare size={28} />
                 </div>
                 <div>
@@ -1199,17 +1199,17 @@ const ExamSession = () => {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#0b1328]/95 border border-amber-500/30 shadow-[0_0_40px_-10px_rgba(245,158,11,0.3)] rounded-3xl p-8 max-w-md w-full relative overflow-hidden backdrop-blur-xl"
+              className="bg-white dark:bg-[#0b1328]/95 border border-slate-200 dark:border-amber-500/30 shadow-[0_0_40px_-10px_rgba(245,158,11,0.15)] rounded-3xl p-8 max-w-md w-full relative overflow-hidden backdrop-blur-xl"
             >
-              <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+              <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 dark:bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
               <div className="flex flex-col items-center text-center space-y-5 relative z-10">
-                <div className="h-16 w-16 bg-gradient-to-br from-amber-500/20 to-red-900/30 rounded-full flex items-center justify-center text-amber-400 border border-amber-500/30 shadow-[0_0_30px_-5px_rgba(245,158,11,0.3)] animate-pulse">
+                <div className="h-16 w-16 bg-gradient-to-br from-amber-500/10 to-red-900/20 dark:from-amber-500/20 dark:to-red-900/30 rounded-full flex items-center justify-center text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-500/30 shadow-[0_0_30px_-5px_rgba(245,158,11,0.2)] animate-pulse">
                   <AlertTriangle size={28} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold tracking-tight text-white mb-2">Stay on This Tab</h3>
-                  <p className="text-[13px] text-slate-300/80 leading-relaxed font-medium">
+                  <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Stay on This Tab</h3>
+                  <p className="text-[13px] text-slate-600 dark:text-slate-300/80 leading-relaxed font-medium">
                     Leaving the exam tab has been detected. Repeated violations will result in automatic submission of your exam.
                   </p>
                   <div className="mt-4 flex items-center justify-center gap-2">
