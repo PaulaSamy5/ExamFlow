@@ -75,6 +75,26 @@ const ExamSession = () => {
   const [selectedLangs, setSelectedLangs] = useState({}); // Stores selected language per coding question
   const [tabViolations, setTabViolations] = useState(0);
   const [showTabWarning, setShowTabWarning] = useState(false);
+  const [hasLaunched, setHasLaunched] = useState(false);
+  const [terminationReason, setTerminationReason] = useState(null);
+
+  const handleLaunch = async () => {
+    try {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        await el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        await el.webkitRequestFullscreen();
+      } else if (el.mozRequestFullScreen) {
+        await el.mozRequestFullScreen();
+      } else if (el.msRequestFullscreen) {
+        await el.msRequestFullscreen();
+      }
+    } catch (err) {
+      console.warn("Fullscreen request failed:", err);
+    }
+    setHasLaunched(true);
+  };
   const autoSaveTimerRef = useRef(null);
   const answersRef = useRef({});
   const submissionRef = useRef(null);
@@ -206,18 +226,20 @@ const ExamSession = () => {
 
   // ── Tab/Window focus detection (anti-cheat) ──
   useEffect(() => {
-    if (loading || !submission || submission.status !== 'IN_PROGRESS') return;
+    if (loading || !submission || submission.status !== 'IN_PROGRESS' || !hasLaunched || terminationReason) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
         setTabViolations(prev => {
           const next = prev + 1;
           if (next >= MAX_TAB_VIOLATIONS) {
+            const reason = 'You switched to another browser tab.';
+            setTerminationReason(reason);
             toast.error('Maximum tab switches reached. Auto-submitting your exam.', { duration: 5000, icon: '🚫' });
             setTimeout(() => {
               if (!autoSubmitTriggeredRef.current) {
                 autoSubmitTriggeredRef.current = true;
-                processSubmission(true);
+                processSubmission(true, reason);
               }
             }, 800);
           } else {
@@ -233,12 +255,43 @@ const ExamSession = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [loading, submission]);
+  }, [loading, submission, hasLaunched, terminationReason]);
+
+  // ── Fullscreen detection (anti-cheat) ──
+  useEffect(() => {
+    if (loading || !submission || submission.status !== 'IN_PROGRESS' || !hasLaunched || terminationReason) return;
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && !autoSubmitTriggeredRef.current && !isSubmittingRef.current) {
+        const reason = 'Fullscreen mode was exited.';
+        setTerminationReason(reason);
+        toast.error('Fullscreen mode exited. Auto-submitting and locking your exam.', { duration: 5000, icon: '🚫' });
+        setTimeout(() => {
+          if (!autoSubmitTriggeredRef.current) {
+            autoSubmitTriggeredRef.current = true;
+            processSubmission(true, reason);
+          }
+        }, 800);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, [loading, submission, hasLaunched, terminationReason]);
 
   // ── Copy/Paste/Cut/Right-click prevention ──
   // UX-001: paste is allowed in textarea/input so students can paste their code answers
   useEffect(() => {
-    if (loading || !submission || submission.status !== 'IN_PROGRESS') return;
+    if (loading || !submission || submission.status !== 'IN_PROGRESS' || terminationReason) return;
 
     const isAnswerField = (target) => {
       const tag = target?.tagName?.toLowerCase();
@@ -288,7 +341,7 @@ const ExamSession = () => {
 
   // ── Prevent accidental page close/refresh ──
   useEffect(() => {
-    if (loading || !submission || submission.status !== 'IN_PROGRESS') return;
+    if (loading || !submission || submission.status !== 'IN_PROGRESS' || terminationReason) return;
 
     const handleBeforeUnload = (e) => {
       e.preventDefault();
@@ -355,7 +408,7 @@ const ExamSession = () => {
     await processSubmission(true);
   };
 
-  const processSubmission = async (force = false) => {
+  const processSubmission = async (force = false, termReason = null) => {
     // Use refs for force-mode (timer/anti-cheat) to guarantee latest data
     const sub = force ? submissionRef.current : submission;
     const currentAnswers = force ? answersRef.current : answers;
@@ -408,7 +461,16 @@ const ExamSession = () => {
 
       // Save first, then submit — ensures no answer loss
       await api.patch(`/submissions/${sub.id}/save`, { answers: answerArray });
-      await api.post(`/submissions/${sub.id}/submit`);
+      await api.post(`/submissions/${sub.id}/submit`, { terminationReason: termReason });
+
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
+      if (termReason) {
+        setTerminationReason(termReason);
+        return;
+      }
 
       const showResults = parseInt(sub.exam.showResults); // FLOW-002: coerce to int (API may return string)
 
@@ -503,6 +565,119 @@ const ExamSession = () => {
   });
   const answeredCount = Object.keys(answers).filter(id => answers[id] !== '').length;
   const progress = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
+
+  // ── Termination Screen View ──
+  if (terminationReason) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#040814] font-outfit select-none p-6 text-center animate-fade-in">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-rose-500/5 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="w-full max-w-[500px] bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-rose-500/20 rounded-[2.5rem] p-8 sm:p-10 shadow-[0_20px_50px_rgba(239,68,68,0.1)] backdrop-blur-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          
+          <div className="flex flex-col items-center space-y-6">
+            <div className="h-20 w-20 bg-rose-500/10 dark:bg-rose-500/20 border border-rose-500/30 rounded-3xl flex items-center justify-center text-rose-500 shadow-[0_0_30px_rgba(239,68,68,0.2)] animate-pulse">
+              <XCircle size={40} className="stroke-[1.5]" />
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                Exam Session Terminated
+              </h2>
+              <p className="text-[10px] font-black tracking-[0.2em] text-rose-500 uppercase">
+                Security Policy Enforcement
+              </p>
+            </div>
+
+            <div className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800 rounded-2xl p-5 text-left space-y-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider leading-none">
+                Violation Reason:
+              </p>
+              <p className="text-sm font-black text-rose-600 dark:text-rose-400 leading-snug">
+                {terminationReason}
+              </p>
+              <div className="h-px bg-slate-200 dark:bg-slate-800 my-2" />
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Your exam progress has been safely saved and automatically submitted. No further edits or submissions can be made for this session.
+              </p>
+            </div>
+
+            <button
+              onClick={() => navigate('/student/dashboard')}
+              className="w-full h-12 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-slate-950/10 dark:shadow-none flex items-center justify-center gap-2"
+            >
+              <ChevronLeft size={16} /> Return to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Launch Gate Instruction Screen View ──
+  if (!hasLaunched) {
+    const isMock = submission?.exam?.isMock;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#040814] font-outfit select-none p-6 text-center animate-fade-in">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="w-full max-w-[520px] bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/60 rounded-[2.5rem] p-8 sm:p-10 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          
+          <div className="flex flex-col items-center space-y-7">
+            <div className="h-16 w-16 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-500 shadow-md">
+              <ShieldCheck size={32} className="stroke-[1.5]" />
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                {submission?.exam?.title || 'Exam Session'}
+              </h2>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-lg">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                  Secure Proctoring Mode
+                </span>
+              </div>
+            </div>
+
+            <div className="w-full text-left space-y-4">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Security Regulations:</h4>
+              <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                <div className="flex items-start gap-3">
+                  <div className="h-5 w-5 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 text-indigo-500">
+                    <CheckSquare size={14} />
+                  </div>
+                  <p className="leading-relaxed">Fullscreen mode will be locked upon entry. Exiting fullscreen will terminate your exam.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-5 w-5 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 text-indigo-500">
+                    <CheckSquare size={14} />
+                  </div>
+                  <p className="leading-relaxed">Switching browser tabs or minimizing the window is restricted and tracked.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-5 w-5 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 text-indigo-500">
+                    <CheckSquare size={14} />
+                  </div>
+                  <p className="leading-relaxed">Right-clicking, copying, or pasting text outside answer textareas is completely disabled.</p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLaunch}
+              className="w-full h-13 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-wider text-xs rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 group"
+            >
+              Start Exam &amp; Enter Fullscreen
+              <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex h-screen w-screen overflow-hidden text-slate-700 dark:text-slate-200 fixed inset-0 z-[100]">

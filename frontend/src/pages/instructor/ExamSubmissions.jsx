@@ -349,9 +349,16 @@ const ExamSubmissions = () => {
                     </div>
                     <div className="space-y-1 min-w-0">
                       {sub.studentName ? (
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-400 transition-colors">
-                          {sub.studentName}
-                        </h3>
+                        <div className="flex items-center gap-2.5">
+                          <h3 className="text-xl font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-400 transition-colors">
+                            {sub.studentName}
+                          </h3>
+                          {sub.terminationReason && (
+                            <span className="shrink-0 text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full">
+                              Terminated
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <h3 className="text-xl font-bold text-rose-500 truncate">
@@ -365,6 +372,12 @@ const ExamSubmissions = () => {
                       <p className="text-sm font-medium text-slate-500 truncate">
                         {sub.studentEmail ?? <span className="text-rose-400 italic text-xs">No email returned</span>}
                       </p>
+                      {sub.terminationReason && (
+                        <div className="mt-1 text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                          <span className="text-[9px] font-black uppercase tracking-wider bg-rose-500/10 dark:bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/10">Violation:</span>
+                          <span>{sub.terminationReason}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

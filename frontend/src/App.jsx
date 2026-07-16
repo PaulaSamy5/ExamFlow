@@ -361,24 +361,24 @@ function App() {
 
       {/* Premium Fullscreen Logout Transition Overlay */}
       {isLoggingOut && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-2xl animate-logout-fade">
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/90 dark:bg-[#040814]/90 backdrop-blur-2xl animate-logout-fade">
           <div className="flex flex-col items-center space-y-7 animate-logout-scale text-center px-4">
             <div className="relative">
-              <div className="absolute inset-0 bg-indigo-500 rounded-3xl blur-2xl opacity-30 animate-pulse" />
-              <div className="h-20 w-20 rounded-[1.75rem] bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center relative z-10 shadow-inner">
-                <LogOut className="h-9 w-9 text-indigo-400 animate-pulse" />
+              <div className="absolute inset-0 bg-indigo-500 rounded-3xl blur-2xl opacity-20 dark:opacity-30 animate-pulse" />
+              <div className="h-20 w-20 rounded-[1.75rem] bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center relative z-10 shadow-inner">
+                <LogOut className="h-9 w-9 text-indigo-600 dark:text-indigo-400 animate-pulse" />
               </div>
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-3xl font-black text-white font-outfit tracking-tight leading-none">See you soon!</h2>
-              <p className="text-[10px] font-black tracking-[0.2em] text-indigo-400/80 uppercase">
+              <h2 className="text-3xl font-black text-slate-900 dark:text-white font-outfit tracking-tight leading-none">See you soon!</h2>
+              <p className="text-[10px] font-black tracking-[0.2em] text-indigo-600 dark:text-indigo-400/80 uppercase">
                 Signing out securely...
               </p>
             </div>
 
             {/* Premium Linear Progress Loader */}
-            <div className="h-[3px] w-36 bg-slate-800 rounded-full overflow-hidden relative">
+            <div className="h-[3px] w-36 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative border border-slate-200/50 dark:border-none">
               <div className="absolute inset-y-0 left-0 bg-indigo-500 rounded-full animate-loading-bar" style={{ width: '100%' }} />
             </div>
           </div>

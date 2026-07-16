@@ -179,6 +179,7 @@ const saveDraft = async (req, res) => {
 
 const submitExam = async (req, res) => {
   const { id } = req.params;
+  const { terminationReason } = req.body; // Optional — set when exam is force-submitted due to a security violation
 
   try {
     const submission = await get('SELECT * FROM Submissions WHERE id = ?', [id]);
@@ -193,8 +194,8 @@ const submitExam = async (req, res) => {
     // BLOCK-4: Atomic status transition — only one concurrent request can claim IN_PROGRESS → SUBMITTED.
     // Sets score = NULL to signal grading is pending (frontend polls getSubmission until score !== null).
     const atomicResult = await run(
-      "UPDATE Submissions SET status = 'SUBMITTED', submittedAt = NOW(), score = NULL WHERE id = ? AND status = 'IN_PROGRESS'",
-      [id]
+      "UPDATE Submissions SET status = 'SUBMITTED', submittedAt = NOW(), score = NULL, terminationReason = ? WHERE id = ? AND status = 'IN_PROGRESS'",
+      [terminationReason || null, id]
     );
 
     if (atomicResult.changes === 0) {
@@ -1060,7 +1061,8 @@ const getExamSubmissions = async (req, res) => {
   const { examId } = req.params;
   try {
     const submissions = await query(`
-      SELECT s.*, u.name as studentName, u.email as studentEmail
+      SELECT s.id, s.studentId, s.examId, s.status, s.score, s.submittedAt, s.createdAt, s.terminationReason,
+             u.name as studentName, u.email as studentEmail
       FROM Submissions s
       JOIN Users u ON s.studentId = u.id
       WHERE s.examId = ? AND s.status = 'SUBMITTED'
