@@ -973,7 +973,11 @@ const CompactDatePicker = ({ value, min, onChange, placeholder = "Select date", 
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
   }, []);
 
   const handlePrevMonth = () => {
@@ -1141,7 +1145,11 @@ const CompactTimePicker = ({ value, options, onChange, placeholder = "Select tim
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
   }, []);
 
   const parseCurrentTime = (timeStr) => {
@@ -1917,7 +1925,8 @@ const CreateExam = () => {
       };
       if (id) {
         await api.put(`/exams/${id}`, { ...finalExam, questions });
-        toast.success('Matrix updated');
+        const examTitle = exam.title?.trim() || 'Exam';
+        toast.success(`${examTitle} updated successfully.`);
       } else {
         await api.post('/exams', { ...finalExam, questions });
         toast.success('Assessment live!');
@@ -1948,6 +1957,7 @@ const CreateExam = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-4">
           <button type="button" onClick={() => step === 1 ? navigate(-1) : setStep(step - 1)}
+            style={{ touchAction: 'manipulation' }}
             className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:text-white hover:border-slate-300 dark:border-slate-700 transition-all shadow-xl shadow-black/20 group">
             <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
           </button>
@@ -2004,6 +2014,13 @@ const CreateExam = () => {
                   </div>
                </div>
 
+               {/* Lock exam type when editing */}
+               {id && (
+                 <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 text-xs text-amber-700 dark:text-amber-300 font-medium">
+                   <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                   <span>Exam type cannot be changed when editing an existing exam.</span>
+                 </div>
+               )}
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
                   {[
                     { type: 'ONLINE', label: 'Online Exam', icon: Sparkles, desc: 'Digital exam with QR join, live timer, and auto-grading.' },
@@ -2012,11 +2029,14 @@ const CreateExam = () => {
                     <button
                       key={item.type}
                       type="button"
-                      onClick={() => setExam({ ...exam, examType: item.type })}
-                      className={`flex flex-col text-left p-5 rounded-xl border transition-all duration-300 cursor-pointer ${
+                      disabled={!!id}
+                      onClick={() => !id && setExam({ ...exam, examType: item.type })}
+                      className={`flex flex-col text-left p-5 rounded-xl border transition-all duration-300 ${
+                        id ? 'cursor-not-allowed' : 'cursor-pointer'
+                      } ${
                         exam.examType === item.type
                         ? `bg-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-50/50 dark:bg-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500/10 border-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500 ring-1 ring-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500 shadow-md shadow-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500/10 scale-[1.02]` 
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900/50 grayscale opacity-80 hover:grayscale-0 hover:opacity-100'
+                        : id ? 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-50' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900/50 grayscale opacity-80 hover:grayscale-0 hover:opacity-100'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -3247,6 +3267,7 @@ const CreateExam = () => {
                 <button
                   type="button"
                   onClick={() => setStep(step - 1)}
+                  style={{ touchAction: 'manipulation' }}
                   className="h-11 px-5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs uppercase tracking-wider border border-slate-200 dark:border-slate-700/80 transition-all active:scale-[0.98]"
                 >
                   Back
@@ -3256,6 +3277,7 @@ const CreateExam = () => {
               <button
                 type="submit"
                 disabled={loading || (step === 2 && !pointsOk && !isPrintable)}
+                style={{ touchAction: 'manipulation' }}
                 className={`h-11 px-6 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2.5 transition-all duration-300 active:scale-[0.98] shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
                   step === 1
                     ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'

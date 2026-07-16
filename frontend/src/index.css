@@ -27,6 +27,16 @@ body {
   min-height: 100vh;
 }
 
+/* Eliminate 300ms tap delay on all interactive elements on mobile */
+button,
+a,
+[role="button"],
+input[type="submit"],
+input[type="button"],
+input[type="reset"] {
+  touch-action: manipulation;
+}
+
 html.dark body {
   background-image:
     radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0, transparent 50%),
