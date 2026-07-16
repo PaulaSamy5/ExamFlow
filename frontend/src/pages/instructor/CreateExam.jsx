@@ -2036,42 +2036,42 @@ const CreateExam = () => {
                {/* Dynamic Features Ticker */}
                <div className="mt-4 flex items-center justify-center">
                  <div className="bg-slate-100/50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/60 rounded-full px-5 py-2 flex items-center gap-3.5 text-[11px] font-semibold text-slate-550 dark:text-slate-400 group hover:border-indigo-500/20 dark:hover:border-indigo-500/10 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-all duration-300">
-                   <span className="shrink-0 uppercase tracking-widest text-slate-400 text-[10px] font-bold">Features:</span>
+                   <span className="hidden sm:inline-block shrink-0 uppercase tracking-widest text-slate-400 text-[10px] font-bold">Features:</span>
                    
-                   <div className="relative h-5 w-[280px] sm:w-[350px] overflow-hidden">
+                   <div className="relative h-5 w-[240px] sm:w-[350px] overflow-hidden">
                      {/* Online Features */}
                      <div className={`absolute inset-0 w-full flex items-center justify-between transition-all duration-500 ${exam.examType === 'ONLINE' ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-full opacity-0 scale-95 pointer-events-none'}`}>
-                       <div className="flex items-center gap-1.5 text-indigo-650 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
+                       <div className="flex items-center gap-1 sm:gap-1.5 text-indigo-650 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
                          <Clock className="h-3.5 w-3.5 text-indigo-500" />
                          <span>Live Timer</span>
                        </div>
                        <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
-                       <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
+                       <div className="flex items-center gap-1 sm:gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
                          <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                         <span>Auto-grading</span>
+                         <span>Auto-grade<span className="hidden sm:inline">ing</span></span>
                        </div>
                        <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
-                       <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
+                       <div className="flex items-center gap-1 sm:gap-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
                          <QrCode className="h-3.5 w-3.5 text-blue-500" />
-                         <span>QR Code Join</span>
+                         <span>QR <span className="hidden sm:inline">Code </span>Join</span>
                        </div>
                      </div>
 
                      {/* Printable Features */}
                      <div className={`absolute inset-0 w-full flex items-center justify-between transition-all duration-500 ${exam.examType === 'PRINTABLE_ONLY' ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-full opacity-0 scale-95 pointer-events-none'}`}>
-                       <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
+                       <div className="flex items-center gap-1 sm:gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
                          <Printer className="h-3.5 w-3.5 text-emerald-500" />
                          <span>PDF Export</span>
                        </div>
                        <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
-                       <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-colors">
+                       <div className="flex items-center gap-1 sm:gap-1.5 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-colors">
                          <EyeOff className="h-3.5 w-3.5 text-rose-500" />
-                         <span>Offline Exam</span>
+                         <span>Offline<span className="hidden sm:inline"> Exam</span></span>
                        </div>
                        <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
-                       <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors">
+                       <div className="flex items-center gap-1 sm:gap-1.5 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors">
                          <Award className="h-3.5 w-3.5 text-amber-500" />
-                         <span>Manual Grading</span>
+                         <span>Manual <span className="hidden sm:inline">Grading</span><span className="inline sm:hidden">Grade</span></span>
                        </div>
                      </div>
                    </div>
