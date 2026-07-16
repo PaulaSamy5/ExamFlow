@@ -1429,9 +1429,9 @@ const CreateExam = () => {
   const [isAutoGrade, setIsAutoGrade] = useState(true);
   const [submissionCount, setSubmissionCount] = useState(0);
 
-  // Derive locked state: online exams only, once exam has started and submissions exist
+  // Derive locked state: online exams only, once exam has started
   const hasStarted = exam.startTime && new Date() >= new Date(exam.startTime);
-  const isQuestionsLocked = !!id && exam.examType === 'ONLINE' && hasStarted && submissionCount > 0;
+  const isQuestionsLocked = !!id && exam.examType === 'ONLINE' && hasStarted;
   const isStartTimeDisabled = !!id && hasStarted;
 
   useEffect(() => {
@@ -2031,11 +2031,12 @@ const CreateExam = () => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] shadow-inner ${
-                step === 1 ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' 
+                isQuestionsLocked ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                : step === 1 ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' 
                 : step === 2 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                 : 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
               }`}>
-                {step === 1 ? 'Phase 01 — Blueprint' : step === 2 ? 'Phase 02 — Construction' : 'Phase 03 — Exam Paper Details'}
+                {isQuestionsLocked ? 'General Settings Only' : (step === 1 ? 'Phase 01 — Blueprint' : step === 2 ? 'Phase 02 — Construction' : 'Phase 03 — Exam Paper Details')}
               </span>
             </div>
             <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">
@@ -2045,6 +2046,7 @@ const CreateExam = () => {
         </div>
 
         {/* Stepper with percentages */}
+        {!isQuestionsLocked && (
         <div className="flex items-center gap-8 pr-2">
           <div className="text-right hidden sm:block">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -2062,6 +2064,7 @@ const CreateExam = () => {
             )}
           </div>
         </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in slide-in-from-top-4 duration-700" noValidate>
@@ -2078,10 +2081,8 @@ const CreateExam = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-amber-900 dark:text-amber-200 mb-1">Question Editing Locked</p>
                   <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                    This online exam has already started and{' '}
-                    <strong>{submissionCount} student{submissionCount !== 1 ? 's have' : ' has'} submitted</strong>.
-                    {' '}Question editing is disabled to preserve exam integrity and fairness.
-                    You can still update the general information below and save your changes.
+                    This online exam has already started{submissionCount > 0 ? ` and ${submissionCount} student${submissionCount !== 1 ? 's have' : ' has'} submitted answers` : ''}.
+                    {' '}Question editing has been locked to preserve exam integrity. Only the exam's general information can still be edited.
                   </p>
                 </div>
               </div>
