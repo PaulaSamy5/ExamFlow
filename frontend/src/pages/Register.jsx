@@ -8,21 +8,35 @@ import {
 import { toast } from 'react-hot-toast';
 import { FieldError, inputStateClass } from '../components/FieldError';
 
+const DRAFT_KEY = 'reg_draft';
+
 const Register = () => {
   const { register, verifyOTP, updateProfile, setOnboardingInProgress } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const [step, setStep] = useState(1);
+
+  // ── Restore draft from sessionStorage on first mount ──────────────────────
+  const savedDraft = (() => {
+    try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null'); } catch { return null; }
+  })();
+
+  const clearDraft = () => {
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+  };
+
+  const [step, setStep] = useState(() => {
+    // Drop step 3 back to 2 on refresh — password can't be recovered
+    const s = savedDraft?.step;
+    return s && s !== 3 ? s : 1;
+  });
   const [loading, setLoading] = useState(false);
-  const [direction, setDirection] = useState(1); // 1 for forward, -1 for backward
+  const [direction, setDirection] = useState(1);
 
   // Form Data
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [role, setRole] = useState(null);
-  // Pre-fill email if arriving via Forgot Password → Create Account CTA
-  const [email, setEmail] = useState(location.state?.email || '');
+  const [firstName, setFirstName] = useState(savedDraft?.firstName || '');
+  const [lastName, setLastName] = useState(savedDraft?.lastName || '');
+  const [role, setRole] = useState(savedDraft?.role || null);
+  const [email, setEmail] = useState(savedDraft?.email || location.state?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [confirmBlurred, setConfirmBlurred] = useState(false);
@@ -41,6 +55,39 @@ const Register = () => {
   // Password Validation
   const [criteria, setCriteria] = useState({ length: false, upper: false, lower: false, number: false, special: false });
   const [strength, setStrength] = useState(0);
+
+  // ── Persist draft whenever fields change (never persist passwords) ────────
+  useEffect(() => {
+    if (step === 4) return;
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ step, role, firstName, lastName, email }));
+    } catch { /* storage quota exceeded — fail silently */ }
+  }, [step, role, firstName, lastName, email]);
+
+  // ── Notify user when a draft is restored ──────────────────────────────────
+  useEffect(() => {
+    if (!savedDraft || savedDraft.step <= 1) return;
+    const restoredStep = savedDraft.step === 3 ? 2 : savedDraft.step;
+    toast(
+      (t) => (
+        <span className="text-sm">
+          Your registration progress was restored.{' '}
+          <button
+            className="font-bold text-rose-500 hover:text-rose-400 underline"
+            onClick={() => {
+              clearDraft();
+              setStep(1); setRole(null); setFirstName(''); setLastName(''); setEmail('');
+              toast.dismiss(t.id);
+            }}
+          >
+            Start over
+          </button>
+        </span>
+      ),
+      { duration: 6000, icon: '📝', id: 'reg-draft-restored' }
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally runs only once on mount
 
   useEffect(() => {
     const checks = {
@@ -126,6 +173,11 @@ const Register = () => {
   };
 
   const prevStep = () => {
+    if (step === 1) {
+      // User is explicitly going back past the first step — clear the draft
+      clearDraft();
+      return;
+    }
     setDirection(-1);
     setStep(prev => prev - 1);
   };
@@ -207,7 +259,7 @@ const Register = () => {
       null
     );
     setLoading(false);
-    // Onboarding is done — clear the flag so route guard works normally
+    clearDraft(); // Registration complete — wipe the saved draft
     setOnboardingInProgress(false);
     toast.success('Setup Complete! Welcome aboard. ✨');
     navigate('/dashboard');
