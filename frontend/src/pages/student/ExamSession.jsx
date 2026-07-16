@@ -603,7 +603,7 @@ const ExamSession = () => {
       {/* Main Experience Area */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Top Floating Header */}
-        <header className="glass-hover border-b border-slate-900/50 px-4 sm:px-8 py-3 sm:py-5 flex items-center justify-between backdrop-blur-3xl z-30">
+         <header className="glass border-b border-slate-200 dark:border-slate-800/50 px-4 sm:px-8 py-3 sm:py-5 flex items-center justify-between backdrop-blur-3xl z-30">
            <div className="flex items-center gap-3 min-w-0">
               <div className="h-8 w-8 sm:h-10 sm:w-10 glass rounded-full flex items-center justify-center border-slate-200 dark:border-slate-800 shrink-0">
                 <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-500" />
@@ -1092,7 +1092,7 @@ const ExamSession = () => {
         </div>
 
         {/* Global Control Bar */}
-        <footer className="glass border-t border-slate-900 px-8 py-6 flex items-center justify-between z-30">
+         <footer className="glass border-t border-slate-200 dark:border-slate-800/50 px-8 py-6 flex items-center justify-between z-30">
             <button 
               type="button"
               disabled={activeIdx === 0}
@@ -1140,7 +1140,7 @@ const ExamSession = () => {
       {/* Confirmation Modal */}
       <AnimatePresence>
         {showConfirmModal && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center px-4 bg-white dark:bg-slate-950/80 backdrop-blur-md">
+           <div className="fixed inset-0 z-[99999] flex items-center justify-center px-4 bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-sm">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1190,7 +1190,7 @@ const ExamSession = () => {
       {/* Tab Switch Warning Modal */}
       <AnimatePresence>
         {showTabWarning && (
-          <div className="fixed inset-0 z-[99998] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+           <div className="fixed inset-0 z-[99998] flex items-center justify-center px-4 bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-sm"
             onClick={() => setShowTabWarning(false)}
           >
             <motion.div
