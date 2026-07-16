@@ -940,10 +940,28 @@ const validateAllQuestions = (qs) => {
       const codingOpts = typeof parsedOptions === 'object' && parsedOptions !== null ? parsedOptions : {};
       if (!codingOpts.title || String(codingOpts.title).trim() === '') errs.push(`Question ${qNum}: Missing: Problem Title`);
       if (!q.correctAnswer || String(q.correctAnswer).trim() === '') errs.push(`Question ${qNum}: Missing: Sample Solution`);
+      
+      const testCases = Array.isArray(codingOpts.testCases) ? codingOpts.testCases : [];
+      if (testCases.length === 0) {
+        errs.push(`Question ${qNum}: Fix: At least 1 test case is required`);
+      } else {
+        testCases.forEach((tc, tcIdx) => {
+          if (!tc.expectedOutput || String(tc.expectedOutput).trim() === '') {
+            errs.push(`Question ${qNum}: Missing: Expected Output for Test Case ${tcIdx + 1}`);
+          }
+        });
+      }
     } else if (q.type === 'UML') {
       const umlOpts = typeof parsedOptions === 'object' && parsedOptions !== null ? parsedOptions : {};
       if (!umlOpts.title || String(umlOpts.title).trim() === '') errs.push(`Question ${qNum}: Missing: Scenario Title`);
       if (!umlOpts.modelAnswerText || String(umlOpts.modelAnswerText).trim() === '') errs.push(`Question ${qNum}: Missing: Model Answer / Expected Components`);
+      
+      let umlModel = { nodes: [], edges: [] };
+      try { umlModel = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer; } catch (e) {}
+      const umlNodes = umlModel?.nodes || [];
+      if (umlNodes.length === 0) {
+        errs.push(`Question ${qNum}: Missing: Model Diagram elements`);
+      }
     }
   });
   return errs;
