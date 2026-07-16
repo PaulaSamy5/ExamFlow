@@ -1178,7 +1178,8 @@ const CompactTimePicker = ({ value, options, onChange, placeholder = "Select tim
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
-  const isDisabled = !options || options.length === 0 || disabled;
+  const isNoOptions = !options || options.length === 0;
+  const isDisabled = isNoOptions || disabled;
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -1240,7 +1241,7 @@ const CompactTimePicker = ({ value, options, onChange, placeholder = "Select tim
       >
         <span className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-slate-400 shrink-0" />
-          {isDisabled ? 'Select date first' : displayLabel}
+          {isNoOptions ? 'Select date first' : displayLabel}
         </span>
         <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -1651,7 +1652,9 @@ const CreateExam = () => {
   }, []);
 
   // ── Filtered start time options — removes past slots when today is selected ──
+  // For existing exams, never filter the start time — the saved time must always appear.
   const filteredStartTimeOptions = useMemo(() => {
+    if (id) return timeOptions; // editing: always show all slots so saved time is always visible
     const minStartDate = minStartDatetimeLocal.split('T')[0];
     const minStartTime = minStartDatetimeLocal.split('T')[1];
     const { date: selectedDate } = parseDateTime(exam.startTime);
@@ -1659,10 +1662,12 @@ const CreateExam = () => {
       return timeOptions.filter(opt => opt.value >= minStartTime);
     }
     return timeOptions;
-  }, [exam.startTime, minStartDatetimeLocal, timeOptions]);
+  }, [id, exam.startTime, minStartDatetimeLocal, timeOptions]);
 
   // ── Filtered end time options — removes invalid slots when min-end-date is selected ──
+  // For existing exams that have already started, do not restrict the end time based on now.
   const filteredEndTimeOptions = useMemo(() => {
+    if (id && hasStarted) return timeOptions; // editing a live exam: show all end-time slots
     const minEndDate = minEndDatetimeLocal.split('T')[0];
     const minEndTime = minEndDatetimeLocal.split('T')[1];
     const { date: selectedDate } = parseDateTime(exam.endTime);
@@ -1670,7 +1675,7 @@ const CreateExam = () => {
       return timeOptions.filter(opt => opt.value >= minEndTime);
     }
     return timeOptions;
-  }, [exam.endTime, minEndDatetimeLocal, timeOptions]);
+  }, [id, hasStarted, exam.endTime, minEndDatetimeLocal, timeOptions]);
 
 
   // ── Validation Logic ──
