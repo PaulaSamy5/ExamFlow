@@ -1174,7 +1174,7 @@ const CompactDatePicker = ({ value, min, onChange, placeholder = "Select date", 
 };
 
 // ── Compact custom time picker popover ──
-const CompactTimePicker = ({ value, options, onChange, placeholder = "Select time", hasError, disabled }) => {
+const CompactTimePicker = ({ value, options, onChange, placeholder = "Select time", hasError, disabled, showNowOption, onNowSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -1249,6 +1249,19 @@ const CompactTimePicker = ({ value, options, onChange, placeholder = "Select tim
       {isOpen && (
         <div className="absolute left-0 mt-2 p-3 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-2xl shadow-xl dark:shadow-slate-950/80 z-[100] w-64 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="space-y-4">
+            {showNowOption && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onNowSelect) onNowSelect();
+                  setIsOpen(false);
+                }}
+                className="w-full py-2 px-3 mb-2 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                Set to Current Time (Now)
+              </button>
+            )}
             <div>
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 px-0.5">Hour</p>
               <div className="grid grid-cols-6 gap-1">
@@ -2523,27 +2536,7 @@ const CreateExam = () => {
                           <div className="flex items-center gap-1.5 mb-1">
                             <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Start</span>
-                            {!isStartTimeDisabled && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const now = new Date();
-                                  // Round up to next 15-min slot
-                                  const mins = now.getMinutes();
-                                  const roundedMins = Math.ceil(mins / 15) * 15;
-                                  now.setMinutes(roundedMins, 0, 0);
-                                  const pad = n => String(n).padStart(2, '0');
-                                  const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-                                  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-                                  setExam(prev => ({ ...prev, startTime: `${dateStr}T${timeStr}` }));
-                                  setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
-                                }}
-                                className="ml-auto px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/25 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all"
-                              >
-                                Now
-                              </button>
-                            )}
-                            {isStartTimeDisabled && <span className="text-rose-500 text-xs ml-auto">*</span>}
+                            <span className="text-rose-500 text-xs ml-auto">*</span>
                           </div>
 
                           {isStartTimeDisabled ? (
@@ -2584,6 +2577,15 @@ const CreateExam = () => {
                                 options={filteredStartTimeOptions}
                                 placeholder="Pick time"
                                 hasError={!!errors.startTime}
+                                showNowOption={true}
+                                onNowSelect={() => {
+                                  const now = new Date();
+                                  const pad = n => String(n).padStart(2, '0');
+                                  const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+                                  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                                  setExam(prev => ({ ...prev, startTime: `${dateStr}T${timeStr}` }));
+                                  setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                                }}
                                 onChange={newTime => {
                                   const finalDate = startDateVal || minStartDatetimeLocal.split('T')[0];
                                   setExam({ ...exam, startTime: combineDateTime(finalDate, newTime) });
