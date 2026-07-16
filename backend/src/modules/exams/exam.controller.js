@@ -7,12 +7,14 @@ const generateAccessCode = () => {
 
 const formatSqlDate = (dateStr) => {
   if (!dateStr) return null;
+  // If it's a timezone-naive ISO string, convert directly to SQL format YYYY-MM-DD HH:mm:ss
+  if (typeof dateStr === 'string' && dateStr.includes('T')) {
+    const normalized = dateStr.replace('T', ' ');
+    return normalized.includes(':') && normalized.split(':').length === 2 ? `${normalized}:00` : normalized;
+  }
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
-    
-    // Adjust for local timezone offset before converting to SQL format
-    // This ensures what the user sees in the input is exactly what is stored
     const pad = (n) => n.toString().padStart(2, '0');
     const year = d.getFullYear();
     const month = pad(d.getMonth() + 1);
@@ -20,7 +22,6 @@ const formatSqlDate = (dateStr) => {
     const hours = pad(d.getHours());
     const minutes = pad(d.getMinutes());
     const seconds = pad(d.getSeconds());
-    
     return `${year}${month}${day} ${hours}:${minutes}:${seconds}`;
   } catch (e) {
     return dateStr;

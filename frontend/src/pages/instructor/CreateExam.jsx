@@ -975,7 +975,11 @@ const getLocalNow = () => {
 
 const formatToLocalISO = (dateStr) => {
   if (!dateStr) return '';
-  // Try to parse carefully to avoid timezone jumps
+  // Extract date and time parts directly from ISO string to bypass timezone shifts
+  if (typeof dateStr === 'string' && dateStr.includes('T')) {
+    const parts = dateStr.split('T');
+    return `${parts[0]}T${parts[1].slice(0, 5)}`;
+  }
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
 
@@ -990,7 +994,7 @@ const formatToLocalISO = (dateStr) => {
 };
 
 // ── Compact custom date picker popover ──
-const CompactDatePicker = ({ value, min, onChange, placeholder = "Select date", hasError }) => {
+const CompactDatePicker = ({ value, min, onChange, placeholder = "Select date", hasError, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => {
     return value ? new Date(value + 'T00:00:00') : new Date();
@@ -1080,8 +1084,9 @@ const CompactDatePicker = ({ value, min, onChange, placeholder = "Select date", 
     <div className="relative w-full" ref={containerRef}>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-10 px-3 rounded-xl border text-sm font-semibold flex items-center justify-between transition-all bg-white dark:bg-slate-900 cursor-pointer ${
+        className={`w-full h-10 px-3 rounded-xl border text-sm font-semibold flex items-center justify-between transition-all bg-white dark:bg-slate-900 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
           hasError
             ? 'border-rose-400 dark:border-rose-500/50 text-rose-500 bg-rose-50/10'
             : value
@@ -1169,11 +1174,11 @@ const CompactDatePicker = ({ value, min, onChange, placeholder = "Select date", 
 };
 
 // ── Compact custom time picker popover ──
-const CompactTimePicker = ({ value, options, onChange, placeholder = "Select time", hasError }) => {
+const CompactTimePicker = ({ value, options, onChange, placeholder = "Select time", hasError, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
-  const isDisabled = !options || options.length === 0;
+  const isDisabled = !options || options.length === 0 || disabled;
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -1427,6 +1432,7 @@ const CreateExam = () => {
   // Derive locked state: online exams only, once exam has started and submissions exist
   const hasStarted = exam.startTime && new Date() >= new Date(exam.startTime);
   const isQuestionsLocked = !!id && exam.examType === 'ONLINE' && hasStarted && submissionCount > 0;
+  const isStartTimeDisabled = !!id && hasStarted;
 
   useEffect(() => {
     if (id) {
@@ -2516,6 +2522,7 @@ const CreateExam = () => {
                             value={startDateVal}
                             min={minStartDatetimeLocal.split('T')[0]}
                             hasError={!!errors.startTime}
+                            disabled={isStartTimeDisabled}
                             onChange={newDate => {
                               const minStartDate = minStartDatetimeLocal.split('T')[0];
                               let finalDate = newDate;
@@ -2535,6 +2542,7 @@ const CreateExam = () => {
                             options={filteredStartTimeOptions}
                             placeholder="Pick time"
                             hasError={!!errors.startTime}
+                            disabled={isStartTimeDisabled}
                             onChange={newTime => {
                               const finalDate = startDateVal || minStartDatetimeLocal.split('T')[0];
                               setExam({ ...exam, startTime: combineDateTime(finalDate, newTime) });
