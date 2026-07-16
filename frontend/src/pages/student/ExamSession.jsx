@@ -1065,7 +1065,7 @@ const ExamSession = () => {
         </div>
 
         {/* Mobile Question Navigation — UX-004: visible only below lg breakpoint */}
-        <div className="lg:hidden border-t border-slate-800/60 bg-slate-950/80 backdrop-blur-md px-4 py-2.5 z-30">
+        <div className="lg:hidden glass border-t border-slate-200 dark:border-slate-800/60 px-4 py-2.5 z-30">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
             {questions.map((q, idx) => {
               const isAnswered = answers[q.id] && answers[q.id] !== '';
@@ -1080,8 +1080,8 @@ const ExamSession = () => {
                     isActive
                       ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/30'
                       : isAnswered
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                      : 'bg-slate-800/80 border-slate-700 text-slate-500'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-500'
                   }`}
                 >
                   {idx + 1}
