@@ -1092,7 +1092,7 @@ const ExamSession = () => {
         </div>
 
         {/* Global Control Bar */}
-         <footer className="glass border-t border-slate-200 dark:border-slate-800/50 px-8 py-6 flex items-center justify-between z-30">
+         <footer className="glass border-t border-slate-200 dark:border-slate-800/50 px-8 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex items-center justify-between z-30">
             <button 
               type="button"
               disabled={activeIdx === 0}
