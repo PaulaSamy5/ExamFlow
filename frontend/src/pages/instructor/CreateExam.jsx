@@ -130,14 +130,14 @@ const AddBar = ({ onAddQuestion }) => {
 };
 
 // ── Question Card ────────────────────────────────────────
-const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption, onRemoveOption, onToggleMultiple, hasError, errorMessages = [], examType }) => (
+const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption, onRemoveOption, onToggleMultiple, hasError, errorMessages = [], examType, isLocked = false }) => (
   <div className={`rounded-[2.5rem] border backdrop-blur-sm overflow-hidden transition-all relative group/card ${
     hasError 
       ? 'border-rose-500 bg-rose-50/5 dark:bg-rose-950/5 ring-1 ring-rose-500/20' 
       : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 hover:border-indigo-500/30'
   }`}>
     {/* Card top strip with neon accent */}
-    <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${hasError ? 'from-transparent via-rose-500 to-transparent' : 'from-transparent via-indigo-500/20 to-transparent'}`} />
+    <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${isLocked ? 'from-transparent via-amber-500 to-transparent' : hasError ? 'from-transparent via-rose-500 to-transparent' : 'from-transparent via-indigo-500/20 to-transparent'}`} />
 
     <div className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800/50">
       <div className="flex items-center gap-3">
@@ -154,20 +154,28 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
             </span>
           );
         })()}
-        {hasError && (
+        {isLocked && (
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-in fade-in duration-200">
+            <ShieldCheck className="h-3 w-3 shrink-0" />
+            Locked
+          </span>
+        )}
+        {!isLocked && hasError && (
           <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20 animate-in fade-in duration-200">
             <AlertCircle className="h-3 w-3 shrink-0" />
             {errorMessages.length === 1 ? 'Fix 1 issue' : `Fix ${errorMessages.length} issues`}
           </span>
         )}
       </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="p-3 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 text-slate-600 transition-all opacity-0 group-hover/card:opacity-100"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+      {!isLocked && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="p-3 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 text-slate-600 transition-all opacity-0 group-hover/card:opacity-100"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
 
     {/* Card body */}
@@ -201,7 +209,8 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                       <div className="space-y-2">
                         <label className={`text-[10px] font-black uppercase tracking-widest block ml-2 ${hasTitleErr ? 'text-rose-500' : 'text-slate-500'}`}>Problem Title</label>
                         <input
-                          className={`input-field w-full text-lg font-black ${hasTitleErr ? 'border-rose-500 dark:border-rose-500/80 bg-rose-50/40 dark:bg-rose-950/20' : ''}`}
+                          disabled={isLocked}
+                          className={`input-field w-full text-lg font-black disabled:opacity-70 disabled:cursor-not-allowed ${hasTitleErr ? 'border-rose-500 dark:border-rose-500/80 bg-rose-50/40 dark:bg-rose-950/20' : ''}`}
                           placeholder="e.g. Two Sum"
                           value={codingOpts.title || ''}
                           onChange={e => {
@@ -226,8 +235,9 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                         <button
                           key={lang.id}
                           type="button"
+                          disabled={isLocked}
                           onClick={() => onUpdate('options', JSON.stringify({ ...codingOpts, requiredLanguage: lang.id }))}
-                          className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all ${codingOpts.requiredLanguage === lang.id ? `${lang.bg} ${lang.color} ring-1 ring-${lang.color.split('-')[1]}-500/30` : 'text-slate-600 hover:text-slate-500 dark:text-slate-400'}`}
+                          className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all disabled:opacity-60 disabled:cursor-not-allowed ${codingOpts.requiredLanguage === lang.id ? `${lang.bg} ${lang.color} ring-1 ring-${lang.color.split('-')[1]}-500/30` : 'text-slate-600 hover:text-slate-500 dark:text-slate-400'}`}
                         >
                           {lang.label}
                         </button>
@@ -247,7 +257,8 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                     <label className="text-[10px] font-black uppercase tracking-widest text-cyan-400 block ml-2">Scenario Title</label>
                     <input
                       required
-                      className="input-field w-full text-lg font-black bg-white dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 focus:border-cyan-500/50"
+                      disabled={isLocked}
+                      className="input-field w-full text-lg font-black bg-white dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 focus:border-cyan-500/50 disabled:opacity-70 disabled:cursor-not-allowed"
                       placeholder="e.g. Hospital Management System"
                       value={umlOpts.title || ''}
                       onChange={e => onUpdate('options', JSON.stringify({ ...umlOpts, title: e.target.value }))}
@@ -257,7 +268,8 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block ml-2">Diagram Type</label>
                       <select
-                        className="input-field w-full text-sm bg-white dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-slate-700 dark:text-slate-200"
+                        disabled={isLocked}
+                        className="input-field w-full text-sm bg-white dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-slate-700 dark:text-slate-200 disabled:opacity-70 disabled:cursor-not-allowed"
                         value={umlOpts.diagramType}
                         onChange={e => onUpdate('options', JSON.stringify({ ...umlOpts, diagramType: e.target.value }))}
                       >
@@ -299,6 +311,7 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                       <RichTextEditor
                         value={q.text}
                         onChange={val => onUpdate('text', val)}
+                        disabled={isLocked}
                         placeholder={
                           q.type === 'CODING' ? "Explain the algorithm requirements..."
                             : q.type === 'UML' ? "Describe the system requirements..."
@@ -309,7 +322,8 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                     <div className="w-24 shrink-0 space-y-1">
                       <input
                         type="number" min="1"
-                        className={`input-field w-full text-center font-bold text-amber-400 transition-all ${hasPointsError ? 'border-rose-500 dark:border-rose-500/80 bg-rose-50/40 dark:bg-rose-950/20 focus:ring-rose-500/20' : ''}`}
+                        disabled={isLocked}
+                        className={`input-field w-full text-center font-bold text-amber-400 transition-all disabled:opacity-70 disabled:cursor-not-allowed ${hasPointsError ? 'border-rose-500 dark:border-rose-500/80 bg-rose-50/40 dark:bg-rose-950/20 focus:ring-rose-500/20' : ''}`}
                         placeholder="pts"
                         value={q.points}
                         onChange={e => onUpdate('points', e.target.value)}
@@ -341,8 +355,9 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                   </div>
                   <button
                     type="button"
+                    disabled={isLocked}
                     onClick={() => onToggleMultiple(!q.isMultiple)}
-                    className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${q.isMultiple ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                    className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${q.isMultiple ? 'bg-indigo-600' : 'bg-slate-700'}`}
                   >
                     <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${q.isMultiple ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
@@ -403,7 +418,8 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                                 </button>
 
                                 <input
-                                  className={`bg-transparent border-none outline-none w-full text-sm font-bold placeholder:text-slate-600 ${optHasError ? 'text-rose-600 dark:text-rose-400 placeholder:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}
+                                  disabled={isLocked}
+                                  className={`bg-transparent border-none outline-none w-full text-sm font-bold placeholder:text-slate-600 disabled:cursor-not-allowed ${optHasError ? 'text-rose-600 dark:text-rose-400 placeholder:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}
                                   placeholder={`Option ${oIndex + 1}...`}
                                   value={opt}
                                   onChange={e => onOptionUpdate(oIndex, e.target.value)}
@@ -423,7 +439,7 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                           );
                         })}
 
-                        {optsArr.length < 8 && (
+                        {optsArr.length < 8 && !isLocked && (
                           <button
                             type="button"
                             onClick={onAddOption}
@@ -470,8 +486,9 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                 <button
                   key={val}
                   type="button"
+                  disabled={isLocked}
                   onClick={() => onUpdate('correctAnswer', val)}
-                  className={`flex-1 py-2 rounded-xl font-bold text-sm border transition-all ${q.correctAnswer === val ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}
+                  className={`flex-1 py-2 rounded-xl font-bold text-sm border transition-all disabled:opacity-70 disabled:cursor-not-allowed ${q.correctAnswer === val ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}
                 >
                   {val}
                 </button>
@@ -500,7 +517,8 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
               </span>
               <div className="flex-1 space-y-1">
                 <input
-                  className={`bg-slate-100 dark:bg-slate-800 border outline-none focus:ring-1 transition-all rounded-lg px-3 py-2 w-full text-emerald-400 font-bold text-sm ${hasFillErr ? 'border-rose-500 dark:border-rose-500/80 bg-rose-50/50 dark:bg-rose-950/20 focus:border-rose-500 focus:ring-rose-500/50' : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500 focus:ring-indigo-500/50'}`}
+                  disabled={isLocked}
+                  className={`bg-slate-100 dark:bg-slate-800 border outline-none focus:ring-1 transition-all rounded-lg px-3 py-2 w-full text-emerald-400 font-bold text-sm disabled:opacity-70 disabled:cursor-not-allowed ${hasFillErr ? 'border-rose-500 dark:border-rose-500/80 bg-rose-50/50 dark:bg-rose-950/20 focus:border-rose-500 focus:ring-rose-500/50' : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500 focus:ring-indigo-500/50'}`}
                   placeholder="e.g. Paris"
                   value={q.correctAnswer}
                   onChange={e => onUpdate('correctAnswer', e.target.value)}
@@ -534,7 +552,8 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
               </div>
               <textarea
                 rows={5}
-                className="input-field w-full text-sm leading-relaxed"
+                disabled={isLocked}
+                className="input-field w-full text-sm leading-relaxed disabled:opacity-70 disabled:cursor-not-allowed"
                 placeholder="Write the expected answer, key points, or grading rubric. This is used for grading and review — students will never see it."
                 value={q.correctAnswer || ''}
                 onChange={e => onUpdate('correctAnswer', e.target.value)}
@@ -1385,6 +1404,22 @@ const CreateExam = () => {
     return [{ id: 1, title: 'Exam Questions', description: '', questions: [] }];
   });
   const [isAutoGrade, setIsAutoGrade] = useState(true);
+  const [submissionCount, setSubmissionCount] = useState(0);
+
+  // Derive locked state: online exams only, once submissions have started
+  const isQuestionsLocked = !!id && exam.examType === 'ONLINE' && submissionCount > 0;
+
+  useEffect(() => {
+    if (id) {
+      api.get(`/exams/${id}`)
+        .then(({ data }) => {
+          setSubmissionCount(data.submissionCount || 0);
+        })
+        .catch(err => {
+          console.error("Failed to fetch latest submission count", err);
+        });
+    }
+  }, [id]);
 
   // Auto-fill instructorName if user name becomes available and it's currently empty
   useEffect(() => {
@@ -1452,6 +1487,7 @@ const CreateExam = () => {
           }
           const sum = data.questions?.reduce((acc, q) => acc + q.points, 0) || 0;
           setIsAutoGrade(sum === data.totalGrade);
+          setSubmissionCount(data.submissionCount || 0);
         } catch (err) {
           toast.error('Failed to connect to assessment unit');
           navigate('/');
@@ -2004,54 +2040,63 @@ const CreateExam = () => {
             
             {/* ── 1. Exam Delivery Mode ── */}
             <div className={cardClass}>
-               <div className="flex items-center gap-3 mb-6">
-                  <div className={`p-2 rounded-xl transition-colors duration-500 ${exam.examType === 'ONLINE' ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`}>
-                     {exam.examType === 'ONLINE' ? <Sparkles className="h-5 w-5" /> : <Printer className="h-5 w-5" />}
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">Exam Delivery Mode</h3>
-                    <p className="text-xs text-slate-500">Choose how students will take this exam.</p>
-                  </div>
-               </div>
-
-               {/* Lock exam type when editing */}
-               {id && (
-                 <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 text-xs text-amber-700 dark:text-amber-300 font-medium">
-                   <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                   <span>Exam type cannot be changed when editing an existing exam.</span>
+               {id ? (
+                 <div className="flex items-center gap-3.5">
+                    <div className={`p-3 rounded-2xl transition-colors duration-500 ${exam.examType === 'ONLINE' ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`}>
+                       {exam.examType === 'ONLINE' ? <Sparkles className="h-6 w-6" /> : <Printer className="h-6 w-6" />}
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-indigo-550 dark:text-indigo-400 uppercase tracking-widest">Exam Delivery Mode</h3>
+                      <p className="text-base font-extrabold text-slate-900 dark:text-white mt-1">
+                        {exam.examType === 'ONLINE' ? 'Online Exam' : 'Printable Exam'}
+                      </p>
+                      <p className="text-[11px] text-slate-500/80 dark:text-slate-400/80 mt-1.5 font-medium">
+                        Exam type is fixed after creation.
+                      </p>
+                    </div>
                  </div>
-               )}
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
-                  {[
-                    { type: 'ONLINE', label: 'Online Exam', icon: Sparkles, desc: 'Digital exam with QR join, live timer, and auto-grading.' },
-                    { type: 'PRINTABLE_ONLY', label: 'Printable Exam', icon: Printer, desc: 'Generate a PDF for in-class paper exams. Not visible online.' },
-                  ].map((item) => (
-                    <button
-                      key={item.type}
-                      type="button"
-                      disabled={!!id}
-                      onClick={() => !id && setExam({ ...exam, examType: item.type })}
-                      className={`flex flex-col text-left p-5 rounded-xl border transition-all duration-300 ${
-                        id ? 'cursor-not-allowed' : 'cursor-pointer'
-                      } ${
-                        exam.examType === item.type
-                        ? `bg-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-50/50 dark:bg-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500/10 border-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500 ring-1 ring-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500 shadow-md shadow-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500/10 scale-[1.02]` 
-                        : id ? 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-50' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900/50 grayscale opacity-80 hover:grayscale-0 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2.5">
-                          <item.icon className={`h-5 w-5 ${exam.examType === item.type ? `text-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-600 dark:text-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-400` : 'text-slate-400'}`} />
-                          <span className={`text-sm font-semibold ${exam.examType === item.type ? `text-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-900 dark:text-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-100` : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
-                        </div>
-                        <div className={`h-4 w-4 rounded-full border flex items-center justify-center transition-all ${exam.examType === item.type ? `border-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-600 bg-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-600` : 'border-slate-300 dark:border-slate-600'}`}>
-                          {exam.examType === item.type && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
-                        </div>
+               ) : (
+                 <>
+                   <div className="flex items-center gap-3 mb-6">
+                      <div className={`p-2 rounded-xl transition-colors duration-500 ${exam.examType === 'ONLINE' ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`}>
+                         {exam.examType === 'ONLINE' ? <Sparkles className="h-5 w-5" /> : <Printer className="h-5 w-5" />}
                       </div>
-                      <p className="text-xs text-slate-500 ml-7.5 leading-relaxed">{item.desc}</p>
-                    </button>
-                  ))}
-               </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white">Exam Delivery Mode</h3>
+                        <p className="text-xs text-slate-500">Choose how students will take this exam.</p>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
+                      {[
+                        { type: 'ONLINE', label: 'Online Exam', icon: Sparkles, desc: 'Digital exam with QR join, live timer, and auto-grading.' },
+                        { type: 'PRINTABLE_ONLY', label: 'Printable Exam', icon: Printer, desc: 'Generate a PDF for in-class paper exams. Not visible online.' },
+                      ].map((item) => (
+                        <button
+                          key={item.type}
+                          type="button"
+                          onClick={() => setExam({ ...exam, examType: item.type })}
+                          className={`flex flex-col text-left p-5 rounded-xl border transition-all duration-300 cursor-pointer ${
+                            exam.examType === item.type
+                            ? `bg-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-50/50 dark:bg-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500/10 border-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500 ring-1 ring-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500 shadow-md shadow-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-500/10 scale-[1.02]` 
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900/50 grayscale opacity-80 hover:grayscale-0 hover:opacity-100'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2.5">
+                              <item.icon className={`h-5 w-5 ${exam.examType === item.type ? `text-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-600 dark:text-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-400` : 'text-slate-400'}`} />
+                              <span className={`text-sm font-semibold ${exam.examType === item.type ? `text-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-900 dark:text-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-100` : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</span>
+                            </div>
+                            <div className={`h-4 w-4 rounded-full border flex items-center justify-center transition-all ${exam.examType === item.type ? `border-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-600 bg-${item.type === 'ONLINE' ? 'indigo' : 'emerald'}-600` : 'border-slate-300 dark:border-slate-600'}`}>
+                              {exam.examType === item.type && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-500 ml-7.5 leading-relaxed">{item.desc}</p>
+                        </button>
+                      ))}
+                   </div>
+                 </>
+               )}
 
                {/* Dynamic Features Ticker */}
                <div className="mt-4 flex items-center justify-center">
@@ -2649,6 +2694,22 @@ const CreateExam = () => {
 
         {step === 2 && (
           <div className="space-y-12 animate-in fade-in zoom-in-95 duration-500">
+            {/* Locked notification banner */}
+            {isQuestionsLocked && (
+              <div className="flex items-start gap-3.5 px-5 py-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-slate-800 dark:text-amber-305 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="p-2 bg-amber-100 dark:bg-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-extrabold text-amber-950 dark:text-amber-200">Questions are Locked</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    This exam has started and has <strong>{submissionCount} student submission{submissionCount !== 1 ? 's' : ''}</strong>. 
+                    Questions, points, options, and model answers cannot be modified to preserve exam integrity. You can still modify general information (Title, Duration, Instructions, Dates) or extend the End Time.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Sections explainer — subtle, always visible */}
             <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-500/5 border border-indigo-200/60 dark:border-indigo-500/15 text-xs text-slate-600 dark:text-slate-400">
               <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/10 rounded-lg border border-indigo-200 dark:border-indigo-500/20 shrink-0 mt-0.5">
@@ -2675,14 +2736,16 @@ const CreateExam = () => {
                     </div>
                     <div className="flex-1 space-y-1 min-w-0">
                       <input
-                        className="w-full bg-transparent border-none outline-none text-xl sm:text-2xl font-black text-slate-900 dark:text-white hover:text-indigo-500 focus:text-indigo-500 dark:hover:text-indigo-400 dark:focus:text-indigo-400 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                        className={`w-full bg-transparent border-none outline-none text-xl sm:text-2xl font-black text-slate-900 dark:text-white hover:text-indigo-500 focus:text-indigo-500 dark:hover:text-indigo-400 dark:focus:text-indigo-400 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 ${isQuestionsLocked ? 'cursor-not-allowed opacity-80' : ''}`}
                         value={section.title}
+                        disabled={isQuestionsLocked}
                         onChange={e => updateSectionTitle(section.id, e.target.value)}
                         placeholder="Section Title (e.g. Multiple Choice Questions)"
                       />
                       <input
-                        className="w-full bg-transparent border-none outline-none text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 focus:text-slate-700 dark:focus:text-slate-300 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                        className={`w-full bg-transparent border-none outline-none text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 focus:text-slate-700 dark:focus:text-slate-300 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 ${isQuestionsLocked ? 'cursor-not-allowed opacity-85' : ''}`}
                         value={section.description || ''}
+                        disabled={isQuestionsLocked}
                         onChange={e => updateSectionDescription(section.id, e.target.value)}
                         placeholder="Optional: instructions or notes for this section — e.g. 'Answer all questions. Each is worth 5 points.'"
                       />
@@ -2691,7 +2754,7 @@ const CreateExam = () => {
                       <span className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-3 py-1.5 rounded-lg">
                         {section.questions.length} {section.questions.length === 1 ? 'question' : 'questions'}
                       </span>
-                      {sections.length > 1 && (
+                      {!isQuestionsLocked && sections.length > 1 && (
                         <button type="button" onClick={() => removeSection(section.id)}
                           className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:border-rose-200 dark:hover:border-rose-500/20 hover:text-rose-600 dark:hover:text-rose-400 text-slate-500 transition-all">
                           <Trash2 className="h-4 w-4" />
@@ -2701,7 +2764,7 @@ const CreateExam = () => {
                   </div>
 
                   <div className="pl-6 border-l-2 border-indigo-200/60 dark:border-slate-800 space-y-6">
-                    {section.questions.length === 0 && (
+                    {section.questions.length === 0 && !isQuestionsLocked && (
                       <div className="py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/20 group hover:border-indigo-300 dark:hover:border-indigo-500/30 hover:bg-indigo-50/20 dark:hover:bg-indigo-500/5 transition-all">
                         <PlusCircle className="h-9 w-9 text-slate-300 dark:text-slate-700 mx-auto mb-3 group-hover:text-indigo-400 transition-all duration-500" />
                         <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">This section is empty</p>
@@ -2733,15 +2796,18 @@ const CreateExam = () => {
                               hasError={qErrors.length > 0}
                               errorMessages={qErrors}
                               examType={exam.examType}
+                              isLocked={isQuestionsLocked}
                             />
                           </ErrorBoundary>
-                          <AddBar onAddQuestion={type => addQuestionToSection(section.id, type, qIdx)} />
+                          {!isQuestionsLocked && (
+                            <AddBar onAddQuestion={type => addQuestionToSection(section.id, type, qIdx)} />
+                          )}
                         </div>
                       );
                     })}
                   </div>
 
-                  {sIdx === sections.length - 1 && (
+                  {!isQuestionsLocked && sIdx === sections.length - 1 && (
                     <button
                       type="button"
                       onClick={() => addSection(section.id)}

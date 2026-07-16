@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Bold, Italic } from 'lucide-react';
 
-const RichTextEditor = ({ value, onChange, placeholder, className = "" }) => {
+const RichTextEditor = ({ value, onChange, placeholder, className = "", disabled = false }) => {
   const editorRef = useRef(null);
 
   // Sync value to editor content if changed externally
@@ -18,12 +18,14 @@ const RichTextEditor = ({ value, onChange, placeholder, className = "" }) => {
   };
 
   const execCommand = (command, val = null) => {
+    if (disabled) return;
     document.execCommand(command, false, val);
     editorRef.current.focus();
     handleInput();
   };
 
   const handleKeyDown = (e) => {
+    if (disabled) return;
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'b') {
         e.preventDefault();
@@ -36,38 +38,44 @@ const RichTextEditor = ({ value, onChange, placeholder, className = "" }) => {
   };
 
   const onPaste = (e) => {
+    if (disabled) {
+      e.preventDefault();
+      return;
+    }
     e.preventDefault();
     const text = e.clipboardData.getData('text/plain');
     document.execCommand('insertText', false, text);
   };
 
   return (
-    <div className={`flex flex-col rounded-xl border border-slate-300 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/60 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all ${className}`}>
+    <div className={`flex flex-col rounded-xl border border-slate-300 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/60 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all ${className} ${disabled ? 'opacity-85 pointer-events-none' : ''}`}>
       {/* Toolbar */}
-      <div className="flex items-center gap-1 p-2 border-b border-slate-200 dark:border-slate-800/50">
-        <button
-          type="button"
-          onClick={() => execCommand('bold')}
-          className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
-          title="Bold (Ctrl+B)"
-        >
-          <Bold size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('italic')}
-          className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
-          title="Italic (Ctrl+I)"
-        >
-          <Italic size={16} />
-        </button>
-      </div>
+      {!disabled && (
+        <div className="flex items-center gap-1 p-2 border-b border-slate-200 dark:border-slate-800/50">
+          <button
+            type="button"
+            onClick={() => execCommand('bold')}
+            className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
+            title="Bold (Ctrl+B)"
+          >
+            <Bold size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => execCommand('italic')}
+            className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
+            title="Italic (Ctrl+I)"
+          >
+            <Italic size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Editable Area */}
       <div className="relative">
         <div
           ref={editorRef}
-          contentEditable
+          contentEditable={!disabled}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={onPaste}

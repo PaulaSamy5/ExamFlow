@@ -181,6 +181,13 @@ const getExamById = async (req, res) => {
       };
     });
 
+    // Include submission count so the frontend can lock question editing
+    const subCount = await get(
+      `SELECT COUNT(*) as cnt FROM Submissions WHERE examId = ? AND status = 'SUBMITTED'`,
+      [id]
+    );
+    exam.submissionCount = (subCount && subCount.cnt) ? parseInt(subCount.cnt, 10) : 0;
+
     res.json(exam);
   } catch (err) {
     res.status(500).json({ error: 'Internal Server Error' });
