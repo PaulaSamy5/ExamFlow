@@ -2538,7 +2538,10 @@ const CreateExam = () => {
                                 className="ml-auto text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/25 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all"
                               >Now</button>
                             ) : (
-                              <span className="text-rose-500 text-xs ml-auto">*</span>
+                              <div className="ml-auto flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-250 dark:border-slate-700/30">
+                                <Lock className="h-2.5 w-2.5 shrink-0" />
+                                <span>Locked</span>
+                              </div>
                             )}
                           </div>
 
