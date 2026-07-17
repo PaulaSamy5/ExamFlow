@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "ExamFlow is a professional full-stack platform for creating, managing, and taking academic assessments. Built with a focus on premium UI/UX, scalability, and clean architecture.",
   "main": "index.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run ai\"",
     "server": "nodemon backend/server.js",
