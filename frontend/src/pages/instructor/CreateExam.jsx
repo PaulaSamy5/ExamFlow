@@ -2536,7 +2536,22 @@ const CreateExam = () => {
                           <div className="flex items-center gap-1.5 mb-1">
                             <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Start</span>
-                            <span className="text-rose-500 text-xs ml-auto">*</span>
+                            {!isStartTimeDisabled ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const now = new Date();
+                                  const pad = n => String(n).padStart(2, '0');
+                                  const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+                                  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                                  setExam(prev => ({ ...prev, startTime: `${dateStr}T${timeStr}` }));
+                                  setErrors(prev => ({ ...prev, startTime: null, endTime: null }));
+                                }}
+                                className="ml-auto text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/25 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all"
+                              >Now</button>
+                            ) : (
+                              <span className="text-rose-500 text-xs ml-auto">*</span>
+                            )}
                           </div>
 
                           {isStartTimeDisabled ? (
