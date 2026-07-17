@@ -280,6 +280,7 @@ function App() {
       <main className={`flex-1 w-full ${
         isPrintPage ? '' : 
         isHomePage ? 'pt-0 pb-0' : 
+        location.pathname.startsWith('/session/') ? 'h-dvh w-full overflow-hidden' :
         location.pathname.match(/^\/exams\/[^/]+$/) ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[calc(100dvh-72px)] flex items-center justify-center overflow-hidden' : 
         'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-24 sm:pb-32'
       }`}>

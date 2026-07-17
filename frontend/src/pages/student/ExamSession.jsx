@@ -618,7 +618,7 @@ const ExamSession = () => {
   if (!hasLaunched) {
     const isMock = submission?.exam?.isMock;
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#040814] font-outfit select-none p-6 text-center animate-fade-in">
+      <div className="h-full w-full flex flex-col items-center justify-center font-outfit select-none p-6 text-center animate-fade-in relative">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
         
         <div className="w-full max-w-[520px] bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/60 rounded-[2.5rem] p-8 sm:p-10 shadow-2xl backdrop-blur-xl relative overflow-hidden">
