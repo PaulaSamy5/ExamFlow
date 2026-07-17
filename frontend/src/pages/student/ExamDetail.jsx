@@ -70,7 +70,7 @@ const ExamDetail = () => {
   ];
 
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center bg-slate-50 dark:bg-[#040814] px-4 py-8 overflow-y-auto">
+    <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center px-4 py-8 overflow-y-auto">
       <div className="w-full max-w-3xl space-y-8">
 
       {/* Back */}
