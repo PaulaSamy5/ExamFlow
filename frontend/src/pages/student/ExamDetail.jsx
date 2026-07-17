@@ -70,8 +70,8 @@ const ExamDetail = () => {
   ];
 
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center px-4 py-8 overflow-y-auto">
-      <div className="w-full max-w-3xl space-y-8">
+    <div className="w-full max-w-3xl max-h-full overflow-y-auto py-6 pr-1.5">
+      <div className="space-y-6">
 
       {/* Back */}
       <button
@@ -185,7 +185,7 @@ const ExamDetail = () => {
         </p>
       </div>
 
-    </div>
+      </div>
     </div>
   );
 };
