@@ -2521,7 +2521,7 @@ const CreateExam = () => {
 
                         {/* ── START block ── */}
                         <div className="p-4 sm:p-5 space-y-3">
-                          <div className="flex items-center gap-1.5 mb-1">
+                          <div className="flex items-center gap-1.5 mb-2">
                             <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Start</span>
                             {!isStartTimeDisabled ? (
@@ -2627,7 +2627,7 @@ const CreateExam = () => {
 
                         {/* ── END block ── */}
                         <div className="p-4 sm:p-5 space-y-3">
-                          <div className="flex items-center gap-1.5 mb-1">
+                          <div className="flex items-center gap-1.5 mb-2">
                             <div className={`h-2 w-2 rounded-full ${hasError ? 'bg-rose-500' : hasOk ? 'bg-emerald-500' : 'bg-violet-500'}`}></div>
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">End</span>
                             <span className="text-rose-500 text-xs ml-auto">*</span>
