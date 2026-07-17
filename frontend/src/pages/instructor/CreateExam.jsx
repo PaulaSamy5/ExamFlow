@@ -2545,13 +2545,13 @@ const CreateExam = () => {
                           {isStartTimeDisabled ? (
                             /* Locked — show the saved values as read-only badges */
                             <div className="flex flex-col gap-2">
-                              <div className="h-10 px-3 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/8 flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-amber-500 shrink-0" />
-                                <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">{formatDisplayDate(startDateVal)}</span>
+                              <div className="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-slate-400 dark:text-slate-500 shrink-0" />
+                                <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{formatDisplayDate(startDateVal)}</span>
                               </div>
-                              <div className="h-10 px-3 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/8 flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-amber-500 shrink-0" />
-                                <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">{formatDisplayTime(startTimeVal)}</span>
+                              <div className="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-slate-400 dark:text-slate-500 shrink-0" />
+                                <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{formatDisplayTime(startTimeVal)}</span>
                               </div>
                             </div>
                           ) : (
