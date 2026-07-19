@@ -102,6 +102,7 @@ const ExamSession = () => {
   const isSubmittingRef = useRef(false);
   const selectedLangsRef = useRef({});
   const autoSubmitTriggeredRef = useRef(false);
+  const intentionalExitRef = useRef(false);
   const MAX_TAB_VIOLATIONS = 3;
 
   // ── Prevent back-button re-entry after exam submission ──
@@ -258,23 +259,45 @@ const ExamSession = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loading, submission, hasLaunched, terminationReason]);
 
-  // ── Fullscreen detection (anti-cheat) ──
+  // ── Fullscreen protection (anti-cheat) ──
   useEffect(() => {
     if (loading || !submission || submission.status !== 'IN_PROGRESS' || !hasLaunched || terminationReason) return;
 
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && !autoSubmitTriggeredRef.current && !isSubmittingRef.current) {
-        // Give the student a chance to confirm before terminating
+    // 1. Intercept Escape key in CAPTURE phase before the browser exits fullscreen
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && document.fullscreenElement && !autoSubmitTriggeredRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
         setShowFullscreenWarning(true);
       }
     };
 
+    // 2. Safety net for other exit paths (browser UI button, F11, etc.)
+    //    Immediately re-enter fullscreen so the student never sees browser tabs,
+    //    then show the confirmation dialog.
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && !autoSubmitTriggeredRef.current && !isSubmittingRef.current) {
+        if (intentionalExitRef.current) {
+          // We triggered this exit ourselves (student confirmed leaving) — let it through
+          intentionalExitRef.current = false;
+          return;
+        }
+        // Unexpected exit: try to snap back into fullscreen immediately
+        const el = document.documentElement;
+        const reenter = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (reenter) reenter.call(el).catch(() => {});
+        setShowFullscreenWarning(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true); // capture phase
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
     return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
@@ -694,12 +717,8 @@ const ExamSession = () => {
             <div className="flex flex-col gap-2.5">
               <button
                 onClick={async () => {
+                  // Escape was intercepted — fullscreen was never exited, just close the dialog
                   setShowFullscreenWarning(false);
-                  try {
-                    const el = document.documentElement;
-                    if (el.requestFullscreen) await el.requestFullscreen();
-                    else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-                  } catch (e) { console.warn('Could not re-enter fullscreen', e); }
                 }}
                 className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25"
               >
@@ -710,10 +729,16 @@ const ExamSession = () => {
                   setShowFullscreenWarning(false);
                   if (!autoSubmitTriggeredRef.current) {
                     autoSubmitTriggeredRef.current = true;
+                    intentionalExitRef.current = true; // tell fullscreenchange handler to ignore this exit
                     const reason = 'Student chose to exit fullscreen mode.';
                     setTerminationReason(reason);
-                    toast.error('Exam terminated.', { duration: 4000, icon: '🚫' });
-                    processSubmission(true, reason);
+                    toast.error('Exam terminated.', { duration: 4000, icon: '\uD83D\uDEAB' });
+                    // Exit fullscreen ourselves, then submit
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen().catch(() => {}).finally(() => processSubmission(true, reason));
+                    } else {
+                      processSubmission(true, reason);
+                    }
                   }
                 }}
                 className="w-full py-3 rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-black text-sm uppercase tracking-widest transition-all hover:bg-rose-100 dark:hover:bg-rose-500/20 active:scale-[0.98]"
