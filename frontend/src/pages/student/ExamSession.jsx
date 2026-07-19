@@ -723,16 +723,21 @@ const ExamSession = () => {
             </div>
             <div className="flex flex-col gap-2.5">
               <button
-                onClick={async () => {
-                  setShowFullscreenWarning(false);
-                  // Re-enter fullscreen — button click is a user gesture so browsers always allow it
+                onClick={() => {
+                  // 1. Request fullscreen synchronously first in the event handler to preserve user gesture
                   try {
                     const el = document.documentElement;
                     const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-                    if (fn) await fn.call(el);
+                    if (fn) {
+                      fn.call(el).catch(err => {
+                        console.warn('Could not re-enter fullscreen:', err);
+                      });
+                    }
                   } catch (e) {
                     console.warn('Could not re-enter fullscreen:', e);
                   }
+                  // 2. Hide the warning dialog afterwards
+                  setShowFullscreenWarning(false);
                 }}
                 className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25"
               >
