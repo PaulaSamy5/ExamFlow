@@ -77,6 +77,7 @@ const ExamSession = () => {
   const [showTabWarning, setShowTabWarning] = useState(false);
   const [hasLaunched, setHasLaunched] = useState(false);
   const [terminationReason, setTerminationReason] = useState(null);
+  const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
 
   const handleLaunch = async () => {
     try {
@@ -263,15 +264,8 @@ const ExamSession = () => {
 
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && !autoSubmitTriggeredRef.current && !isSubmittingRef.current) {
-        const reason = 'Fullscreen mode was exited.';
-        setTerminationReason(reason);
-        toast.error('Fullscreen mode exited. Auto-submitting and locking your exam.', { duration: 5000, icon: '🚫' });
-        setTimeout(() => {
-          if (!autoSubmitTriggeredRef.current) {
-            autoSubmitTriggeredRef.current = true;
-            processSubmission(true, reason);
-          }
-        }, 800);
+        // Give the student a chance to confirm before terminating
+        setShowFullscreenWarning(true);
       }
     };
 
@@ -681,6 +675,55 @@ const ExamSession = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden text-slate-700 dark:text-slate-200 fixed inset-0 z-[100]">
+
+      {/* ── Fullscreen exit confirmation dialog ── */}
+      {showFullscreenWarning && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-8 shadow-2xl mx-4 space-y-6">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="h-14 w-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                <AlertTriangle className="h-7 w-7 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white leading-snug">Leaving fullscreen?</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1.5 leading-relaxed">
+                  Exiting fullscreen mode will <span className="text-rose-500 font-bold">immediately terminate</span> your exam and auto-submit your answers.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <button
+                onClick={async () => {
+                  setShowFullscreenWarning(false);
+                  try {
+                    const el = document.documentElement;
+                    if (el.requestFullscreen) await el.requestFullscreen();
+                    else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+                  } catch (e) { console.warn('Could not re-enter fullscreen', e); }
+                }}
+                className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25"
+              >
+                Stay in Exam
+              </button>
+              <button
+                onClick={() => {
+                  setShowFullscreenWarning(false);
+                  if (!autoSubmitTriggeredRef.current) {
+                    autoSubmitTriggeredRef.current = true;
+                    const reason = 'Student chose to exit fullscreen mode.';
+                    setTerminationReason(reason);
+                    toast.error('Exam terminated.', { duration: 4000, icon: '🚫' });
+                    processSubmission(true, reason);
+                  }
+                }}
+                className="w-full py-3 rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-black text-sm uppercase tracking-widest transition-all hover:bg-rose-100 dark:hover:bg-rose-500/20 active:scale-[0.98]"
+              >
+                Leave &amp; Terminate Exam
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Sidebar - Navigation Hub */}
       <aside className="hidden lg:flex flex-col w-[320px] glass border-r border-slate-200 dark:border-slate-800/40 relative z-20">
