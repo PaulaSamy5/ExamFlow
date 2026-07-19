@@ -103,7 +103,12 @@ const ExamSession = () => {
   const selectedLangsRef = useRef({});
   const autoSubmitTriggeredRef = useRef(false);
   const intentionalExitRef = useRef(false);
+  const showFullscreenWarningRef = useRef(false);
   const MAX_TAB_VIOLATIONS = 3;
+
+  useEffect(() => {
+    showFullscreenWarningRef.current = showFullscreenWarning;
+  }, [showFullscreenWarning]);
 
   // ── Prevent back-button re-entry after exam submission ──
   useEffect(() => {
@@ -230,33 +235,47 @@ const ExamSession = () => {
   useEffect(() => {
     if (loading || !submission || submission.status !== 'IN_PROGRESS' || !hasLaunched || terminationReason) return;
 
+    const registerViolation = (reason) => {
+      setTabViolations(prev => {
+        const next = prev + 1;
+        if (next >= MAX_TAB_VIOLATIONS) {
+          setTerminationReason(reason);
+          toast.error('Maximum focus violations reached. Auto-submitting your exam.', { duration: 5000, icon: '🚫' });
+          setTimeout(() => {
+            if (!autoSubmitTriggeredRef.current) {
+              autoSubmitTriggeredRef.current = true;
+              processSubmission(true, reason);
+            }
+          }, 800);
+        } else {
+          setShowTabWarning(true);
+          toast(`Focus loss detected (${next}/${MAX_TAB_VIOLATIONS}). Please keep the exam window active.`, {
+            icon: '⚠️', duration: 4000
+          });
+        }
+        return next;
+      });
+    };
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setTabViolations(prev => {
-          const next = prev + 1;
-          if (next >= MAX_TAB_VIOLATIONS) {
-            const reason = 'You switched to another browser tab.';
-            setTerminationReason(reason);
-            toast.error('Maximum tab switches reached. Auto-submitting your exam.', { duration: 5000, icon: '🚫' });
-            setTimeout(() => {
-              if (!autoSubmitTriggeredRef.current) {
-                autoSubmitTriggeredRef.current = true;
-                processSubmission(true, reason);
-              }
-            }, 800);
-          } else {
-            setShowTabWarning(true);
-            toast(`Tab switch detected (${next}/${MAX_TAB_VIOLATIONS}). Please stay on the exam.`, {
-              icon: '⚠️', duration: 4000
-            });
-          }
-          return next;
-        });
+        registerViolation('You switched to another browser tab.');
       }
     };
 
+    const handleWindowBlur = () => {
+      // Ignore blur if the fullscreen exit warning dialog is active to prevent duplicate alerts
+      if (showFullscreenWarningRef.current) return;
+      registerViolation('You focused another window or application.');
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
   }, [loading, submission, hasLaunched, terminationReason]);
 
   // ── Fullscreen protection (anti-cheat) ──
