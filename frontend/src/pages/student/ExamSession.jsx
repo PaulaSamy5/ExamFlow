@@ -708,7 +708,7 @@ const ExamSession = () => {
 
       {/* ── Fullscreen exit confirmation dialog ── */}
       {showFullscreenWarning && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-8 shadow-2xl mx-4 space-y-6">
             <div className="flex flex-col items-center gap-3 text-center">
               <div className="h-14 w-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
@@ -717,15 +717,22 @@ const ExamSession = () => {
               <div>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white leading-snug">Leaving fullscreen?</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1.5 leading-relaxed">
-                  Exiting fullscreen mode will <span className="text-rose-500 font-bold">immediately terminate</span> your exam and auto-submit your answers.
+                  If you leave fullscreen, your exam will be <span className="text-rose-500 font-bold">terminated</span> and auto-submitted.
                 </p>
               </div>
             </div>
             <div className="flex flex-col gap-2.5">
               <button
                 onClick={async () => {
-                  // Escape was intercepted — fullscreen was never exited, just close the dialog
                   setShowFullscreenWarning(false);
+                  // Re-enter fullscreen — button click is a user gesture so browsers always allow it
+                  try {
+                    const el = document.documentElement;
+                    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+                    if (fn) await fn.call(el);
+                  } catch (e) {
+                    console.warn('Could not re-enter fullscreen:', e);
+                  }
                 }}
                 className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25"
               >
@@ -736,11 +743,10 @@ const ExamSession = () => {
                   setShowFullscreenWarning(false);
                   if (!autoSubmitTriggeredRef.current) {
                     autoSubmitTriggeredRef.current = true;
-                    intentionalExitRef.current = true; // tell fullscreenchange handler to ignore this exit
+                    intentionalExitRef.current = true;
                     const reason = 'Student chose to exit fullscreen mode.';
                     setTerminationReason(reason);
                     toast.error('Exam terminated.', { duration: 4000, icon: '\uD83D\uDEAB' });
-                    // Exit fullscreen ourselves, then submit
                     if (document.fullscreenElement) {
                       document.exitFullscreen().catch(() => {}).finally(() => processSubmission(true, reason));
                     } else {
