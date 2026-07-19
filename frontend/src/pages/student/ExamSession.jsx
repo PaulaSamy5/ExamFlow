@@ -263,29 +263,36 @@ const ExamSession = () => {
   useEffect(() => {
     if (loading || !submission || submission.status !== 'IN_PROGRESS' || !hasLaunched || terminationReason) return;
 
-    // 1. Intercept Escape key in CAPTURE phase before the browser exits fullscreen
+    const reenterFullscreen = () => {
+      const el = document.documentElement;
+      const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      return fn ? fn.call(el) : Promise.reject(new Error('API unavailable'));
+    };
+
+    // Intercept Escape in capture phase — browsers ignore preventDefault() for fullscreen
+    // exit so we immediately re-enter fullscreen, then show the dialog once we're back inside.
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && document.fullscreenElement && !autoSubmitTriggeredRef.current) {
+      if (e.key === 'Escape' && !autoSubmitTriggeredRef.current && !isSubmittingRef.current) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        setShowFullscreenWarning(true);
+        // Re-enter fullscreen (Escape already fired, browser will exit momentarily)
+        // then show dialog inside fullscreen
+        reenterFullscreen()
+          .catch(() => {})
+          .finally(() => setShowFullscreenWarning(true));
       }
     };
 
-    // 2. Safety net for other exit paths (browser UI button, F11, etc.)
-    //    Immediately re-enter fullscreen so the student never sees browser tabs,
-    //    then show the confirmation dialog.
-    const handleFullscreenChange = () => {
+    // Safety net for other exit paths (browser UI button, F11, etc.)
+    // Awaits the re-enter promise so the dialog renders inside fullscreen, not outside.
+    const handleFullscreenChange = async () => {
       if (!document.fullscreenElement && !autoSubmitTriggeredRef.current && !isSubmittingRef.current) {
         if (intentionalExitRef.current) {
-          // We triggered this exit ourselves (student confirmed leaving) — let it through
           intentionalExitRef.current = false;
           return;
         }
-        // Unexpected exit: try to snap back into fullscreen immediately
-        const el = document.documentElement;
-        const reenter = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-        if (reenter) reenter.call(el).catch(() => {});
+        // Re-enter first, show dialog only after fullscreen is (re-)established
+        await reenterFullscreen().catch(() => {});
         setShowFullscreenWarning(true);
       }
     };
