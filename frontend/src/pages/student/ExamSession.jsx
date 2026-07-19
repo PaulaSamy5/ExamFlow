@@ -282,48 +282,24 @@ const ExamSession = () => {
   useEffect(() => {
     if (loading || !submission || submission.status !== 'IN_PROGRESS' || !hasLaunched || terminationReason) return;
 
-    const reenterFullscreen = () => {
-      const el = document.documentElement;
-      const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-      return fn ? fn.call(el) : Promise.reject(new Error('API unavailable'));
-    };
-
-    // Intercept Escape in capture phase — browsers ignore preventDefault() for fullscreen
-    // exit so we immediately re-enter fullscreen, then show the dialog once we're back inside.
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !autoSubmitTriggeredRef.current && !isSubmittingRef.current) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        // Re-enter fullscreen (Escape already fired, browser will exit momentarily)
-        // then show dialog inside fullscreen
-        reenterFullscreen()
-          .catch(() => {})
-          .finally(() => setShowFullscreenWarning(true));
-      }
-    };
-
-    // Safety net for other exit paths (browser UI button, F11, etc.)
-    // Awaits the re-enter promise so the dialog renders inside fullscreen, not outside.
-    const handleFullscreenChange = async () => {
+    // Safety net for exit paths (Escape, browser UI button, F11, etc.)
+    const handleFullscreenChange = () => {
       if (!document.fullscreenElement && !autoSubmitTriggeredRef.current && !isSubmittingRef.current) {
         if (intentionalExitRef.current) {
           intentionalExitRef.current = false;
           return;
         }
-        // Re-enter first, show dialog only after fullscreen is (re-)established
-        await reenterFullscreen().catch(() => {});
+        // Show dialog warning; fullscreen will be re-established when clicking "Stay in Exam"
         setShowFullscreenWarning(true);
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown, true); // capture phase
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
