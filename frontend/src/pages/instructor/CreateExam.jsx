@@ -49,6 +49,17 @@ const LANGUAGES = [
   { id: 'cpp', label: 'C++', color: 'text-sky-400', bg: 'bg-sky-400/10' },
 ];
 
+const getIsMultiple = (q) => {
+  if (!q) return false;
+  return q.isMultiple === 1 || q.isMultiple === true || q.isMultiple === '1' ||
+         q.ismultiple === 1 || q.ismultiple === true || q.ismultiple === '1';
+};
+
+const getCorrectAnswer = (q) => {
+  if (!q) return '';
+  return q.correctAnswer !== undefined ? q.correctAnswer : (q.correctanswer !== undefined ? q.correctanswer : '');
+};
+
 const makeQuestion = (type) => ({
   type,
   text: '',
@@ -906,6 +917,8 @@ const validateAllQuestions = (qs) => {
     if (isNaN(pts) || pts <= 0) errs.push(`Question ${qNum}: Missing: Points`);
     if (!q.type) { errs.push(`Question ${qNum}: Missing: Question Type`); return; }
 
+    const curAns = getCorrectAnswer(q);
+
     let parsedOptions = q.options;
     if (typeof q.options === 'string') {
       try { parsedOptions = JSON.parse(q.options); } catch (e) { parsedOptions = q.options; }
@@ -921,32 +934,32 @@ const validateAllQuestions = (qs) => {
       });
       const trimmedOpts = optsArray.map(o => String(o).trim().toLowerCase());
       if (trimmedOpts.some((o, i) => trimmedOpts.indexOf(o) !== i)) errs.push(`Question ${qNum}: Fix: Duplicate options`);
-      const isMultipleMode = q.isMultiple === 1 || q.isMultiple === true;
+      const isMultipleMode = getIsMultiple(q);
       if (isMultipleMode) {
         let ans = [];
-        try { ans = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer; } catch (e) {}
+        try { ans = typeof curAns === 'string' ? JSON.parse(curAns) : curAns; } catch (e) {}
         if (!Array.isArray(ans) || ans.length === 0) errs.push(`Question ${qNum}: Missing: Correct Answer`);
       } else {
-        if (!q.correctAnswer || String(q.correctAnswer).trim() === '' || !String(q.correctAnswer).startsWith('idx:')) {
+        if (!curAns || String(curAns).trim() === '' || !String(curAns).startsWith('idx:')) {
           errs.push(`Question ${qNum}: Missing: Correct Answer`);
         } else {
-          const oIdx = parseInt(String(q.correctAnswer).split(':')[1]);
+          const oIdx = parseInt(String(curAns).split(':')[1]);
           if (isNaN(oIdx) || oIdx < 0 || oIdx >= optsArray.length) errs.push(`Question ${qNum}: Missing: Correct Answer`);
         }
       }
     } else if (q.type === 'TRUE_FALSE') {
-      if (q.correctAnswer !== 'True' && q.correctAnswer !== 'False') errs.push(`Question ${qNum}: Missing: Correct Answer (True / False)`);
+      if (curAns !== 'True' && curAns !== 'False') errs.push(`Question ${qNum}: Missing: Correct Answer (True / False)`);
     } else if (q.type === 'FILL_BLANKS') {
-      if (!q.correctAnswer || String(q.correctAnswer).trim() === '') errs.push(`Question ${qNum}: Missing: Correct Answer`);
+      if (!curAns || String(curAns).trim() === '') errs.push(`Question ${qNum}: Missing: Correct Answer`);
     } else if (q.type === 'MATH') {
       const mathOpts = typeof parsedOptions === 'object' && parsedOptions !== null ? parsedOptions : {};
       if (!mathOpts.correctFinalAnswer || String(mathOpts.correctFinalAnswer).trim() === '') errs.push(`Question ${qNum}: Missing: Correct Final Answer`);
     } else if (q.type === 'ESSAY') {
-      if (!q.correctAnswer || String(q.correctAnswer).trim() === '') errs.push(`Question ${qNum}: Missing: Model Answer`);
+      if (!curAns || String(curAns).trim() === '') errs.push(`Question ${qNum}: Missing: Model Answer`);
     } else if (q.type === 'CODING') {
       const codingOpts = typeof parsedOptions === 'object' && parsedOptions !== null ? parsedOptions : {};
       if (!codingOpts.title || String(codingOpts.title).trim() === '') errs.push(`Question ${qNum}: Missing: Problem Title`);
-      if (!q.correctAnswer || String(q.correctAnswer).trim() === '') errs.push(`Question ${qNum}: Missing: Sample Solution`);
+      if (!curAns || String(curAns).trim() === '') errs.push(`Question ${qNum}: Missing: Sample Solution`);
       
       const testCases = Array.isArray(codingOpts.testCases) ? codingOpts.testCases : [];
       if (testCases.length === 0) {
@@ -964,7 +977,7 @@ const validateAllQuestions = (qs) => {
       if (!umlOpts.modelAnswerText || String(umlOpts.modelAnswerText).trim() === '') errs.push(`Question ${qNum}: Missing: Model Answer / Expected Components`);
       
       let umlModel = { nodes: [], edges: [] };
-      try { umlModel = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer; } catch (e) {}
+      try { umlModel = typeof curAns === 'string' ? JSON.parse(curAns) : curAns; } catch (e) {}
       const umlNodes = umlModel?.nodes || [];
       if (umlNodes.length === 0) {
         errs.push(`Question ${qNum}: Missing: Model Diagram elements`);
@@ -1971,10 +1984,11 @@ const CreateExam = () => {
       const suspects = allQuestions
         .map((q, idx) => ({ q, num: idx + 1 }))
         .filter(({ q }) => {
-          const isMulti = q.isMultiple === 1 || q.isMultiple === true;
+          const isMulti = getIsMultiple(q);
           if (!isMulti) return false;
           let ans = [];
-          try { ans = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : (Array.isArray(q.correctAnswer) ? q.correctAnswer : []); } catch (e) {}
+          const curAns = getCorrectAnswer(q);
+          try { ans = typeof curAns === 'string' ? JSON.parse(curAns) : (Array.isArray(curAns) ? curAns : []); } catch (e) {}
           return Array.isArray(ans) && ans.length === 1;
         })
         .map(({ num }) => num);
@@ -2004,11 +2018,15 @@ const CreateExam = () => {
     try {
       const questions = allQuestions.map(({ _uid, id: qId, ...q }) => {
         const payload = { ...q };
-        const isNotMultiple = !payload.isMultiple || payload.isMultiple === 0;
-        if (payload.type === 'MCQ' && isNotMultiple && String(payload.correctAnswer).startsWith('idx:')) {
-          const idx = parseInt(payload.correctAnswer.split(':')[1]);
-          payload.correctAnswer = (payload.options && payload.options[idx]) ? payload.options[idx] : payload.correctAnswer;
+        const isNotMultiple = !getIsMultiple(payload);
+        const curAns = getCorrectAnswer(payload);
+        if (payload.type === 'MCQ' && isNotMultiple && String(curAns).startsWith('idx:')) {
+          const idx = parseInt(curAns.split(':')[1]);
+          payload.correctAnswer = (payload.options && payload.options[idx]) ? payload.options[idx] : curAns;
+        } else {
+          payload.correctAnswer = curAns; // ensure camelCase key is saved
         }
+        payload.isMultiple = getIsMultiple(payload) ? 1 : 0; // ensure it is normalized for DB
         if (payload.type === 'CODING' && typeof payload.options === 'string') {
           try { payload.options = JSON.parse(payload.options); } catch (e) { payload.options = {}; }
         }
