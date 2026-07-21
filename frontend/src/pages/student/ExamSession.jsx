@@ -61,6 +61,62 @@ const parseOptions = (options) => {
   }
 };
 
+const getQuestionValidation = (q, answer) => {
+  if (!q) return { isComplete: true, warning: null };
+
+  if (q.type === 'MCQ') {
+    if (q.isMultiple === 1) {
+      let selected = [];
+      try {
+        selected = JSON.parse(answer || '[]');
+        if (!Array.isArray(selected)) selected = [];
+      } catch (e) {
+        if (answer) selected = [answer];
+      }
+      if (selected.length === 0) {
+        return {
+          isComplete: false,
+          warning: 'No options selected for this multiple choice question.'
+        };
+      }
+      if (selected.length === 1) {
+        return {
+          isComplete: false,
+          warning: 'You selected only 1 option, but this question allows/expects multiple choices.'
+        };
+      }
+      return { isComplete: true, warning: null };
+    } else {
+      if (!answer) {
+        return {
+          isComplete: false,
+          warning: 'Single choice question requires exactly one selected answer.'
+        };
+      }
+      return { isComplete: true, warning: null };
+    }
+  }
+
+  if (q.type === 'TRUE_FALSE') {
+    if (!answer) {
+      return {
+        isComplete: false,
+        warning: 'Please select True or False before leaving this question.'
+      };
+    }
+    return { isComplete: true, warning: null };
+  }
+
+  if (!answer || (typeof answer === 'string' && answer.trim() === '')) {
+    return {
+      isComplete: false,
+      warning: 'This question has not been answered yet.'
+    };
+  }
+
+  return { isComplete: true, warning: null };
+};
+
 const ExamSession = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -78,6 +134,8 @@ const ExamSession = () => {
   const [hasLaunched, setHasLaunched] = useState(false);
   const [terminationReason, setTerminationReason] = useState(null);
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
+  const [pendingNavIdx, setPendingNavIdx] = useState(null);
+  const [navWarning, setNavWarning] = useState(null);
 
   const handleLaunch = async () => {
     try {
@@ -408,6 +466,45 @@ const ExamSession = () => {
 
   const handleUpdateAnswer = (qId, value) => {
     setAnswers(prev => ({ ...prev, [qId]: value }));
+    const currentQ = questions[activeIdx];
+    if (currentQ && currentQ.id === qId) {
+      const validation = getQuestionValidation(currentQ, value);
+      if (validation.isComplete) {
+        setNavWarning(null);
+        setPendingNavIdx(null);
+      }
+    }
+  };
+
+  const handleAttemptNavigate = (targetIdx) => {
+    if (targetIdx === activeIdx || targetIdx < 0 || targetIdx >= questions.length) return;
+    const currentQ = questions[activeIdx];
+    const currentAns = answers[currentQ?.id];
+    const validation = getQuestionValidation(currentQ, currentAns);
+
+    if (!validation.isComplete) {
+      setPendingNavIdx(targetIdx);
+      setNavWarning(validation.warning);
+    } else {
+      setPendingNavIdx(null);
+      setNavWarning(null);
+      setActiveIdx(targetIdx);
+      handleSave(true);
+    }
+  };
+
+  const confirmLeaveQuestion = () => {
+    if (pendingNavIdx !== null) {
+      setActiveIdx(pendingNavIdx);
+      handleSave(true);
+    }
+    setPendingNavIdx(null);
+    setNavWarning(null);
+  };
+
+  const cancelLeaveQuestion = () => {
+    setPendingNavIdx(null);
+    setNavWarning(null);
   };
 
   const handleAutoSubmit = async () => {
@@ -761,7 +858,7 @@ const ExamSession = () => {
                           <button
                             key={q.id}
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setActiveIdx(idx); }}
+                            onClick={(e) => { e.stopPropagation(); handleAttemptNavigate(idx); }}
                             className={`h-10 w-10 flex items-center justify-center rounded-xl font-black text-xs transition-all duration-300 border ${
                               isActive ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/30 scale-110' :
                               isAnswered ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
@@ -785,7 +882,7 @@ const ExamSession = () => {
                       <button
                         key={q.id}
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setActiveIdx(idx); }}
+                        onClick={(e) => { e.stopPropagation(); handleAttemptNavigate(idx); }}
                         className={`h-11 w-11 flex items-center justify-center rounded-xl font-black text-xs transition-all duration-300 border ${
                           isActive ? 'bg-indigo-600 border-indigo-500 text-white shadow-xl shadow-indigo-600/30 scale-110' :
                           isAnswered ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
@@ -1298,7 +1395,7 @@ const ExamSession = () => {
                 <button
                   key={q.id}
                   type="button"
-                  onClick={() => setActiveIdx(idx)}
+                  onClick={() => handleAttemptNavigate(idx)}
                   aria-label={`Question ${idx + 1}${isAnswered ? ' — answered' : ''}`}
                   className={`shrink-0 h-8 w-8 flex items-center justify-center rounded-lg font-black text-[10px] transition-all border ${
                     isActive
@@ -1315,12 +1412,56 @@ const ExamSession = () => {
           </div>
         </div>
 
+        {/* Inline Question Navigation Warning */}
+        <AnimatePresence>
+          {navWarning && (
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              className="mx-4 sm:mx-8 mb-4 p-4 sm:p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-slate-900 dark:text-slate-100 shadow-xl backdrop-blur-md z-40"
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/20 rounded-xl shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-500">
+                      Incomplete Selection Warning
+                    </h4>
+                    <p className="text-xs sm:text-sm font-medium mt-0.5 leading-snug">
+                      {navWarning}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={cancelLeaveQuestion}
+                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95"
+                  >
+                    Complete Selection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmLeaveQuestion}
+                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider transition-all border border-slate-300 dark:border-slate-700 active:scale-95"
+                  >
+                    Leave Incomplete
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Global Control Bar */}
          <footer className="glass border-t border-slate-200 dark:border-slate-800/50 px-4 sm:px-8 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-3 z-30">
             <button 
               type="button"
               disabled={activeIdx === 0}
-              onClick={(e) => { e.stopPropagation(); setActiveIdx(prev => prev - 1); }}
+              onClick={(e) => { e.stopPropagation(); handleAttemptNavigate(activeIdx - 1); }}
               className="h-11 px-4 sm:px-6 rounded-xl glass glass-hover text-slate-700 hover:text-slate-950 dark:text-slate-200 dark:hover:text-white disabled:opacity-40 disabled:hover:text-slate-700 dark:disabled:hover:text-slate-200 flex items-center justify-center gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all active:scale-95 shrink-0"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -1355,8 +1496,7 @@ const ExamSession = () => {
                 key="next-btn"
                 type="button"
                 onClick={() => {
-                  setActiveIdx(prev => prev + 1);
-                  handleSave(true);
+                  handleAttemptNavigate(activeIdx + 1);
                 }}
                 className="h-11 px-4 sm:px-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center justify-center gap-2 text-[10px] sm:text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg shadow-indigo-600/20 shrink-0"
               >
