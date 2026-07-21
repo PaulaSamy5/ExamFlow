@@ -107,7 +107,7 @@ const QRModal = ({ exam, onClose }) => {
 };
 
 
-const DeleteModal = ({ exam, onConfirm, onClose }) => {
+const DeleteModal = ({ exam, onConfirm, onClose, isDeleting }) => {
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => document.body.style.overflow = 'unset';
@@ -120,7 +120,7 @@ const DeleteModal = ({ exam, onConfirm, onClose }) => {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
       className="fixed inset-0 z-[1001] flex flex-col items-center justify-center w-full h-[100dvh] bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-sm p-4" 
-      onClick={onClose}
+      onClick={isDeleting ? undefined : onClose}
     >
       <motion.div 
         initial={{ scale: 0.95, opacity: 0, y: 10 }}
@@ -142,15 +142,25 @@ const DeleteModal = ({ exam, onConfirm, onClose }) => {
         <div className="flex gap-3">
           <button 
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl text-sm font-semibold bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white transition-all border border-slate-200 dark:border-slate-700/50"
+            disabled={isDeleting}
+            className="flex-1 py-3 rounded-xl text-sm font-semibold bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white transition-all border border-slate-200 dark:border-slate-700/50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button 
             onClick={onConfirm}
-            className="flex-1 py-3 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all active:scale-[0.98] shadow-lg shadow-rose-600/20"
+            disabled={isDeleting}
+            className="flex-1 py-3 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all active:scale-[0.98] shadow-lg shadow-rose-600/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Delete
+            {isDeleting ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Deleting...
+              </>
+            ) : 'Delete'}
           </button>
         </div>
       </motion.div>
@@ -167,6 +177,7 @@ const InstructorDashboard = () => {
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'online', 'printable'
   const [selectedExamForQR, setSelectedExamForQR] = useState(null);
   const [examToDelete, setExamToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchExams = async () => {
@@ -184,16 +195,18 @@ const InstructorDashboard = () => {
   }, []);
 
   const confirmDelete = async () => {
-    if (!examToDelete) return;
-    
+    if (!examToDelete || isDeleting) return;
+    setIsDeleting(true);
     try {
       await api.delete(`/exams/${examToDelete.id}`);
       toast.success('Exam deleted successfully');
       setExams(exams.filter(e => e.id !== examToDelete.id));
+      setExamToDelete(null); // close only on success
     } catch (err) {
-      toast.error('Failed to delete exam');
+      toast.error(err.response?.data?.error || 'Failed to delete exam');
+      // buttons re-enable automatically; modal stays open
     } finally {
-      setExamToDelete(null);
+      setIsDeleting(false);
     }
   };
 
@@ -694,8 +707,9 @@ const InstructorDashboard = () => {
           <DeleteModal
             key="delete-modal"
             exam={examToDelete}
-            onClose={() => setExamToDelete(null)}
+            onClose={() => { if (!isDeleting) setExamToDelete(null); }}
             onConfirm={confirmDelete}
+            isDeleting={isDeleting}
           />
         )}
       </AnimatePresence>

@@ -158,7 +158,7 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteUser = async () => {
-    if (!userToDelete) return;
+    if (!userToDelete || isDeleting) return;
     if (userToDelete.id === user.id) {
       toast.error("You cannot delete your own account.");
       setUserToDelete(null);
@@ -1195,7 +1195,12 @@ const AdminDashboard = () => {
                   disabled={isDeleting}
                   className="flex-1 h-12 rounded-2xl bg-rose-600 text-white font-bold hover:bg-rose-500 transition-all duration-150 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 active:scale-[0.97]"
                 >
-                  {isDeleting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Delete User'}
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : 'Delete User'}
                 </button>
               </div>
             </div>
