@@ -7,6 +7,10 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../lib/api';
 
+// Feature flag to control whether users can manually choose their camera source.
+// In production, this is disabled to present a simplified UX using the default system camera.
+const ENABLE_CAMERA_SELECTOR_FOR_DEBUG = false;
+
 const QRScannerModal = ({ onClose }) => {
   const [status, setStatus] = useState('idle');    // idle | loading | scanning | success | error
   const [errorMsg, setErrorMsg] = useState('');
@@ -43,8 +47,8 @@ const QRScannerModal = ({ onClose }) => {
       }
       setCameras(devices);
 
-      // Auto-select DroidCam if available, otherwise default to first
-      const droid = devices.find(d => d.label?.toLowerCase().includes('droidcam'));
+      // Auto-select DroidCam if available in debug/selector mode, otherwise default to first (system camera)
+      const droid = ENABLE_CAMERA_SELECTOR_FOR_DEBUG ? devices.find(d => d.label?.toLowerCase().includes('droidcam')) : null;
       setSelectedCamera(droid ? droid.id : devices[0].id);
       setStatus('idle');
     } catch (err) {
@@ -289,7 +293,7 @@ const QRScannerModal = ({ onClose }) => {
         {/* ════ CAMERA MODE ════ */}
         {mode === 'camera' && (
           <>
-            {cameras.length > 0 && status !== 'success' && (
+            {ENABLE_CAMERA_SELECTOR_FOR_DEBUG && cameras.length > 0 && status !== 'success' && (
               <div className="mb-3">
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Camera</p>
                 <div className="relative">
