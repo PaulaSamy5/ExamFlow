@@ -363,6 +363,13 @@ const QuestionCard = ({ q, qNum, onUpdate, onRemove, onOptionUpdate, onAddOption
                   </button>
                 </div>
 
+                {q.isMultiple && (
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 duration-300">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>This question allows students to choose more than one choice.</span>
+                  </div>
+                )}
+
                 {(() => {
                   const optsArr = Array.isArray(parsedOptions) ? parsedOptions : [];
                   const trimmedOpts = optsArr.map(o => String(o).trim().toLowerCase());
