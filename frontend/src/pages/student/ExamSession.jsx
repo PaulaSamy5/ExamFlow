@@ -102,7 +102,6 @@ const ExamSession = () => {
   const isSubmittingRef = useRef(false);
   const selectedLangsRef = useRef({});
   const autoSubmitTriggeredRef = useRef(false);
-  const intentionalExitRef = useRef(false);
   const showFullscreenWarningRef = useRef(false);
   const MAX_TAB_VIOLATIONS = 3;
 
@@ -232,15 +231,16 @@ const ExamSession = () => {
   }, [timeLeft, loading]);
 
   // ── Tab/Window focus detection (anti-cheat) ──
+  // ── Focus loss + Fullscreen exit detection (unified anti-cheat) ──
   useEffect(() => {
     if (loading || !submission || submission.status !== 'IN_PROGRESS' || !hasLaunched || terminationReason) return;
 
-    const registerViolation = (reason) => {
+    const registerViolation = (reason, isFullscreenExit = false) => {
       setTabViolations(prev => {
         const next = prev + 1;
         if (next >= MAX_TAB_VIOLATIONS) {
           setTerminationReason(reason);
-          toast.error('Maximum focus violations reached. Auto-submitting your exam.', { duration: 5000, icon: '🚫' });
+          toast.error('Maximum violations reached. Auto-submitting your exam.', { duration: 5000, icon: '\uD83D\uDEAB' });
           setTimeout(() => {
             if (!autoSubmitTriggeredRef.current) {
               autoSubmitTriggeredRef.current = true;
@@ -248,9 +248,14 @@ const ExamSession = () => {
             }
           }, 800);
         } else {
-          setShowTabWarning(true);
-          toast(`Focus loss detected (${next}/${MAX_TAB_VIOLATIONS}). Please keep the exam window active.`, {
-            icon: '⚠️', duration: 4000
+          if (isFullscreenExit) {
+            // Show fullscreen-specific dialog with re-enter button
+            setShowFullscreenWarning(true);
+          } else {
+            setShowTabWarning(true);
+          }
+          toast(`Security violation (${next}/${MAX_TAB_VIOLATIONS}). Return to the exam now.`, {
+            icon: '\u26A0\uFE0F', duration: 4000
           });
         }
         return next;
@@ -269,37 +274,23 @@ const ExamSession = () => {
       registerViolation('You focused another window or application.');
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleWindowBlur);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleWindowBlur);
-    };
-  }, [loading, submission, hasLaunched, terminationReason]);
-
-  // ── Fullscreen protection (anti-cheat) ──
-  useEffect(() => {
-    if (loading || !submission || submission.status !== 'IN_PROGRESS' || !hasLaunched || terminationReason) return;
-
-    // Safety net for exit paths (Escape, browser UI button, F11, etc.)
+    // Fullscreen exit (Escape, browser button, F11, etc.) counts as a violation
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && !autoSubmitTriggeredRef.current && !isSubmittingRef.current) {
-        if (intentionalExitRef.current) {
-          intentionalExitRef.current = false;
-          return;
-        }
-        // Show dialog warning; fullscreen will be re-established when clicking "Stay in Exam"
-        setShowFullscreenWarning(true);
+        registerViolation('Fullscreen mode was exited.', true);
       }
     };
 
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
@@ -701,64 +692,41 @@ const ExamSession = () => {
   return (
     <div className="flex h-screen w-screen overflow-hidden text-slate-700 dark:text-slate-200 fixed inset-0 z-[100]">
 
-      {/* ── Fullscreen exit confirmation dialog ── */}
+      {/* ── Fullscreen exit violation dialog ── */}
       {showFullscreenWarning && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-8 shadow-2xl mx-4 space-y-6">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-8 shadow-2xl mx-4 space-y-5">
             <div className="flex flex-col items-center gap-3 text-center">
               <div className="h-14 w-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
                 <AlertTriangle className="h-7 w-7 text-amber-500" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white leading-snug">Leaving fullscreen?</h3>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white leading-snug">Fullscreen exited</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1.5 leading-relaxed">
-                  If you leave fullscreen, your exam will be <span className="text-rose-500 font-bold">terminated</span> and auto-submitted.
+                  This counts as a security violation
+                  {tabViolations < MAX_TAB_VIOLATIONS && (
+                    <> (<span className="text-amber-500 font-bold">{tabViolations}/{MAX_TAB_VIOLATIONS}</span>)
+                    . Reaching {MAX_TAB_VIOLATIONS} will <span className="text-rose-500 font-bold">terminate</span> your exam.</>
+                  )}.
                 </p>
               </div>
             </div>
-            <div className="flex flex-col gap-2.5">
-              <button
-                onClick={() => {
-                  // 1. Request fullscreen synchronously first in the event handler to preserve user gesture
-                  try {
-                    const el = document.documentElement;
-                    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-                    if (fn) {
-                      fn.call(el).catch(err => {
-                        console.warn('Could not re-enter fullscreen:', err);
-                      });
-                    }
-                  } catch (e) {
-                    console.warn('Could not re-enter fullscreen:', e);
-                  }
-                  // 2. Hide the warning dialog afterwards
-                  setShowFullscreenWarning(false);
-                }}
-                className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25"
-              >
-                Stay in Exam
-              </button>
-              <button
-                onClick={() => {
-                  setShowFullscreenWarning(false);
-                  if (!autoSubmitTriggeredRef.current) {
-                    autoSubmitTriggeredRef.current = true;
-                    intentionalExitRef.current = true;
-                    const reason = 'Student chose to exit fullscreen mode.';
-                    setTerminationReason(reason);
-                    toast.error('Exam terminated.', { duration: 4000, icon: '\uD83D\uDEAB' });
-                    if (document.fullscreenElement) {
-                      document.exitFullscreen().catch(() => {}).finally(() => processSubmission(true, reason));
-                    } else {
-                      processSubmission(true, reason);
-                    }
-                  }
-                }}
-                className="w-full py-3 rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-black text-sm uppercase tracking-widest transition-all hover:bg-rose-100 dark:hover:bg-rose-500/20 active:scale-[0.98]"
-              >
-                Leave &amp; Terminate Exam
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                // Re-enter fullscreen synchronously — button click = trusted user gesture
+                try {
+                  const el = document.documentElement;
+                  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+                  if (fn) fn.call(el).catch(err => console.warn('Could not re-enter fullscreen:', err));
+                } catch (e) {
+                  console.warn('Could not re-enter fullscreen:', e);
+                }
+                setShowFullscreenWarning(false);
+              }}
+              className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25"
+            >
+              Return to Fullscreen
+            </button>
           </div>
         </div>
       )}
