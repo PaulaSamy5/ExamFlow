@@ -920,9 +920,9 @@ const validateAllQuestions = (qs) => {
         try { ans = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer; } catch (e) {}
         if (!Array.isArray(ans) || ans.length === 0) errs.push(`Question ${qNum}: Missing: Correct Answer`);
       } else {
-        if (!q.correctAnswer || String(q.correctAnswer).trim() === '') {
+        if (!q.correctAnswer || String(q.correctAnswer).trim() === '' || !String(q.correctAnswer).startsWith('idx:')) {
           errs.push(`Question ${qNum}: Missing: Correct Answer`);
-        } else if (String(q.correctAnswer).startsWith('idx:')) {
+        } else {
           const oIdx = parseInt(String(q.correctAnswer).split(':')[1]);
           if (isNaN(oIdx) || oIdx < 0 || oIdx >= optsArray.length) errs.push(`Question ${qNum}: Missing: Correct Answer`);
         }
@@ -2600,7 +2600,6 @@ const CreateExam = () => {
                               />
                             </>
                           )}
-
                           {/* Display selected */}
                           {!isStartTimeDisabled && startDateVal && startTimeVal && (
                             <div className="flex items-center gap-1.5 px-0.5 animate-fade-in">
