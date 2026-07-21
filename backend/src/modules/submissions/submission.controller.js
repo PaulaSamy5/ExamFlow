@@ -1043,14 +1043,19 @@ const getStudentStats = async (req, res) => {
   try {
     const stats = await get(`
       SELECT 
-        COUNT(*) as examsTaken,
-        AVG(score) as avgScore,
-        MAX(score) as bestScore
+        COUNT(*)::int   AS "examsTaken",
+        AVG(score)      AS "avgScore",
+        MAX(score)      AS "bestScore"
       FROM Submissions 
       WHERE studentId = ? AND status = 'SUBMITTED'
     `, [studentId]);
-    
-    res.json(stats);
+
+    // Explicitly return camelCase keys so the response is independent of COLUMN_MAP
+    res.json({
+      examsTaken: stats?.examsTaken ?? 0,
+      avgScore:   stats?.avgScore   ?? null,
+      bestScore:  stats?.bestScore  ?? null,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
