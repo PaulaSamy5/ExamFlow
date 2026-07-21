@@ -61,7 +61,7 @@ const StudentDashboard = () => {
   ];
 
   const filteredSubmissions = (submissions || []).filter(s =>
-    s.examTitle?.toLowerCase().includes(searchTerm.trim().toLowerCase())
+    (s.examTitle || '').toLowerCase().includes(searchTerm.trim().toLowerCase())
   );
 
   return (
