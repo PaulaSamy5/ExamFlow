@@ -1393,6 +1393,9 @@ const CreateExam = () => {
   const [errors, setErrors] = useState({});
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationTriggered, setValidationTriggered] = useState(false);
+  const [showMultiAnswerWarning, setShowMultiAnswerWarning] = useState(false);
+  const [multiAnswerConfirmed, setMultiAnswerConfirmed] = useState(false);
+  const [pendingMultiAnswerQuestions, setPendingMultiAnswerQuestions] = useState([]);
 
   const defaultExamMeta = {
     examCategory: 'Final',
@@ -1862,8 +1865,8 @@ const CreateExam = () => {
   const isPrintable = exam.examType === 'PRINTABLE_ONLY';
   const maxStep = isPrintable ? 3 : 2;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, bypassMultiCheck = false) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (step === 1) {
       const missing = [];
       if (!exam.title.trim()) missing.push("Exam Title");
@@ -1961,6 +1964,26 @@ const CreateExam = () => {
       setValidationTriggered(true);
       setShowValidationModal(true);
       return;
+    }
+
+    // Soft-warn if any Multiple Selection question has only 1 correct answer selected
+    if (!isQuestionsLocked && !multiAnswerConfirmed && !bypassMultiCheck) {
+      const suspects = allQuestions
+        .map((q, idx) => ({ q, num: idx + 1 }))
+        .filter(({ q }) => {
+          const isMulti = q.isMultiple === 1 || q.isMultiple === true;
+          if (!isMulti) return false;
+          let ans = [];
+          try { ans = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : (Array.isArray(q.correctAnswer) ? q.correctAnswer : []); } catch (e) {}
+          return Array.isArray(ans) && ans.length === 1;
+        })
+        .map(({ num }) => num);
+      if (suspects.length > 0) {
+        setShowMultiAnswerWarning(true);
+        setMultiAnswerConfirmed(false);
+        setPendingMultiAnswerQuestions(suspects);
+        return;
+      }
     }
 
     if (step === 2) {
@@ -3402,6 +3425,92 @@ const CreateExam = () => {
             </div>
           );
         })()}
+
+        {/* ── Multi-Answer Warning Modal ── */}
+        {showMultiAnswerWarning && (
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200"
+            style={{ backgroundColor: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(6px)' }}
+          >
+            <div className="w-full max-w-[460px] bg-white dark:bg-slate-900 rounded-3xl shadow-[0_32px_72px_-16px_rgba(0,0,0,0.3)] dark:shadow-[0_32px_72px_-16px_rgba(0,0,0,0.65)] border border-slate-200/80 dark:border-slate-700/50 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-300">
+              
+              {/* Header */}
+              <div className="px-7 pt-7 pb-5">
+                <div className="flex items-start gap-3.5 mb-4">
+                  <div className="p-2.5 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-bold text-slate-900 dark:text-white leading-tight">
+                      Review Multiple Choice configurations
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Some questions have Multiple Selection enabled but only one correct choice selected.
+                    </p>
+                  </div>
+                </div>
+                <div className="h-px bg-slate-100 dark:bg-slate-800" />
+              </div>
+
+              {/* Questions List */}
+              <div className="px-7 pb-2 max-h-64 overflow-y-auto space-y-1.5">
+                {pendingMultiAnswerQuestions.map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => {
+                      setShowMultiAnswerWarning(false);
+                      requestAnimationFrame(() => {
+                        const el = document.getElementById(`question-card-${n}`);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      });
+                    }}
+                    className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl bg-amber-50/50 dark:bg-amber-500/5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="shrink-0 h-5 w-5 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 flex items-center justify-center">
+                        <span className="text-[9px] font-black text-amber-500">{n}</span>
+                      </span>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Question {n}</p>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400">Multiple Selection active, but only 1 option marked correct</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      Go to →
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div className="px-7 pt-4 pb-7">
+                <div className="h-px bg-slate-100 dark:bg-slate-800 mb-4" />
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMultiAnswerWarning(false);
+                      setMultiAnswerConfirmed(true);
+                      handleSubmit(null, true);
+                    }}
+                    className="w-full h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-sm font-semibold transition-all shadow-lg shadow-indigo-600/20"
+                  >
+                    Publish Anyway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowMultiAnswerWarning(false)}
+                    className="w-full h-11 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold transition-all"
+                  >
+                    Go Back & Review
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* ── Fixed Interaction Matrix ── */}
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 sm:px-6 z-[100]">
