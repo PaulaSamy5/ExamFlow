@@ -58,6 +58,11 @@ const COLUMN_MAP = {
   instructorid:            'instructorId',
   showresults:             'showResults',
   requireaiggradeapproval: 'requireAIGradeApproval',
+  requireaigradeapproval:  'requireAIGradeApproval',
+  terminationreason:       'terminationReason',
+  examtitle:               'examTitle',
+  examtotalgrade:          'examTotalGrade',
+  instructorname:          'instructorName',
   examtype:                'examType',
   exammeta:                'examMeta',
   // Questions
