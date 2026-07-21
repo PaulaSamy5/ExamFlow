@@ -61,18 +61,36 @@ const parseOptions = (options) => {
   }
 };
 
+const isMultipleMode = (q) => {
+  if (!q) return false;
+  return q.isMultiple === 1 || q.isMultiple === true || q.isMultiple === '1' ||
+         q.ismultiple === 1 || q.ismultiple === true || q.ismultiple === '1';
+};
+
 const getQuestionValidation = (q, answer) => {
   if (!q) return { isComplete: true, warning: null };
 
-  if (q.type === 'MCQ') {
-    if (q.isMultiple === 1) {
+  const type = (q.type || '').trim().toUpperCase();
+
+  if (type === 'MCQ') {
+    const isMulti = isMultipleMode(q);
+    if (isMulti) {
       let selected = [];
       try {
-        selected = JSON.parse(answer || '[]');
-        if (!Array.isArray(selected)) selected = [];
+        if (typeof answer === 'string') {
+          const parsed = JSON.parse(answer || '[]');
+          selected = Array.isArray(parsed) ? parsed : (answer.trim() ? [answer] : []);
+        } else if (Array.isArray(answer)) {
+          selected = answer;
+        }
       } catch (e) {
-        if (answer) selected = [answer];
+        if (answer && typeof answer === 'string' && answer.trim()) {
+          selected = [answer];
+        }
       }
+      
+      selected = selected.filter(x => x && typeof x === 'string' ? x.trim() !== '' : Boolean(x));
+
       if (selected.length === 0) {
         return {
           isComplete: false,
@@ -82,12 +100,12 @@ const getQuestionValidation = (q, answer) => {
       if (selected.length === 1) {
         return {
           isComplete: false,
-          warning: 'You selected only 1 option, but this question allows/expects multiple choices.'
+          warning: 'You have selected only 1 option, but this question allows/expects multiple choices.'
         };
       }
       return { isComplete: true, warning: null };
     } else {
-      if (!answer) {
+      if (!answer || (typeof answer === 'string' && answer.trim() === '') || answer === '[]') {
         return {
           isComplete: false,
           warning: 'Single choice question requires exactly one selected answer.'
@@ -97,8 +115,8 @@ const getQuestionValidation = (q, answer) => {
     }
   }
 
-  if (q.type === 'TRUE_FALSE') {
-    if (!answer) {
+  if (type === 'TRUE_FALSE') {
+    if (!answer || (typeof answer === 'string' && answer.trim() === '')) {
       return {
         isComplete: false,
         warning: 'Please select True or False before leaving this question.'
@@ -107,7 +125,7 @@ const getQuestionValidation = (q, answer) => {
     return { isComplete: true, warning: null };
   }
 
-  if (!answer || (typeof answer === 'string' && answer.trim() === '')) {
+  if (!answer || (typeof answer === 'string' && answer.trim() === '') || answer === '[]') {
     return {
       isComplete: false,
       warning: 'This question has not been answered yet.'
@@ -1044,7 +1062,7 @@ const ExamSession = () => {
               <div className="space-y-4 pt-4">
                 {currentQuestion.type === 'MCQ' && (
                   <div className="grid grid-cols-1 gap-4">
-                    {currentQuestion.isMultiple === 1 && (
+                    {isMultipleMode(currentQuestion) && (
                       <div className="flex items-center gap-3 mb-2 animate-bounce">
                          <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center gap-2">
                            <Sparkles className="h-3 w-3 text-amber-500" />
@@ -1054,8 +1072,9 @@ const ExamSession = () => {
                     )}
                     {Array.isArray(currentQuestion.options) && currentQuestion.options.map((option, idx) => {
                       const ans = answers[currentQuestion.id];
+                      const isMulti = isMultipleMode(currentQuestion);
                       const isSelected = (() => {
-                        if (currentQuestion.isMultiple !== 1) return ans === option;
+                        if (!isMulti) return ans === option;
                         try { return JSON.parse(ans || '[]').includes(option); } 
                         catch(e) { return ans === option; }
                       })();
@@ -1064,12 +1083,12 @@ const ExamSession = () => {
                         <button
                           key={idx}
                           type="button"
-                          role={currentQuestion.isMultiple === 1 ? 'checkbox' : 'radio'}
+                          role={isMulti ? 'checkbox' : 'radio'}
                           aria-checked={isSelected}
                           aria-label={`Option ${String.fromCharCode(65 + idx)}: ${option}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (currentQuestion.isMultiple === 1) {
+                            if (isMulti) {
                               let current = [];
                               try { current = JSON.parse(ans || '[]'); }
                               catch(e) { if (ans) current = [ans]; }
