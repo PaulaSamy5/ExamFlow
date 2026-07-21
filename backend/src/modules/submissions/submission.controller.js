@@ -966,9 +966,17 @@ const getSubmission = async (req, res) => {
         if (req.user.role !== 'INSTRUCTOR' && q.type === 'CODING' && parsedOptions) {
             parsedOptions.testCases = undefined;
         }
+        let correctCount = 1;
+        if (q.correctAnswer) {
+          try {
+            const parsedCA = JSON.parse(q.correctAnswer);
+            if (Array.isArray(parsedCA)) correctCount = parsedCA.length;
+          } catch(e) {}
+        }
         return {
           ...q,
           options: parsedOptions,
+          correctAnswersCount: correctCount,
           ...(req.user.role !== 'INSTRUCTOR' && { correctAnswer: undefined })
         };
       });

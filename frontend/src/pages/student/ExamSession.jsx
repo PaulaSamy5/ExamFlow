@@ -90,17 +90,12 @@ const getQuestionValidation = (q, answer) => {
       }
       
       selected = selected.filter(x => x && typeof x === 'string' ? x.trim() !== '' : Boolean(x));
+      const requiredCount = q.correctAnswersCount > 0 ? q.correctAnswersCount : 2;
 
-      if (selected.length === 0) {
+      if (selected.length < requiredCount) {
         return {
           isComplete: false,
-          warning: 'No options selected for this multiple choice question.'
-        };
-      }
-      if (selected.length === 1) {
-        return {
-          isComplete: false,
-          warning: 'You have selected only 1 option, but this question allows/expects multiple choices.'
+          warning: 'This question has multiple correct answers. Please review your selection before continuing.'
         };
       }
       return { isComplete: true, warning: null };
