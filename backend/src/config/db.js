@@ -101,6 +101,10 @@ const COLUMN_MAP = {
   pageviews:               'pageViews',
   uniqueviews:             'uniqueViews',
   questioncount:           'questionCount',
+  // Student stats (getStudentStats aggregate aliases)
+  examstaken:              'examsTaken',
+  avgscore:                'avgScore',
+  bestscore:               'bestScore',
 };
 
 const camelizeRow = (row) => {
