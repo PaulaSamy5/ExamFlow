@@ -479,7 +479,7 @@ const ExamSession = () => {
 
   const handleUpdateAnswer = (qId, value) => {
     setAnswers(prev => ({ ...prev, [qId]: value }));
-    const qs = submission?.exam?.questions || [];
+    const qs = submissionRef.current?.exam?.questions || [];
     const currentQ = qs[activeIdx];
     if (currentQ && currentQ.id === qId) {
       const validation = getQuestionValidation(currentQ, value);
@@ -491,10 +491,11 @@ const ExamSession = () => {
   };
 
   const handleAttemptNavigate = (targetIdx) => {
-    const qs = submission?.exam?.questions || [];
+    const qs = submissionRef.current?.exam?.questions || [];
+    const currentAnswers = answersRef.current;
     if (targetIdx === activeIdx || targetIdx < 0 || targetIdx >= qs.length) return;
     const currentQ = qs[activeIdx];
-    const currentAns = answers[currentQ?.id];
+    const currentAns = currentAnswers[currentQ?.id];
     const validation = getQuestionValidation(currentQ, currentAns);
 
     if (!validation.isComplete) {
