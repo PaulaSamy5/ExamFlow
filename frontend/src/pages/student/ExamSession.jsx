@@ -479,7 +479,8 @@ const ExamSession = () => {
 
   const handleUpdateAnswer = (qId, value) => {
     setAnswers(prev => ({ ...prev, [qId]: value }));
-    const currentQ = questions[activeIdx];
+    const qs = submission?.exam?.questions || [];
+    const currentQ = qs[activeIdx];
     if (currentQ && currentQ.id === qId) {
       const validation = getQuestionValidation(currentQ, value);
       if (validation.isComplete) {
@@ -490,14 +491,16 @@ const ExamSession = () => {
   };
 
   const handleAttemptNavigate = (targetIdx) => {
-    if (targetIdx === activeIdx || targetIdx < 0 || targetIdx >= questions.length) return;
-    const currentQ = questions[activeIdx];
+    const qs = submission?.exam?.questions || [];
+    if (targetIdx === activeIdx || targetIdx < 0 || targetIdx >= qs.length) return;
+    const currentQ = qs[activeIdx];
     const currentAns = answers[currentQ?.id];
     const validation = getQuestionValidation(currentQ, currentAns);
 
     if (!validation.isComplete) {
       setPendingNavIdx(targetIdx);
       setNavWarning(validation.warning);
+      toast(validation.warning, { icon: '⚠️', id: 'nav-val-warning', duration: 4000 });
     } else {
       setPendingNavIdx(null);
       setNavWarning(null);
