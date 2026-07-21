@@ -1080,9 +1080,10 @@ const getMySubmissions = async (req, res) => {
   const studentId = req.user.id;
   try {
     const submissions = await query(`
-      SELECT s.*, e.title as examTitle, e.totalGrade as examTotalGrade, e.showResults, e.endTime, e.requireAIGradeApproval
+      SELECT s.*, e.title as examTitle, e.totalGrade as examTotalGrade, e.showResults, e.endTime, e.requireAIGradeApproval, u.name as instructorName
       FROM Submissions s
       JOIN Exams e ON s.examId = e.id
+      JOIN Users u ON e.instructorId = u.id
       WHERE s.studentId = ? AND s.status = 'SUBMITTED'
       ORDER BY s.submittedAt DESC
     `, [studentId]);

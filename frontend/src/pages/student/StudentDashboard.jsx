@@ -149,7 +149,7 @@ const StudentDashboard = () => {
       {/* ─── History Section ─── */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Past Exams</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Exam History</h2>
           {submissions.length > 0 && (
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
@@ -170,62 +170,96 @@ const StudentDashboard = () => {
           </div>
         ) : filteredSubmissions.length > 0 ? (
           <div className="space-y-2">
-            {filteredSubmissions.map((sub) => (
-              <Link 
-                key={sub.id} 
-                to={`/submissions/${sub.id}`}
-                className="flex items-center justify-between p-4 bg-white dark:bg-slate-900/40 hover:bg-indigo-50/50 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-800/40 rounded-xl transition-all group card-interactive shadow-[0_1px_3px_rgba(99,102,241,0.05),0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-none"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="h-10 w-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700/50 shrink-0 group-hover:bg-indigo-600 group-hover:border-indigo-500 transition-colors">
-                    <FileCheck className="h-4.5 w-4.5 text-slate-500 group-hover:text-white transition-colors" />
+            {filteredSubmissions.map((sub) => {
+              const releaseMode = sub.requireAIGradeApproval === 1 ? 'manual_review' 
+                : (sub.showResults === 2 ? 'after_deadline' : (sub.showResults === 0 ? 'hidden' : 'immediate'));
+              const resultsPending = releaseMode === 'after_deadline' && new Date() < new Date(sub.endTime);
+              const isPendingGrading = sub.isPending || releaseMode === 'manual_review' || releaseMode === 'hidden' || resultsPending;
+              const isTerminated = !!sub.terminationReason;
+
+              return (
+                <Link 
+                  key={sub.id} 
+                  to={`/submissions/${sub.id}`}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white dark:bg-slate-900/40 hover:bg-indigo-50/50 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-800/40 rounded-xl transition-all group card-interactive shadow-[0_1px_3px_rgba(99,102,241,0.05),0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-none gap-4"
+                >
+                  {/* Left Column: Icon + Title + Instructor */}
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    <div className={`h-10 w-10 rounded-lg flex items-center justify-center border shrink-0 transition-colors ${
+                      isTerminated 
+                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' 
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700/50 text-slate-500 group-hover:bg-indigo-600 group-hover:border-indigo-500 group-hover:text-white'
+                    }`}>
+                      {isTerminated ? (
+                        <AlertCircle className="h-4.5 w-4.5" />
+                      ) : (
+                        <FileCheck className="h-4.5 w-4.5 transition-colors" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white leading-tight truncate group-hover:text-indigo-600 group-hover:text-indigo-300 transition-colors">
+                        {sub.examTitle}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 font-medium">
+                        Instructor: <span className="text-slate-700 dark:text-slate-300 font-semibold">{sub.instructorName || 'Unknown'}</span>
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white leading-tight truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">{sub.examTitle}</h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{format(new Date(sub.submittedAt), 'MMM dd, yyyy · h:mm a')}</p>
+
+                  {/* Middle Column: Submission Date & Time */}
+                  <div className="flex flex-row sm:flex-col items-center sm:items-start gap-1.5 sm:gap-0.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      {format(new Date(sub.submittedAt), 'MMM dd, yyyy')}
+                    </span>
+                    <span className="hidden sm:inline text-[10px] text-slate-400 font-medium">
+                      at {format(new Date(sub.submittedAt), 'h:mm a')}
+                    </span>
+                    <span className="sm:hidden text-slate-300">·</span>
+                    <span className="sm:hidden">
+                      {format(new Date(sub.submittedAt), 'h:mm a')}
+                    </span>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3 shrink-0">
-                  {(() => {
-                    const releaseMode = sub.requireAIGradeApproval === 1 ? 'manual_review' 
-                      : (sub.showResults === 2 ? 'after_deadline' : (sub.showResults === 0 ? 'hidden' : 'immediate'));
-                    const resultsPending = releaseMode === 'after_deadline' && new Date() < new Date(sub.endTime);
+                  {/* Right Column: Grade + Status Badge + Chevron */}
+                  <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0 border-t border-slate-100 dark:border-slate-800/60 sm:border-0 pt-3 sm:pt-0">
+                    <div className="flex items-center gap-3">
+                      {/* Grade Info */}
+                      <div className="text-left sm:text-right">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">
+                          {isPendingGrading ? (
+                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">Pending</span>
+                          ) : (
+                            <>
+                              {sub.score} <span className="text-[10px] text-slate-500 font-medium">/ {sub.examTotalGrade} pts</span>
+                            </>
+                          )}
+                        </p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">Final Grade</p>
+                      </div>
 
-                    if (sub.isPending || releaseMode === 'manual_review') {
-                      return (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 text-[11px] font-semibold text-cyan-700 dark:text-cyan-400">
-                          <Clock className="h-3 w-3" /> In Review
-                        </span>
-                      );
-                    }
+                      {/* Status Badge */}
+                      <div className="w-[90px] text-right">
+                        {isTerminated ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-[9px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400">
+                            Terminated
+                          </span>
+                        ) : isPendingGrading ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                            Completed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                            Graded
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                    if (releaseMode === 'hidden') {
-                      return (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                          Hidden
-                        </span>
-                      );
-                    }
-
-                    if (resultsPending) {
-                      return (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-                          <Clock className="h-3 w-3" /> Pending
-                        </span>
-                      );
-                    }
-                    
-                    return (
-                      <span className="text-base font-bold text-slate-900 dark:text-white">
-                        {sub.score} <span className="text-[11px] text-slate-500 font-medium">pts</span>
-                      </span>
-                    );
-                  })()}
-                  <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
-                </div>
-              </Link>
-            ))}
+                    <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all hidden sm:block" />
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <div className="bg-white dark:bg-slate-900/30 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-10 text-center shadow-sm dark:shadow-none">
