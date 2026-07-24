@@ -68,8 +68,10 @@ const TOUR_STEPS = [
     description: "Build diverse questions (MCQs, Fill-in-the-blanks, Coding sandboxes, or UML diagrams) and allocate points per section.",
     route: "/exams/new",
     selector: ".tour-question-builder",
-    action: (setStep) => {
-      // Optional callback to trigger Construction phase step in CreateExam
+    beforeEnter: () => {
+      // Programmatically click 'Go to Construction' to advance the form to step 2
+      const btn = document.querySelector('.tour-publish-btn');
+      if (btn) btn.click();
     }
   },
   {
@@ -143,7 +145,13 @@ export const TourProvider = ({ children }) => {
 
   const nextStep = () => {
     if (currentStepIndex < TOUR_STEPS.length - 1) {
-      setCurrentStepIndex(prev => prev + 1);
+      const nextIndex = currentStepIndex + 1;
+      // Fire any beforeEnter hook on the incoming step before updating the index
+      const nextStepDef = TOUR_STEPS[nextIndex];
+      if (typeof nextStepDef?.beforeEnter === 'function') {
+        nextStepDef.beforeEnter();
+      }
+      setCurrentStepIndex(nextIndex);
     } else {
       completeTour();
     }
