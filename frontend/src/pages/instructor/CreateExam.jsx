@@ -6,7 +6,7 @@ import { FieldError } from '../../components/FieldError';
 import {
   Plus, Trash2, Save, ArrowLeft,
   HelpCircle, Type, CheckSquare, AlignLeft,
-  Calendar, Clock, Award, Loader2, AlertCircle, Lock,
+  Calendar, Clock, Award, Loader2, AlertCircle, AlertTriangle, Lock,
   FolderPlus, GripVertical, ChevronDown, ChevronUp, Layout,
   EyeOff, Eye, Sparkles, CheckCircle, Circle, XCircle, PlusCircle, Code, ShieldCheck, Calculator,
   Printer, BookOpen, Paintbrush, Building, FileText, Upload, Image, QrCode
