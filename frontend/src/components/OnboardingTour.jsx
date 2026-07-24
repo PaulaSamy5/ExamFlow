@@ -81,9 +81,10 @@ const OnboardingTour = () => {
   const isLastStep = currentStepIndex === totalSteps - 1;
   const isWelcomeOrFinish = !currentStep?.selector;
 
-  // Locate the target element and compute spotlight rect
-  const locateElement = useCallback(() => {
+  // Locate the target element and handle page transitions
+  const updateSpotlight = useCallback(() => {
     if (!isActive || !currentStep) return;
+
     setIsTransitioning(true);
     setActionDone(false);
 
@@ -96,62 +97,105 @@ const OnboardingTour = () => {
         top: window.innerHeight / 2 - 110,
         left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2,
       });
-      setTimeout(() => setIsTransitioning(false), 300);
+      setTimeout(() => setIsTransitioning(false), 200);
       return;
     }
 
-    const cancel = waitForElement(currentStep.selector, (el) => {
-      if (!el) {
-        // Element not found — still show centred tooltip, don't crash
+    const el = document.querySelector(currentStep.selector);
+    if (!el) {
+      const cancel = waitForElement(currentStep.selector, (foundEl) => {
+        if (!foundEl) {
+          setSpotRect(null);
+          setTooltipPos({
+            top: window.innerHeight / 2 - 110,
+            left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2,
+          });
+          setIsTransitioning(false);
+          return;
+        }
+        scrollIntoViewIfNeeded(foundEl);
+        setIsTransitioning(false);
+      });
+      cancelWaitRef.current = cancel;
+      return;
+    }
+
+    // Element exists immediately
+    scrollIntoViewIfNeeded(el);
+    setIsTransitioning(false);
+  }, [isActive, currentStep]);
+
+  // Re-locate when the active step changes
+  useEffect(() => {
+    updateSpotlight();
+  }, [currentStepIndex, updateSpotlight]);
+
+  // Continuous real-time coordinate tracking loop
+  useEffect(() => {
+    if (!isActive) return;
+
+    let active = true;
+    const updateLoop = () => {
+      if (!active) return;
+
+      if (!currentStep?.selector) {
         setSpotRect(null);
         setTooltipPos({
           top: window.innerHeight / 2 - 110,
           left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2,
         });
-        setIsTransitioning(false);
-        return;
+      } else {
+        const el = document.querySelector(currentStep.selector);
+        if (el) {
+          const r = el.getBoundingClientRect();
+          const nextRect = {
+            x: r.left - SPOTLIGHT_PADDING,
+            y: r.top  - SPOTLIGHT_PADDING,
+            width:  r.width  + SPOTLIGHT_PADDING * 2,
+            height: r.height + SPOTLIGHT_PADDING * 2,
+          };
+
+          setSpotRect(prev => {
+            // Check if coordinates changed significantly to avoid infinite state updates
+            if (!prev || 
+                Math.abs(prev.x - nextRect.x) > 0.5 || 
+                Math.abs(prev.y - nextRect.y) > 0.5 || 
+                Math.abs(prev.width - nextRect.width) > 0.5 || 
+                Math.abs(prev.height - nextRect.height) > 0.5) {
+              
+              setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight));
+              return nextRect;
+            }
+            return prev;
+          });
+        } else {
+          // Element temporarily missing (e.g. during page render)
+          setSpotRect(null);
+          setTooltipPos({
+            top: window.innerHeight / 2 - 110,
+            left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2,
+          });
+        }
       }
 
-      scrollIntoViewIfNeeded(el);
+      requestAnimationFrame(updateLoop);
+    };
 
-      // Wait a frame after scroll so getBoundingClientRect is accurate
-      requestAnimationFrame(() => {
-        const r = el.getBoundingClientRect();
-        const rect = {
-          x: r.left - SPOTLIGHT_PADDING,
-          y: r.top  - SPOTLIGHT_PADDING,
-          width:  r.width  + SPOTLIGHT_PADDING * 2,
-          height: r.height + SPOTLIGHT_PADDING * 2,
-        };
-        setSpotRect(rect);
-        setTooltipPos(computeTooltipPos(rect, window.innerWidth, window.innerHeight));
-        setIsTransitioning(false);
-      });
-    });
+    requestAnimationFrame(updateLoop);
+    return () => {
+      active = false;
+    };
+  }, [isActive, currentStep, currentStepIndex]);
 
-    cancelWaitRef.current = cancel;
-  }, [isActive, currentStep]);
-
-  // Re-locate when the active step changes
-  useEffect(() => { locateElement(); }, [locateElement]);
-
-  // Recalculate on resize
+  // Prevent body scroll only if not in an interactive step
   useEffect(() => {
-    if (!isActive) return;
-    const onResize = () => locateElement();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [isActive, locateElement]);
-
-  // Prevent body scroll while tour is active
-  useEffect(() => {
-    if (isActive) {
+    if (isActive && !currentStep?.requiresAction) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [isActive]);
+  }, [isActive, currentStep]);
 
   // Listen for "action" steps: if the selector element is clicked, auto-advance
   useEffect(() => {
