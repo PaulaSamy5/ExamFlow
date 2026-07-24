@@ -2176,7 +2176,7 @@ const CreateExam = () => {
       <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in slide-in-from-top-4 duration-700" noValidate>
 
         {step === 1 && (
-          <div className="space-y-6 animate-in zoom-in-95 duration-500 max-w-3xl mx-auto">
+          <div className="space-y-6 animate-in zoom-in-95 duration-500 max-w-3xl mx-auto pb-40">
             
             {/* ── Questions Locked Notice ── */}
             {isQuestionsLocked && (
@@ -2907,7 +2907,7 @@ const CreateExam = () => {
         )}
 
         {step === 2 && (
-          <div className="tour-question-builder space-y-12 animate-in fade-in zoom-in-95 duration-500">
+          <div className="tour-question-builder space-y-12 animate-in fade-in zoom-in-95 duration-500 pb-40">
             {isQuestionsLocked ? (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-5 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border-2 border-amber-300 dark:border-amber-500/40 text-slate-800 dark:text-amber-305">
                 <div className="flex items-start gap-3.5">
@@ -3057,7 +3057,7 @@ const CreateExam = () => {
 
         {/* ── Phase 3 — Exam Paper Details (Printable Only) ── */}
         {step === 3 && isPrintable && (
-          <div className="space-y-6 animate-in zoom-in-95 fade-in duration-500 max-w-3xl mx-auto">
+          <div className="space-y-6 animate-in zoom-in-95 fade-in duration-500 max-w-3xl mx-auto pb-40">
 
             {/* Completion Checklist */}
             <div className={cardClass}>
