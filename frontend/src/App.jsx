@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom'
 import { Sun, Moon, LogOut, Layout, User, BookOpen, PlusCircle, Sparkles, Menu, X } from 'lucide-react'
 import { useAuth } from './store/AuthContext'
@@ -26,9 +26,23 @@ import { trackPageView } from './lib/analytics'
 
 function ScrollToTop() {
   const { pathname } = useLocation();
+  const isInitialMount = useRef(true);
   
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const navigationEntries = performance.getEntriesByType('navigation');
+      const isReload = navigationEntries.length > 0 && navigationEntries[0].type === 'reload';
+      
+      // If it was a browser refresh (reload), preserve the user's scroll position.
+      // Otherwise, scroll to top on first landing.
+      if (!isReload) {
+        window.scrollTo(0, 0);
+      }
+    } else {
+      // Subsequent SPA route transitions should always scroll to top
+      window.scrollTo(0, 0);
+    }
     // Track page view on route change
     trackPageView(pathname);
   }, [pathname]);
