@@ -2223,7 +2223,7 @@ const CreateExam = () => {
                       </div>
                    </div>
 
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
+                   <div className="tour-exam-types grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
                       {[
                         { type: 'ONLINE', label: 'Online Exam', icon: Sparkles, desc: 'Digital exam with QR join, live timer, and auto-grading.' },
                         { type: 'PRINTABLE_ONLY', label: 'Printable Exam', icon: Printer, desc: 'Generate a PDF for in-class paper exams. Not visible online.' },
@@ -2538,7 +2538,7 @@ const CreateExam = () => {
              </div>
 
             {/* ── 5. Schedule & Timing ── */}
-            <div className={cardClass}>
+            <div className={`${cardClass} tour-schedule-timing`}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400">
                   <Calendar className="h-5 w-5" />
@@ -2891,7 +2891,7 @@ const CreateExam = () => {
         )}
 
         {step === 2 && (
-          <div className="space-y-12 animate-in fade-in zoom-in-95 duration-500">
+          <div className="tour-question-builder space-y-12 animate-in fade-in zoom-in-95 duration-500">
             {isQuestionsLocked ? (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-5 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border-2 border-amber-300 dark:border-amber-500/40 text-slate-800 dark:text-amber-305">
                 <div className="flex items-start gap-3.5">
@@ -3641,7 +3641,7 @@ const CreateExam = () => {
                 type="submit"
                 disabled={loading || (step === 2 && !pointsOk && !isPrintable && !isQuestionsLocked)}
                 style={{ touchAction: 'manipulation' }}
-                className={`h-11 px-6 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2.5 transition-all duration-300 active:scale-[0.98] shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`tour-publish-btn h-11 px-6 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2.5 transition-all duration-300 active:scale-[0.98] shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
                   step === 1 && isQuestionsLocked
                     ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg shadow-amber-500/20'
                     : step === 1

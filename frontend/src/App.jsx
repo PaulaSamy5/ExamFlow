@@ -22,6 +22,7 @@ import ProfileSettings from './pages/ProfileSettings'
 import PrintableExamView from './pages/instructor/PrintableExamView'
 import ScrollToTopButton from './components/ScrollToTop'
 import { trackPageView } from './lib/analytics'
+import { TourProvider } from './store/TourContext'
 
 
 function ScrollToTop() {
@@ -104,6 +105,7 @@ function App() {
   }
 
   return (
+    <TourProvider>
     <div className="min-h-screen flex flex-col selection:bg-indigo-500/30">
       <ScrollToTop />
       <Toaster position="top-right" reverseOrder={false}
@@ -405,6 +407,7 @@ function App() {
         </div>
       )}
     </div>
+    </TourProvider>
   )
 }
 

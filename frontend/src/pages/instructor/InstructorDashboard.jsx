@@ -235,7 +235,7 @@ const InstructorDashboard = () => {
     <div className="space-y-8 pb-20 max-w-5xl mx-auto animate-fade-in">
 
       {/* ─── Header Banner ─── */}
-      <section className="relative overflow-hidden bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-[0_2px_12px_-2px_rgba(99,102,241,0.09),0_1px_4px_-1px_rgba(0,0,0,0.04)] dark:shadow-none">
+      <section className="tour-dashboard-header relative overflow-hidden bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-[0_2px_12px_-2px_rgba(99,102,241,0.09),0_1px_4px_-1px_rgba(0,0,0,0.04)] dark:shadow-none">
         <div className="absolute -top-12 -right-12 opacity-5 pointer-events-none">
           <BookOpen className="h-56 w-56 text-indigo-500 transform -rotate-12" />
         </div>
@@ -248,7 +248,7 @@ const InstructorDashboard = () => {
 
         <div className="relative z-10 flex flex-col sm:flex-row md:flex-col lg:flex-row items-center gap-4">
           {/* Quick stats framed */}
-          <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-950/40 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 w-full sm:w-auto justify-center">
+          <div className="tour-dashboard-stats flex items-center gap-4 bg-slate-50 dark:bg-slate-950/40 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 w-full sm:w-auto justify-center">
             <div className="flex items-center gap-3 px-3 py-1">
               <div className="h-9 w-9 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
                 <BookOpen className="h-4 w-4 text-indigo-400" />
@@ -272,7 +272,7 @@ const InstructorDashboard = () => {
             </div>
           </div>
 
-          <Link to="/exams/new" className="h-12 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 w-full sm:w-auto shrink-0 btn-lift">
+          <Link to="/exams/new" className="tour-create-exam-btn h-12 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 w-full sm:w-auto shrink-0 btn-lift">
             <Plus className="h-5 w-5" />
             Create Exam
           </Link>
@@ -493,7 +493,7 @@ const InstructorDashboard = () => {
                               <>
                                 <button
                                   onClick={() => setSelectedExamForQR(exam)}
-                                  className="h-9 w-9 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-white transition-all border border-slate-200 dark:border-slate-700 shrink-0 btn-lift"
+                                  className="tour-qr-btn h-9 w-9 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-white transition-all border border-slate-200 dark:border-slate-700 shrink-0 btn-lift"
                                   title="Share Code & QR"
                                 >
                                   <QrCode className="h-3.5 w-3.5" />
