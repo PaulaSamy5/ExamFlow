@@ -230,38 +230,17 @@ const OnboardingTour = () => {
 
   // Temporarily block clicks on specific selectors inside the spotlight (e.g. Create Exam button during overview)
   useEffect(() => {
-    if (!isActive || !currentStep?.blockSelectors) return;
+    if (!isActive || !currentStep?.blockSelectors || currentStep.blockSelectors.length === 0) return;
 
-    const blockedElements = new Set();
-    const originalStyles = new Map();
-
-    const applyBlocking = () => {
-      currentStep.blockSelectors.forEach(sel => {
-        document.querySelectorAll(sel).forEach(el => {
-          if (!blockedElements.has(el)) {
-            blockedElements.add(el);
-            originalStyles.set(el, el.style.pointerEvents);
-            el.style.pointerEvents = 'none';
-          }
-        });
-      });
-    };
-
-    applyBlocking();
-
-    const observer = new MutationObserver(() => {
-      applyBlocking();
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
+    const styleEl = document.createElement('style');
+    styleEl.id = 'tour-block-selectors-style';
+    styleEl.innerHTML = `${currentStep.blockSelectors.join(', ')} { pointer-events: none !important; opacity: 0.65; cursor: not-allowed !important; }`;
+    document.head.appendChild(styleEl);
 
     return () => {
-      observer.disconnect();
-      blockedElements.forEach(el => {
-        if (el) {
-          el.style.pointerEvents = originalStyles.get(el) || '';
-        }
-      });
+      if (styleEl.parentNode) {
+        styleEl.parentNode.removeChild(styleEl);
+      }
     };
   }, [isActive, currentStep, currentStepIndex]);
 
