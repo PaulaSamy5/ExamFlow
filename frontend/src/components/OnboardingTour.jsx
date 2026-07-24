@@ -228,6 +228,43 @@ const OnboardingTour = () => {
     return () => { document.body.style.overflow = ''; };
   }, [isActive, currentStep]);
 
+  // Temporarily block clicks on specific selectors inside the spotlight (e.g. Create Exam button during overview)
+  useEffect(() => {
+    if (!isActive || !currentStep?.blockSelectors) return;
+
+    const blockedElements = new Set();
+    const originalStyles = new Map();
+
+    const applyBlocking = () => {
+      currentStep.blockSelectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => {
+          if (!blockedElements.has(el)) {
+            blockedElements.add(el);
+            originalStyles.set(el, el.style.pointerEvents);
+            el.style.pointerEvents = 'none';
+          }
+        });
+      });
+    };
+
+    applyBlocking();
+
+    const observer = new MutationObserver(() => {
+      applyBlocking();
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      blockedElements.forEach(el => {
+        if (el) {
+          el.style.pointerEvents = originalStyles.get(el) || '';
+        }
+      });
+    };
+  }, [isActive, currentStep, currentStepIndex]);
+
   // Listen for "action" steps: if the selector element is clicked, auto-advance
   useEffect(() => {
     if (!isActive || !currentStep?.requiresAction || !currentStep?.selector || actionDone) return;

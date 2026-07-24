@@ -27,7 +27,8 @@ const TOUR_STEPS = [
     title: "Dashboard Overview 📊",
     description: "This is your main command center. Here you can view your total exams, check quick stats, and manage active tests.",
     route: "/instructor/dashboard",
-    selector: ".tour-dashboard-header"
+    selector: ".tour-dashboard-header",
+    blockSelectors: [".tour-create-exam-btn"]
   },
   {
     stepIndex: 2,
