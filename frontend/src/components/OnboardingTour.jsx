@@ -97,6 +97,7 @@ const OnboardingTour = () => {
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [actionDone, setActionDone] = useState(false);
+  const [canProceed, setCanProceed] = useState(true);
   const cancelWaitRef = useRef(null);
 
   const isLastStep = currentStepIndex === totalSteps - 1;
@@ -108,6 +109,7 @@ const OnboardingTour = () => {
 
     setIsTransitioning(true);
     setActionDone(false);
+    setCanProceed(true); // will be corrected by the RAF poll immediately
 
     if (cancelWaitRef.current) cancelWaitRef.current();
 
@@ -197,6 +199,14 @@ const OnboardingTour = () => {
             left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2,
           });
         }
+      }
+
+      // Poll canAdvance if the step defines one
+      if (typeof currentStep?.canAdvance === 'function') {
+        const allowed = currentStep.canAdvance();
+        setCanProceed(prev => prev !== allowed ? allowed : prev);
+      } else {
+        setCanProceed(true);
       }
 
       requestAnimationFrame(updateLoop);
@@ -418,12 +428,22 @@ const OnboardingTour = () => {
               {currentStep?.description}
             </p>
 
-            {/* Action hint for interactive steps */}
+            {/* Action hint for interactive steps (requiresAction = click-to-advance) */}
             {currentStep?.requiresAction && !actionDone && (
               <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20">
                 <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
                 <p className="text-[12px] font-semibold text-indigo-700 dark:text-indigo-300">
                   Perform the action above to continue
+                </p>
+              </div>
+            )}
+
+            {/* canAdvance gate — shows helper text while blocked */}
+            {currentStep?.canAdvance && !canProceed && (
+              <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                <p className="text-[12px] font-semibold text-amber-700 dark:text-amber-300">
+                  {currentStep.blockedHelperText ?? 'Complete the action above to continue.'}
                 </p>
               </div>
             )}
@@ -455,7 +475,9 @@ const OnboardingTour = () => {
                     Back
                   </button>
                 )}
-                {!currentStep?.requiresAction || actionDone ? (
+
+                {/* Next / Finish — blocked when requiresAction or canAdvance not met */}
+                {((!currentStep?.requiresAction || actionDone) && canProceed) ? (
                   <button
                     onClick={isLastStep ? completeTour : nextStep}
                     className="h-8 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/25 active:scale-95"

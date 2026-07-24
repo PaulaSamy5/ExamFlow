@@ -57,7 +57,9 @@ const TOUR_STEPS = [
     title: "End Date & Time ⏰",
     description: "Now choose when the exam will end. An end date and time are required before publishing.",
     route: "/exams/new",
-    selector: ".tour-end-timing"
+    selector: ".tour-end-timing",
+    canAdvance: () => !!document.querySelector('[data-tour-end-time-ready]'),
+    blockedHelperText: "Please select an end date and time to continue."
   },
   {
     stepIndex: 6,

@@ -2592,6 +2592,10 @@ const CreateExam = () => {
 
                 return (
                   <div className="mb-6">
+                    {/* Tour sentinel – mounted only when both end date + time are chosen */}
+                    {endDateVal && endTimeVal && (
+                      <span data-tour-end-time-ready="true" className="sr-only" />
+                    )}
                     {/* ── Exam Window Flow Card ── */}
                     <div className={`relative rounded-2xl border-2 transition-all duration-300 ${
                       hasError
