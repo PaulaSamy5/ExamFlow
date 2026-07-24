@@ -171,12 +171,29 @@ const OnboardingTour = () => {
         const el = document.querySelector(currentStep.selector);
         if (el) {
           const r = el.getBoundingClientRect();
-          const nextRect = {
+          let nextRect = {
             x: r.left - SPOTLIGHT_PADDING,
             y: r.top  - SPOTLIGHT_PADDING,
             width:  r.width  + SPOTLIGHT_PADDING * 2,
             height: r.height + SPOTLIGHT_PADDING * 2,
           };
+
+          // If there is an active picker dropdown inside the spotlight, merge its rect
+          const dropdown = el.querySelector('.tour-picker-dropdown');
+          if (dropdown) {
+            const dr = dropdown.getBoundingClientRect();
+            const minX = Math.min(nextRect.x, dr.left - SPOTLIGHT_PADDING);
+            const minY = Math.min(nextRect.y, dr.top - SPOTLIGHT_PADDING);
+            const maxX = Math.max(nextRect.x + nextRect.width, dr.right + SPOTLIGHT_PADDING);
+            const maxY = Math.max(nextRect.y + nextRect.height, dr.bottom + SPOTLIGHT_PADDING);
+
+            nextRect = {
+              x: minX,
+              y: minY,
+              width: maxX - minX,
+              height: maxY - minY
+            };
+          }
 
           setSpotRect(prev => {
             // Check if coordinates changed significantly to avoid infinite state updates

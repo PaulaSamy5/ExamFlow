@@ -1155,7 +1155,7 @@ const CompactDatePicker = ({ value, min, onChange, placeholder = "Select date", 
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-2 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl dark:shadow-slate-950/80 z-[100] w-72 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="tour-picker-dropdown absolute left-0 mt-2 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl dark:shadow-slate-950/80 z-[100] w-72 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <button
@@ -1300,7 +1300,7 @@ const CompactTimePicker = ({ value, options, onChange, placeholder = "Select tim
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-2 p-3 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-2xl shadow-xl dark:shadow-slate-950/80 z-[100] w-64 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="tour-picker-dropdown absolute left-0 mt-2 p-3 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-2xl shadow-xl dark:shadow-slate-950/80 z-[100] w-64 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="space-y-4">
             
             <div>
