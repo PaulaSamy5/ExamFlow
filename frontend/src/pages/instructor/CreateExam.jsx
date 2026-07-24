@@ -60,6 +60,39 @@ const getCorrectAnswer = (q) => {
   return q.correctAnswer !== undefined ? q.correctAnswer : (q.correctanswer !== undefined ? q.correctanswer : '');
 };
 
+const convertAnswerMode = (q, toMultiple) => {
+  const current = getCorrectAnswer(q);
+  const options = q.options || [];
+
+  if (toMultiple) {
+    if (typeof current === 'string' && current.startsWith('idx:')) {
+      const idx = parseInt(current.split(':')[1]);
+      if (!isNaN(idx) && idx >= 0 && idx < options.length) {
+        const optText = options[idx];
+        return JSON.stringify([optText]);
+      }
+    }
+    try {
+      const parsed = typeof current === 'string' ? JSON.parse(current) : current;
+      if (Array.isArray(parsed)) return JSON.stringify(parsed);
+    } catch (e) {}
+    return '[]';
+  } else {
+    let parsed = [];
+    try {
+      parsed = typeof current === 'string' ? JSON.parse(current) : (Array.isArray(current) ? current : []);
+    } catch (e) {}
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const firstOpt = parsed[0];
+      const idx = options.indexOf(firstOpt);
+      if (idx !== -1) {
+        return `idx:${idx}`;
+      }
+    }
+    return '';
+  }
+};
+
 const makeQuestion = (type) => ({
   type,
   text: '',
@@ -1830,7 +1863,9 @@ const CreateExam = () => {
     setSections(prev => prev.map(s => {
       if (s.id !== sectionId) return s;
       const questions = [...s.questions];
-      questions[qIndex] = { ...questions[qIndex], isMultiple: val, correctAnswer: val ? '[]' : '' };
+      const q = questions[qIndex];
+      const nextAnswer = convertAnswerMode(q, val);
+      questions[qIndex] = { ...q, isMultiple: val, correctAnswer: nextAnswer };
       return { ...s, questions };
     }));
   };
