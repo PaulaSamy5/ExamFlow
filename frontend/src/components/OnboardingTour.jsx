@@ -413,115 +413,133 @@ const OnboardingTour = () => {
       {/* Tour Tooltip Card */}
       <div
         id="tour-tooltip-card"
-        className={`absolute transition-all duration-400 pointer-events-auto ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
-        style={{
-          top: tooltipPos.top,
-          left: tooltipPos.left,
-          width: TOOLTIP_WIDTH,
-          zIndex: 9999,
-        }}
+        className={`absolute pointer-events-auto transition-all duration-300 ${isTransitioning ? 'opacity-0 scale-95 translate-y-2' : 'opacity-100 scale-100 translate-y-0'}`}
+        style={{ top: tooltipPos.top, left: tooltipPos.left, width: TOOLTIP_WIDTH, zIndex: 9999 }}
       >
-        <div className="bg-white dark:bg-[#0f1729] border border-slate-200/80 dark:border-indigo-500/20 rounded-3xl shadow-2xl shadow-black/30 overflow-hidden backdrop-blur-xl">
-          
+        {/* Outer glow ring */}
+        <div className="absolute -inset-[1px] rounded-[28px] bg-gradient-to-br from-indigo-500/40 via-violet-500/20 to-indigo-500/40 blur-[2px]" />
+
+        <div className="relative rounded-[26px] overflow-hidden bg-[#0b0f1e]/95 backdrop-blur-2xl border border-white/[0.07] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7),0_0_0_1px_rgba(99,102,241,0.12)]">
+
+          {/* Ambient gradient top strip */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-60" />
+
+          {/* Subtle background radial glow */}
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+
           {/* Progress bar */}
-          <div className="h-[3px] bg-slate-100 dark:bg-slate-800/80 w-full">
+          <div className="h-[2px] bg-white/5 w-full">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500 rounded-full"
+              className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-400 transition-all duration-700 ease-out"
               style={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }}
             />
           </div>
 
-          <div className="p-5">
-            {/* Header */}
-            <div className="flex items-start justify-between mb-3">
+          <div className="p-5 relative">
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
-                <div className="h-7 w-7 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center">
-                  <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                {/* Icon badge */}
+                <div className="relative">
+                  <div className="h-8 w-8 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <Sparkles className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-br from-indigo-400 to-violet-600 opacity-30 blur-sm -z-10" />
                 </div>
+                {/* Step counter */}
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-indigo-500 dark:text-indigo-400">
-                    Step {currentStepIndex + 1} of {totalSteps}
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-400">
+                    Step {currentStepIndex + 1} / {totalSteps}
                   </p>
                 </div>
               </div>
+
               <button
                 onClick={skipTour}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                className="h-7 w-7 rounded-xl flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all"
                 title="Skip tour"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
 
-            {/* Content */}
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2 leading-snug">
+            {/* Title */}
+            <h3 className="text-[15px] font-extrabold text-white mb-1.5 leading-snug tracking-tight">
               {currentStep?.title}
             </h3>
-            <p className="text-[13px] text-slate-500 dark:text-slate-400 leading-relaxed mb-5">
+
+            {/* Description */}
+            <p className="text-[12.5px] text-slate-400 leading-relaxed mb-4">
               {currentStep?.description}
             </p>
 
-            {/* Action hint for interactive steps (requiresAction = click-to-advance) */}
+            {/* Action hint — click-to-advance steps */}
             {currentStep?.requiresAction && !actionDone && (
-              <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20">
-                <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
-                <p className="text-[12px] font-semibold text-indigo-700 dark:text-indigo-300">
-                  Perform the action above to continue
+              <div className="mb-4 flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
+                <span className="flex h-2 w-2 rounded-full bg-indigo-400 animate-pulse shrink-0" />
+                <p className="text-[11.5px] font-semibold text-indigo-300">
+                  Click the highlighted element above to continue
                 </p>
               </div>
             )}
 
-            {/* canAdvance gate — shows helper text while blocked */}
+            {/* canAdvance gate — blocked helper */}
             {currentStep?.canAdvance && !canProceed && (
-              <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
-                <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                <p className="text-[12px] font-semibold text-amber-700 dark:text-amber-300">
+              <div className="mb-4 flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                <p className="text-[11.5px] font-semibold text-amber-300">
                   {currentStep.blockedHelperText ?? 'Complete the action above to continue.'}
                 </p>
               </div>
             )}
 
-            {/* Footer: nav buttons */}
+            {/* Divider */}
+            <div className="h-px bg-white/5 mb-4" />
+
+            {/* Footer */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+              {/* Segmented dots */}
+              <div className="flex items-center gap-1">
                 {Array.from({ length: totalSteps }).map((_, i) => (
                   <div
                     key={i}
-                    className={`rounded-full transition-all duration-300 ${
+                    className={`rounded-full transition-all duration-400 ${
                       i === currentStepIndex
-                        ? 'w-5 h-1.5 bg-indigo-500'
+                        ? 'w-4 h-1.5 bg-indigo-400'
                         : i < currentStepIndex
-                        ? 'w-1.5 h-1.5 bg-indigo-300 dark:bg-indigo-700'
-                        : 'w-1.5 h-1.5 bg-slate-200 dark:bg-slate-700'
+                        ? 'w-1.5 h-1.5 bg-indigo-700'
+                        : 'w-1.5 h-1.5 bg-white/10'
                     }`}
                   />
                 ))}
               </div>
 
+              {/* Nav buttons */}
               <div className="flex items-center gap-2">
                 {currentStepIndex > 0 && (
                   <button
                     onClick={prevStep}
-                    className="h-8 px-3 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1 transition-all"
+                    className="h-8 px-3.5 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/8 flex items-center gap-1 transition-all border border-white/5 hover:border-white/10"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                     Back
                   </button>
                 )}
 
-                {/* Next / Finish — blocked when requiresAction or canAdvance not met */}
                 {((!currentStep?.requiresAction || actionDone) && canProceed) ? (
                   <button
                     onClick={isLastStep ? completeTour : nextStep}
-                    className="h-8 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/25 active:scale-95"
+                    className="relative h-8 px-4 rounded-xl text-[11px] font-bold text-white flex items-center gap-1.5 transition-all active:scale-95 overflow-hidden group"
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #7c3aed 100%)' }}
                   >
-                    {isLastStep ? 'Finish' : 'Next'}
-                    {!isLastStep && <ChevronRight className="h-3.5 w-3.5" />}
+                    <span className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-200 rounded-xl" />
+                    <span className="relative">{isLastStep ? '🎉 Finish' : 'Next'}</span>
+                    {!isLastStep && <ChevronRight className="h-3.5 w-3.5 relative" />}
                   </button>
                 ) : (
                   <button
                     disabled
-                    className="h-8 px-4 rounded-xl text-xs font-bold text-white bg-indigo-300 dark:bg-indigo-800 flex items-center gap-1.5 cursor-not-allowed opacity-60"
+                    className="h-8 px-4 rounded-xl text-[11px] font-bold text-white/30 bg-white/5 border border-white/5 flex items-center gap-1.5 cursor-not-allowed"
                   >
                     Next
                     <ChevronRight className="h-3.5 w-3.5" />
