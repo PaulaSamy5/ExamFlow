@@ -42,46 +42,57 @@ const TOUR_STEPS = [
   {
     stepIndex: 3,
     title: "Choose Exam Type 📝",
-    description: "Configure whether your exam is Online (taken inside the student portal with automated grading) or Printable (PDF output for traditional paper exams).",
+    description: "Please choose whether your exam is Online (taken in student portal) or Printable (PDF download).",
     route: "/exams/new",
-    selector: ".tour-exam-types"
+    selector: ".tour-exam-types",
+    canAdvance: () => !!document.querySelector('[data-tour-exam-type-selected]'),
+    blockedHelperText: "Please choose an exam delivery mode to continue."
   },
   {
     stepIndex: 4,
-    title: "Start Date & Time 📅",
-    description: "Your exam already has a default start time. You can keep it or choose a different one.",
-    route: "/exams/new",
-    selector: ".tour-start-timing"
-  },
-  {
-    stepIndex: 5,
-    title: "End Date & Time ⏰",
-    description: "Now choose when the exam will end. An end date and time are required before publishing.",
-    route: "/exams/new",
-    selector: ".tour-end-timing",
-    canAdvance: () => !!document.querySelector('[data-tour-end-time-ready]'),
-    blockedHelperText: "Please select an end date and time to continue."
-  },
-  {
-    stepIndex: 6,
     title: "Exam Title 📝",
     description: "Give your exam a clear title — students will see this when joining. Type it in the field below to continue.",
     route: "/exams/new",
-    selector: ".tour-basic-info",
+    selector: ".tour-exam-title",
     canAdvance: () => !!document.querySelector('[data-tour-title-filled]'),
     blockedHelperText: "Please type an exam title to continue."
   },
   {
-    stepIndex: 7,
-    title: "Result Visibility 🏆",
-    description: "Choose when students see their grades: immediately after submission, after the deadline, or only after your manual approval.",
+    stepIndex: 5,
+    title: "Description (Optional) 💬",
+    description: "You can specify allowed materials, general guidelines, or extra rules. You can type them here, or click 'Skip' to proceed without one.",
+    route: "/exams/new",
+    selector: ".tour-exam-description",
+    isOptional: true,
+    checkOptionalFilled: () => !!document.querySelector('.tour-exam-description textarea')?.value?.trim()
+  },
+  {
+    stepIndex: 6,
+    title: "Grading & Results 🏆",
+    description: "Configure when grades are released. Select 'Immediate', 'After Deadline', or 'Manual Review' to continue.",
     route: "/exams/new",
     selector: ".tour-grading-results",
     canAdvance: () => !!document.querySelector('[data-tour-result-visibility-selected]'),
     blockedHelperText: "Please select a result release mode to continue."
   },
   {
+    stepIndex: 7,
+    title: "Start Date & Time 📅",
+    description: "Your exam already has a default start time. You can keep it as is, or click the date/time selector to modify it.",
+    route: "/exams/new",
+    selector: ".tour-start-timing"
+  },
+  {
     stepIndex: 8,
+    title: "End Date & Time ⏰",
+    description: "Choose when the exam will end. An end date and time are required to proceed.",
+    route: "/exams/new",
+    selector: ".tour-end-timing",
+    canAdvance: () => !!document.querySelector('[data-tour-end-time-ready]'),
+    blockedHelperText: "Please select an end date and time to continue."
+  },
+  {
+    stepIndex: 9,
     title: "Go to Construction 🏗️",
     description: "Great — your exam settings are ready! Now click 'Go to Construction' to start adding questions.",
     route: "/exams/new",
@@ -90,35 +101,35 @@ const TOUR_STEPS = [
     actionType: "click"
   },
   {
-    stepIndex: 9,
+    stepIndex: 10,
     title: "Question Builder 🎨",
     description: "Build diverse questions (MCQs, Fill-in-the-blanks, Coding sandboxes, or UML diagrams) and allocate points per section.",
     route: "/exams/new",
     selector: ".tour-question-builder"
   },
   {
-    stepIndex: 10,
+    stepIndex: 11,
     title: "Smart Publishing Validation 🚀",
     description: "When ready, click Broadcast Live. Our validation engine checks all questions and alerts you if any sections require attention.",
     route: "/exams/new",
     selector: ".tour-publish-btn"
   },
   {
-    stepIndex: 11,
+    stepIndex: 12,
     title: "Submissions & Grades 📋",
     description: "Monitor real-time student activity. Access detailed grades, AI semantic feedback, and export analysis.",
     route: "/instructor/dashboard",
     selector: ".tour-dashboard-stats"
   },
   {
-    stepIndex: 12,
+    stepIndex: 13,
     title: "Student Join Experience 📲",
     description: "Students can join your live exams instantly by scanning the unique QR Code or entering the Access Code.",
     route: "/instructor/dashboard",
     selector: ".tour-student-join-section"
   },
   {
-    stepIndex: 13,
+    stepIndex: 14,
     title: "You're All Set! 🎉",
     description: "You're ready to run seamless evaluations. Welcome to next-gen academic testing!",
     route: "/instructor/dashboard",

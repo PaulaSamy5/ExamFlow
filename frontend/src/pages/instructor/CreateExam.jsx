@@ -1477,7 +1477,7 @@ const CreateExam = () => {
       endTime: '',
       showResults: null,
       requireAIGradeApproval: 0,
-      examType: 'ONLINE',
+      examType: '',
       examMeta: defaultExamMeta
     };
   });
@@ -2223,6 +2223,10 @@ const CreateExam = () => {
                       </div>
                    </div>
 
+                   {/* Sentinel for Exam Type selection */}
+                   {(exam.examType === 'ONLINE' || exam.examType === 'PRINTABLE_ONLY') && (
+                     <span data-tour-exam-type-selected="true" className="sr-only" />
+                   )}
                    <div className="tour-exam-types grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
                       {[
                         { type: 'ONLINE', label: 'Online Exam', icon: Sparkles, desc: 'Digital exam with QR join, live timer, and auto-grading.' },
@@ -2315,7 +2319,9 @@ const CreateExam = () => {
               </div>
 
               <div className="space-y-5">
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 tour-exam-title">
+                  {/* Sentinel for Exam Title */}
+                  {exam.title?.trim() && <span data-tour-title-filled="true" className="sr-only" />}
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
                     Exam Title <span className="text-rose-500">*</span>
                   </label>
@@ -2333,7 +2339,7 @@ const CreateExam = () => {
                   <FieldError message={errors.title} />
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 tour-exam-description">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
                     Rules & Instructions <span className="text-xs text-slate-400 font-normal">Optional</span>
                   </label>

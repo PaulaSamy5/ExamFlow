@@ -98,6 +98,7 @@ const OnboardingTour = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [actionDone, setActionDone] = useState(false);
   const [canProceed, setCanProceed] = useState(true);
+  const [isOptionalFilled, setIsOptionalFilled] = useState(false);
   const cancelWaitRef = useRef(null);
 
   const isLastStep = currentStepIndex === totalSteps - 1;
@@ -110,6 +111,7 @@ const OnboardingTour = () => {
     setIsTransitioning(true);
     setActionDone(false);
     setCanProceed(true); // will be corrected by the RAF poll immediately
+    setIsOptionalFilled(false);
 
     if (cancelWaitRef.current) cancelWaitRef.current();
 
@@ -224,6 +226,14 @@ const OnboardingTour = () => {
         setCanProceed(prev => prev !== allowed ? allowed : prev);
       } else {
         setCanProceed(true);
+      }
+
+      // Poll optional fill check if defined
+      if (currentStep?.isOptional && typeof currentStep?.checkOptionalFilled === 'function') {
+        const filled = currentStep.checkOptionalFilled();
+        setIsOptionalFilled(prev => prev !== filled ? filled : prev);
+      } else {
+        setIsOptionalFilled(false);
       }
 
       requestAnimationFrame(updateLoop);
@@ -533,7 +543,13 @@ const OnboardingTour = () => {
                     style={{ background: 'linear-gradient(135deg, #6366f1 0%, #7c3aed 100%)' }}
                   >
                     <span className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-200 rounded-xl" />
-                    <span className="relative">{isLastStep ? '🎉 Finish' : 'Next'}</span>
+                    <span className="relative">
+                      {isLastStep 
+                        ? '🎉 Finish' 
+                        : (currentStep?.isOptional && !isOptionalFilled) 
+                          ? 'Skip' 
+                          : 'Next'}
+                    </span>
                     {!isLastStep && <ChevronRight className="h-3.5 w-3.5 relative" />}
                   </button>
                 ) : (
