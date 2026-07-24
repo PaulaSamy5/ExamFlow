@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../store/AuthContext';
 import {
-  User, Mail, Camera, Save, Lock, ImagePlus, Loader2, CheckCircle2, ShieldCheck, AtSign, Check, EyeOff, Eye, GraduationCap, Trash2
+  User, Mail, Camera, Save, Lock, ImagePlus, Loader2, CheckCircle2, ShieldCheck, AtSign, Check, EyeOff, Eye, GraduationCap, Trash2, Play
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { FieldError, inputStateClass } from '../components/FieldError';
+import { useTour } from '../store/TourContext';
 
 const ProfileSettings = () => {
   const { user, updateProfile } = useAuth();
+  const { replayTour } = useTour();
   
   const [name, setName] = useState(user?.name || '');
   const [profileImage, setProfileImage] = useState(user?.profileImage || '');
@@ -304,6 +306,26 @@ const ProfileSettings = () => {
               )}
             </div>
             
+            {/* Replay Tour Card — Instructors only */}
+            {user?.role === 'INSTRUCTOR' && (
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Onboarding Tour</h3>
+                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1">Replay the getting-started walkthrough any time.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={replayTour}
+                    className="flex items-center gap-2 h-9 px-4 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all active:scale-95"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    Replay Tour
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex justify-end pt-4">
               <button

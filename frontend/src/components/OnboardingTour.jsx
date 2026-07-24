@@ -173,6 +173,72 @@ const OnboardingTour = () => {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
+  // Full-screen celebration card for the finish step
+  if (isLastStep && isWelcomeOrFinish) {
+    return createPortal(
+      <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4" style={{ pointerEvents: 'all' }}>
+        {/* Dimmed backdrop */}
+        <div className="absolute inset-0 bg-[rgba(10,14,30,0.8)] backdrop-blur-sm" />
+
+        {/* Confetti particles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {Array.from({ length: 30 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full animate-bounce"
+              style={{
+                width: Math.random() * 8 + 4,
+                height: Math.random() * 8 + 4,
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                background: ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'][Math.floor(Math.random() * 6)],
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${1.5 + Math.random() * 2}s`,
+                opacity: 0.7,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Finish card */}
+        <div className="relative z-10 bg-white dark:bg-[#0f1729] border border-slate-200/80 dark:border-indigo-500/20 rounded-3xl shadow-2xl shadow-indigo-500/20 p-8 max-w-sm w-full text-center animate-in zoom-in-90 fade-in duration-500">
+          {/* Animated checkmark */}
+          <div className="mx-auto mb-5 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-xl shadow-indigo-500/30 animate-in zoom-in duration-700 delay-150">
+            <svg viewBox="0 0 52 52" className="w-10 h-10" fill="none">
+              <circle cx="26" cy="26" r="25" stroke="white" strokeWidth="2" strokeOpacity="0.3" />
+              <path d="M14 27l8 8 16-16" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                className="[stroke-dasharray:50] [stroke-dashoffset:50] animate-[drawCheck_0.6s_0.3s_ease-out_forwards]"
+              />
+            </svg>
+          </div>
+
+          <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">
+            🎉 You're All Set!
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+            Welcome aboard! You now know everything you need to run seamless, professional exams on ExamFlow.
+          </p>
+
+          <button
+            onClick={completeTour}
+            className="w-full h-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-600/25 active:scale-[0.98] flex items-center justify-center gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Start Building Exams
+          </button>
+
+          {/* Progress indicator */}
+          <div className="mt-4 flex items-center justify-center gap-1.5">
+            {Array.from({ length: totalSteps }).map((_, i) => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            ))}
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   // SVG mask spotlight path (full rect minus the cutout)
   const svgMask = spotRect
     ? `M0,0 H${vw} V${vh} H0 Z M${spotRect.x},${spotRect.y} H${spotRect.x + spotRect.width} V${spotRect.y + spotRect.height} H${spotRect.x} Z`
