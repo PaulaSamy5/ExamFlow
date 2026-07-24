@@ -2617,7 +2617,7 @@ const CreateExam = () => {
                       <div className="flex flex-col sm:grid sm:grid-cols-[1fr_auto_1fr] items-stretch divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-700/80">
 
                         {/* ── START block ── */}
-                        <div className="p-4 sm:p-5 space-y-3">
+                        <div className="tour-start-timing p-4 sm:p-5 space-y-3">
                           <div className="flex items-center gap-1.5 mb-2">
                             <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Start</span>
@@ -2725,7 +2725,7 @@ const CreateExam = () => {
                         </div>
 
                         {/* ── END block ── */}
-                        <div className="p-4 sm:p-5 space-y-3">
+                        <div className="tour-end-timing p-4 sm:p-5 space-y-3">
                           <div className="flex items-center gap-1.5 mb-2">
                             <div className={`h-2 w-2 rounded-full ${hasError ? 'bg-rose-500' : hasOk ? 'bg-emerald-500' : 'bg-violet-500'}`}></div>
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">End</span>

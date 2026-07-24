@@ -47,13 +47,20 @@ const TOUR_STEPS = [
   },
   {
     stepIndex: 4,
-    title: "Schedule & Timing ⏰",
-    description: "Configure the exam schedule window, test duration, and control when students can see their graded results.",
+    title: "Start Date & Time 📅",
+    description: "Your exam already has a default start time. You can keep it or choose a different one.",
     route: "/exams/new",
-    selector: ".tour-schedule-timing"
+    selector: ".tour-start-timing"
   },
   {
     stepIndex: 5,
+    title: "End Date & Time ⏰",
+    description: "Now choose when the exam will end. An end date and time are required before publishing.",
+    route: "/exams/new",
+    selector: ".tour-end-timing"
+  },
+  {
+    stepIndex: 6,
     title: "Question Builder 🎨",
     description: "Build diverse questions (MCQs, Fill-in-the-blanks, Coding sandboxes, or UML diagrams) and allocate points per section.",
     route: "/exams/new",
@@ -63,28 +70,28 @@ const TOUR_STEPS = [
     }
   },
   {
-    stepIndex: 6,
+    stepIndex: 7,
     title: "Smart Publishing Validation 🚀",
     description: "When ready, click Broadcast Live. Our validation engine checks all questions and alerts you if any sections require attention.",
     route: "/exams/new",
     selector: ".tour-publish-btn"
   },
   {
-    stepIndex: 7,
+    stepIndex: 8,
     title: "Submissions & Grades 📋",
     description: "Monitor real-time student activity. Access detailed grades, AI semantic feedback, and export analysis.",
     route: "/instructor/dashboard",
     selector: ".tour-dashboard-stats"
   },
   {
-    stepIndex: 8,
+    stepIndex: 9,
     title: "Student Join Experience 📲",
     description: "Students can join your live exams instantly by scanning the unique QR Code or entering the Access Code.",
     route: "/instructor/dashboard",
     selector: ".tour-student-join-section"
   },
   {
-    stepIndex: 9,
+    stepIndex: 10,
     title: "You're All Set! 🎉",
     description: "You're ready to run seamless evaluations. Welcome to next-gen academic testing!",
     route: "/instructor/dashboard",

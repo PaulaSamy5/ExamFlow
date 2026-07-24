@@ -45,14 +45,36 @@ function waitForElement(selector, callback) {
 
 /**
  * Compute the tooltip position so it stays within the viewport.
- * Prefers below the spotlight; flips to above if there's not enough room.
+ * Prefers side-positioning (left/right) on desktop screens to avoid covering controls.
  */
 function computeTooltipPos(rect, vw, vh) {
   if (!rect) return { top: vh / 2 - 100, left: vw / 2 - TOOLTIP_WIDTH / 2 };
 
+  const tooltipH = 220; // estimated
+  const isDesktop = vw >= 800;
+
+  if (isDesktop) {
+    // If target is on the left half of screen, place tooltip on the right
+    if (rect.x + rect.width / 2 < vw / 2) {
+      const left = rect.x + rect.width + TOOLTIP_OFFSET;
+      if (left + TOOLTIP_WIDTH < vw - 16) {
+        const top = Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16));
+        return { top, left };
+      }
+    }
+    // If target is on the right half, place tooltip on the left
+    else {
+      const left = rect.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET;
+      if (left > 16) {
+        const top = Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16));
+        return { top, left };
+      }
+    }
+  }
+
+  // Fallback for mobile / narrow spaces: below or above
   const spotBottom = rect.y + rect.height + SPOTLIGHT_PADDING;
   const spotTop    = rect.y - SPOTLIGHT_PADDING;
-  const tooltipH   = 220; // estimated
   const leftIdeal  = rect.x + rect.width / 2 - TOOLTIP_WIDTH / 2;
   const left       = Math.max(16, Math.min(leftIdeal, vw - TOOLTIP_WIDTH - 16));
 
@@ -62,7 +84,6 @@ function computeTooltipPos(rect, vw, vh) {
   if (spotTop - TOOLTIP_OFFSET - tooltipH > 0) {
     return { top: spotTop - TOOLTIP_OFFSET - tooltipH, left };
   }
-  // Fallback: centre vertically
   return { top: vh / 2 - tooltipH / 2, left };
 }
 
