@@ -246,83 +246,70 @@ const OnboardingTour = () => {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9990]"
-      style={{ pointerEvents: 'all' }}
-      onMouseDown={(e) => {
-        // Allow clicks inside the spotlight rect or tooltip
-        const tooltipEl = document.getElementById('tour-tooltip-card');
-        if (tooltipEl && tooltipEl.contains(e.target)) return;
-        if (spotRect) {
-          const { clientX: cx, clientY: cy } = e;
-          const inSpot =
-            cx >= spotRect.x && cx <= spotRect.x + spotRect.width &&
-            cy >= spotRect.y && cy <= spotRect.y + spotRect.height;
-          if (inSpot) return; // allow interaction with highlighted element
-        }
-        // Block all other clicks
-        e.preventDefault();
-        e.stopPropagation();
-      }}
+      className="fixed inset-0 z-[9990] pointer-events-none"
     >
-      {/* SVG Backdrop */}
-      <svg
-        className="absolute inset-0 w-full h-full"
-        style={{ pointerEvents: 'none' }}
-        viewBox={`0 0 ${vw} ${vh}`}
-        preserveAspectRatio="none"
-      >
-        <defs>
-          <filter id="tour-blur">
-            <feGaussianBlur stdDeviation="1.5" />
-          </filter>
-          {svgMask && (
-            <clipPath id="spotlight-clip">
-              <path d={svgMask} fillRule="evenodd" />
-            </clipPath>
-          )}
-        </defs>
+      {/* Backdrops / Blocker Panels */}
+      {!spotRect ? (
+        // Full screen cover if no spotlight
+        <div
+          className="absolute inset-0 bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto"
+        />
+      ) : (
+        <>
+          {/* Top Panel */}
+          <div
+            className="absolute left-0 top-0 w-full bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
+            style={{ height: Math.max(0, spotRect.y) }}
+          />
+          {/* Bottom Panel */}
+          <div
+            className="absolute left-0 w-full bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
+            style={{
+              top: spotRect.y + spotRect.height,
+              height: Math.max(0, vh - (spotRect.y + spotRect.height))
+            }}
+          />
+          {/* Left Panel */}
+          <div
+            className="absolute left-0 bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
+            style={{
+              top: spotRect.y,
+              height: spotRect.height,
+              width: Math.max(0, spotRect.x)
+            }}
+          />
+          {/* Right Panel */}
+          <div
+            className="absolute bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
+            style={{
+              top: spotRect.y,
+              left: spotRect.x + spotRect.width,
+              height: spotRect.height,
+              width: Math.max(0, vw - (spotRect.x + spotRect.width))
+            }}
+          />
 
-        {/* Dimmed overlay */}
-        {svgMask ? (
-          <path
-            d={svgMask}
-            fillRule="evenodd"
-            fill="rgba(10, 14, 30, 0.72)"
-            className="transition-all duration-500"
+          {/* Spotlight Highlight Ring */}
+          <div
+            className="absolute border-2 border-indigo-500/60 rounded-2xl pointer-events-none transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+            style={{
+              left: spotRect.x,
+              top: spotRect.y,
+              width: spotRect.width,
+              height: spotRect.height
+            }}
           />
-        ) : (
-          <rect
-            x="0" y="0" width={vw} height={vh}
-            fill="rgba(10, 14, 30, 0.72)"
-          />
-        )}
-
-        {/* Spotlight glow ring */}
-        {spotRect && (
-          <rect
-            x={spotRect.x - 1}
-            y={spotRect.y - 1}
-            width={spotRect.width + 2}
-            height={spotRect.height + 2}
-            rx="12"
-            ry="12"
-            fill="none"
-            stroke="rgba(99,102,241,0.7)"
-            strokeWidth="1.5"
-            className="transition-all duration-500"
-          />
-        )}
-      </svg>
+        </>
+      )}
 
       {/* Tour Tooltip Card */}
       <div
         id="tour-tooltip-card"
-        className={`absolute transition-all duration-400 ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
+        className={`absolute transition-all duration-400 pointer-events-auto ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
         style={{
           top: tooltipPos.top,
           left: tooltipPos.left,
           width: TOOLTIP_WIDTH,
-          pointerEvents: 'all',
           zIndex: 9999,
         }}
       >
