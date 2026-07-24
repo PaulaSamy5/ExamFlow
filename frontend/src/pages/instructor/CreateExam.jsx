@@ -2301,7 +2301,9 @@ const CreateExam = () => {
             </div>
 
             {/* ── 2. Basic Information ── */}
-            <div className={cardClass}>
+            <div className={`${cardClass} tour-basic-info`}>
+              {/* Tour sentinel – present when exam title has been typed */}
+              {exam.title?.trim() && <span data-tour-title-filled="true" className="sr-only" />}
               <div className="flex items-center gap-3 mb-6">
                  <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
                     <BookOpen className="h-5 w-5" />
@@ -2343,7 +2345,11 @@ const CreateExam = () => {
             </div>
 
             {/* ── 4. Grading & Results ── */}
-            <div className={cardClass}>
+            <div className={`${cardClass} tour-grading-results`}>
+               {/* Tour sentinel – present when a result release mode has been chosen */}
+               {exam.showResults !== undefined && exam.showResults !== null && exam.showResults !== '' && (
+                 <span data-tour-result-visibility-selected="true" className="sr-only" />
+               )}
                <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 rounded-xl bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400">
                      <Award className="h-5 w-5" />
