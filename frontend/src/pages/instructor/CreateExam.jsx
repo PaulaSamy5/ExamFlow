@@ -1405,7 +1405,9 @@ const CreateExam = () => {
   const [fetching, setFetching] = useState(!!id && !draftState);
   const [errors, setErrors] = useState({});
   const [showValidationModal, setShowValidationModal] = useState(false);
-  const [validationTriggered, setValidationTriggered] = useState(false);
+  // publishTouchedUids: Set of question _uids that were invalid when Publish was last clicked.
+  // Only questions in this Set show error highlighting — new/untouched questions are always clean.
+  const [publishTouchedUids, setPublishTouchedUids] = useState(() => new Set());
   const [showMultiAnswerWarning, setShowMultiAnswerWarning] = useState(false);
   const [multiAnswerConfirmed, setMultiAnswerConfirmed] = useState(false);
   const [pendingMultiAnswerQuestions, setPendingMultiAnswerQuestions] = useState([]);
@@ -1560,10 +1562,18 @@ const CreateExam = () => {
   const totalPoints = allQuestions.reduce((sum, q) => sum + parseFloat(q.points || 0), 0);
 
   // Live question errors — recomputed whenever questions change (always runs, even with 0 questions)
-  const liveQuestionErrors = useMemo(
-    () => validateAllQuestions(allQuestions),
-    [allQuestions]
-  );
+  // Returns flat string array (for modal) AND a uid→errors map (for per-card highlighting).
+  const { liveQuestionErrors, liveErrorsByUid } = useMemo(() => {
+    const flat = validateAllQuestions(allQuestions);
+    // Build a map from _uid → error strings, so card errors are keyed by identity not position.
+    const byUid = {};
+    allQuestions.forEach((q, idx) => {
+      const qNum = idx + 1;
+      const qErrs = flat.filter(e => e.startsWith(`Question ${qNum}:`));
+      if (qErrs.length > 0) byUid[q._uid] = qErrs;
+    });
+    return { liveQuestionErrors: flat, liveErrorsByUid: byUid };
+  }, [allQuestions]);
 
   const pointsOk = isAutoGrade ? true : totalPoints === parseFloat(exam.totalGrade || 0);
 
@@ -1971,10 +1981,14 @@ const CreateExam = () => {
       }
     }
 
-    // Block publish/launch if any question is incomplete — show the summary modal and mark cards
+    // Block publish/launch if any question is incomplete — show the summary modal and mark cards.
+    // Snapshot the _uids of currently-failing questions so only THOSE cards show errors.
+    // Newly added questions after this point will NOT be in the snapshot and stay clean.
     if (!isQuestionsLocked && liveQuestionErrors.length > 0) {
       if (step === 3) setStep(2);
-      setValidationTriggered(true);
+      // Snapshot: only the questions currently invalid get highlighted.
+      const failingUids = new Set(Object.keys(liveErrorsByUid));
+      setPublishTouchedUids(failingUids);
       setShowValidationModal(true);
       return;
     }
@@ -2938,8 +2952,10 @@ const CreateExam = () => {
 
                     {section.questions.map((q, qIdx) => {
                       const qN = globalQNum + qIdx + 1;
-                      const qErrors = validationTriggered
-                        ? liveQuestionErrors.filter(err => err.startsWith(`Question ${qN}:`))
+                      // Only show errors for questions that were failing when Publish was clicked.
+                      // New questions added after Publish are never in publishTouchedUids → always clean.
+                      const qErrors = publishTouchedUids.has(q._uid)
+                        ? (liveErrorsByUid[q._uid] || [])
                         : [];
                       return (
                         <div key={q._uid || qIdx} id={`question-card-${qN}`} className="space-y-2">
