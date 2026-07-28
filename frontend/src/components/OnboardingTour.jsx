@@ -76,21 +76,31 @@ function scrollToElementAndWait(el) {
   });
 }
 
-// ─── Tooltip positioning ──────────────────────────────────────────────────────
 function computeTooltipPos(rect, vw, vh) {
   if (!rect) return { top: vh / 2 - 100, left: vw / 2 - TOOLTIP_WIDTH / 2 };
   const tooltipH = 230;
+
   if (vw >= 800) {
-    if (rect.x + rect.width / 2 < vw / 2) {
-      const left = rect.x + rect.width + TOOLTIP_OFFSET;
-      if (left + TOOLTIP_WIDTH < vw - 16)
-        return { top: Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16)), left };
+    // Determine which side of the screen has more space relative to the element
+    const spaceLeft = rect.x;
+    const spaceRight = vw - (rect.x + rect.width);
+
+    if (spaceRight >= spaceLeft) {
+      // More space on the right: place tooltip to the right, clamped to viewport margins
+      const targetLeft = rect.x + rect.width + TOOLTIP_OFFSET;
+      const left = Math.max(16, Math.min(targetLeft, vw - TOOLTIP_WIDTH - 16));
+      const top  = Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16));
+      return { top, left };
     } else {
-      const left = rect.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET;
-      if (left > 16)
-        return { top: Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16)), left };
+      // More space on the left: place tooltip to the left, clamped to viewport margins
+      const targetLeft = rect.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET;
+      const left = Math.max(16, Math.min(targetLeft, vw - TOOLTIP_WIDTH - 16));
+      const top  = Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16));
+      return { top, left };
     }
   }
+
+  // Mobile fallback: Top or Bottom placement
   const leftIdeal = rect.x + rect.width / 2 - TOOLTIP_WIDTH / 2;
   const left      = Math.max(16, Math.min(leftIdeal, vw - TOOLTIP_WIDTH - 16));
   const below = rect.y + rect.height + SPOTLIGHT_PADDING + TOOLTIP_OFFSET;
