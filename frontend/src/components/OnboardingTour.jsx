@@ -65,9 +65,14 @@ function scrollToElementAndWait(el) {
     // Final scroll target
     const targetY = Math.max(0, elDocCenter - visCenter);
 
-    window.scrollTo({ top: targetY, behavior: 'smooth' });
-    // 550ms gives smooth scroll plenty of time to finish in all browsers
-    setTimeout(resolve, 550);
+    // Scroll instantly (no smooth animations to avoid scroll-snapping race conditions)
+    el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+    window.scrollTo(0, targetY);
+    if (document.documentElement) document.documentElement.scrollTop = targetY;
+    if (document.body) document.body.scrollTop = targetY;
+
+    // Resolve after a tiny timeout to let the browser commit the layout/scroll position
+    setTimeout(resolve, 60);
   });
 }
 
