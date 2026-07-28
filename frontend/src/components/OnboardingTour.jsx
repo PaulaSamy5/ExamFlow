@@ -115,6 +115,20 @@ function computeTooltipPos(rect, vw, vh) {
   if (!rect) return { top: vh / 2 - 100, left: vw / 2 - TOOLTIP_WIDTH / 2 };
   const tooltipH = 230;
 
+  // ── Bottom-bar element guard ──────────────────────────────────────────────
+  // When the element lives inside the fixed bottom action bar its rect.y is
+  // near the bottom of the viewport.  Placing the tooltip vertically aligned
+  // with the element would pin it to the bottom of the screen.
+  // Instead, float the tooltip in the comfortable upper-center of the safe zone.
+  if (rect.y > vh - BOTTOM_BAR_H) {
+    const safeTop   = NAVBAR_H + 20;
+    const safeBottom = vh - BOTTOM_BAR_H - 20;
+    const top  = safeTop + (safeBottom - safeTop) * 0.30;   // upper-30% of safe zone
+    const left = Math.max(16, Math.min(vw / 2 - TOOLTIP_WIDTH / 2, vw - TOOLTIP_WIDTH - 16));
+    return { top, left };
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   if (vw >= 800) {
     // Determine which side of the screen has more space relative to the element
     const spaceLeft = rect.x;
