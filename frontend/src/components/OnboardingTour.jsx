@@ -47,8 +47,10 @@ function scrollToElementAndWait(el) {
   return new Promise((resolve) => {
     if (!el) { setTimeout(resolve, 60); return; }
 
-    // Viewport-relative rect (works regardless of layout / transforms)
-    const rect = el.getBoundingClientRect();
+    // If the element is a sub-field of a larger section card, scroll to the parent
+    // section so the entire logical block remains comfortably visible.
+    const scrollContainer = el.closest('.tour-schedule-timing, .tour-basic-info') || el;
+    const rect = scrollContainer.getBoundingClientRect();
 
     // Convert viewport-relative element top → document-relative
     const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -58,7 +60,7 @@ function scrollToElementAndWait(el) {
     const targetY = Math.max(0, elDocTop - NAVBAR_H - 24);
 
     // Scroll instantly (no smooth animations to avoid scroll-snapping race conditions)
-    el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+    scrollContainer.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
     window.scrollTo(0, targetY);
     if (document.documentElement) document.documentElement.scrollTop = targetY;
     if (document.body) document.body.scrollTop = targetY;
