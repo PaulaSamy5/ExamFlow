@@ -57,16 +57,27 @@ function scrollIntoViewAndWait(el) {
     if (alreadyCentred) { setTimeout(resolve, 80); return; }
     let prevTop = null, stableFrames = 0, cancelled = false;
     const hardStop = setTimeout(() => { cancelled = true; resolve(); }, SCROLL_HARD_TIMEOUT);
-    const poll = () => {
+    
+    // Delay polling by 150ms to let the browser initiate the smooth scroll
+    setTimeout(() => {
       if (cancelled) return;
-      const top = el.getBoundingClientRect().top;
-      if (prevTop !== null && Math.abs(top - prevTop) < 0.5) {
-        if (++stableFrames >= SCROLL_STABLE_FRAMES) { clearTimeout(hardStop); resolve(); return; }
-      } else { stableFrames = 0; }
-      prevTop = top;
+      const poll = () => {
+        if (cancelled) return;
+        const top = el.getBoundingClientRect().top;
+        if (prevTop !== null && Math.abs(top - prevTop) < 0.5) {
+          if (++stableFrames >= SCROLL_STABLE_FRAMES) {
+            clearTimeout(hardStop);
+            resolve();
+            return;
+          }
+        } else {
+          stableFrames = 0;
+        }
+        prevTop = top;
+        requestAnimationFrame(poll);
+      };
       requestAnimationFrame(poll);
-    };
-    requestAnimationFrame(poll);
+    }, 150);
   });
 }
 
