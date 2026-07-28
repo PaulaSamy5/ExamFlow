@@ -56,31 +56,35 @@ function waitForElement(selector, callback) {
   return () => { done = true; observer.disconnect(); clearTimeout(timeout); };
 }
 
-// ─── Tour-controlled scroll: scrolls window to centre `el` then waits until
-//     window.scrollY has been stable for SCROLL_STABLE_FRAMES frames ───────────
-function scrollWindowToElement(el) {
+// ─── Tour-controlled scroll: scrolls el into view then waits until
+//     its bounding rect has been stable for SCROLL_STABLE_FRAMES frames ───────
+function scrollIntoViewAndWait(el) {
   return new Promise((resolve) => {
     if (!el) { resolve(); return; }
 
-    const rect       = el.getBoundingClientRect();
-    const docTop     = rect.top + window.scrollY;
-    const targetY    = Math.max(0, docTop - window.innerHeight / 2 + rect.height / 2);
+    const r = el.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const fullyVisible =
+      r.top >= 0 && r.bottom <= vh && r.left >= 0 && r.right <= vw;
 
-    // Already close enough?
-    if (Math.abs(window.scrollY - targetY) < 2) { resolve(); return; }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
 
-    window.scrollTo({ top: targetY, behavior: 'smooth' });
+    if (fullyVisible) {
+      setTimeout(resolve, 100);
+      return;
+    }
 
     let stableFrames = 0;
-    let prevY        = null;
+    let prevTop      = null;
     let cancelled    = false;
 
     const hardStop = setTimeout(() => { cancelled = true; resolve(); }, SCROLL_HARD_TIMEOUT);
 
     const poll = () => {
       if (cancelled) return;
-      const cur = window.scrollY;
-      if (prevY !== null && Math.abs(cur - prevY) < 0.5) {
+      const rect = el.getBoundingClientRect();
+      if (prevTop !== null && Math.abs(rect.top - prevTop) < 0.5) {
         if (++stableFrames >= SCROLL_STABLE_FRAMES) {
           clearTimeout(hardStop);
           resolve();
@@ -89,7 +93,7 @@ function scrollWindowToElement(el) {
       } else {
         stableFrames = 0;
       }
-      prevY = cur;
+      prevTop = rect.top;
       requestAnimationFrame(poll);
     };
     requestAnimationFrame(poll);
@@ -142,30 +146,55 @@ const OnboardingTour = () => {
   const cancelWaitRef = useRef(null);
   const stepGenRef    = useRef(0);        // stale-check counter
 
+  // Settled scroll position refs to lock/restore position if user scrolls
+  const settledScrollTopRef  = useRef(0);
+  const settledScrollLeftRef = useRef(0);
+
   const isLastStep        = currentStepIndex === totalSteps - 1;
   const isWelcomeOrFinish = !currentStep?.selector;
 
   // ── Global scroll lock (tour owns scrolling, user cannot scroll) ────────────
   useEffect(() => {
     if (!isActive) return;
+
+    // Reset/lock scroll event handler
+    const handleScroll = (e) => {
+      if (isTransitioning) return; // let programmatic smooth scroll run
+      
+      // Force scroll positions back to settled values
+      window.scrollTo(settledScrollLeftRef.current, settledScrollTopRef.current);
+      if (document.documentElement) {
+        document.documentElement.scrollTop = settledScrollTopRef.current;
+        document.documentElement.scrollLeft = settledScrollLeftRef.current;
+      }
+      if (document.body) {
+        document.body.scrollTop = settledScrollTopRef.current;
+        document.body.scrollLeft = settledScrollLeftRef.current;
+      }
+    };
+
     window.addEventListener('wheel',     lockUserScroll,  { passive: false });
     window.addEventListener('touchmove', lockUserScroll,  { passive: false });
     window.addEventListener('keydown',   lockScrollKeys,  { passive: false });
+    window.addEventListener('scroll',    handleScroll,    { passive: false });
+    
     return () => {
       window.removeEventListener('wheel',     lockUserScroll);
       window.removeEventListener('touchmove', lockUserScroll);
       window.removeEventListener('keydown',   lockScrollKeys);
+      window.removeEventListener('scroll',    handleScroll);
     };
-  }, [isActive]);
+  }, [isActive, isTransitioning]);
 
   // ── Core: run on every step change ─────────────────────────────────────────
   // Pipeline:
   //   1. Cancel previous wait
   //   2. Hide spotlight (isTransitioning = true)
   //   3. Wait for element to exist in DOM
-  //   4. Scroll window to centre element + wait for scroll to settle
+  //   4. Scroll element into view + wait for scroll to settle
   //   5. Compute spotlight rect from settled position
-  //   6. Reveal (isTransitioning = false) → RAF loop takes over tracking
+  //   6. Capture settled scroll positions
+  //   7. Reveal (isTransitioning = false) → RAF loop takes over tracking
   const updateSpotlight = useCallback(async () => {
     if (!isActive || !currentStep) return;
 
@@ -217,8 +246,8 @@ const OnboardingTour = () => {
       return;
     }
 
-    // ── 2. Scroll window to element and wait until settled ──────────────────
-    await scrollWindowToElement(el);
+    // ── 2. Scroll element into view and wait until settled ──────────────────
+    await scrollIntoViewAndWait(el);
     if (stale()) return;
 
     // ── 3. Compute spotlight from the settled viewport position ─────────────
@@ -232,7 +261,11 @@ const OnboardingTour = () => {
     setSpotRect(nextRect);
     setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight));
 
-    // ── 4. Reveal ──────────────────────────────────────────────────────────
+    // ── 4. Record settled scroll positions ──────────────────────────────────
+    settledScrollTopRef.current = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop;
+    settledScrollLeftRef.current = window.scrollX || document.documentElement.scrollLeft || document.body.scrollLeft;
+
+    // ── 5. Reveal ──────────────────────────────────────────────────────────
     setIsTransitioning(false);
   }, [isActive, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
