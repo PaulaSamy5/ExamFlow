@@ -324,22 +324,24 @@ const OnboardingTour = () => {
   return createPortal(
     <div className="fixed inset-0 z-[9990] pointer-events-none">
 
-      {/* 4-panel backdrop + spotlight cut-out */}
-      {!spotRect ? (
-        <div className="absolute inset-0 bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto" />
-      ) : (
-        <>
-          <div className="absolute left-0 top-0 w-full bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
-               style={{ height: Math.max(0, spotRect.y) }} />
-          <div className="absolute left-0 w-full bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
-               style={{ top: spotRect.y + spotRect.height, height: Math.max(0, vh - (spotRect.y + spotRect.height)) }} />
-          <div className="absolute left-0 bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
-               style={{ top: spotRect.y, height: spotRect.height, width: Math.max(0, spotRect.x) }} />
-          <div className="absolute bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
-               style={{ top: spotRect.y, left: spotRect.x + spotRect.width, height: spotRect.height, width: Math.max(0, vw - (spotRect.x + spotRect.width)) }} />
-          <div className="absolute border-2 border-indigo-500/60 rounded-2xl pointer-events-none transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.4)]"
-               style={{ left: spotRect.x, top: spotRect.y, width: spotRect.width, height: spotRect.height }} />
-        </>
+      {/* SVG backdrop overlay with cutout hole */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 9991 }}>
+        <path
+          d={
+            spotRect
+              ? `M 0 0 H ${vw} V ${vh} H 0 Z M ${spotRect.x} ${spotRect.y} H ${spotRect.x + spotRect.width} V ${spotRect.y + spotRect.height} H ${spotRect.x} Z`
+              : `M 0 0 H ${vw} V ${vh} H 0 Z`
+          }
+          fill="rgba(10, 14, 30, 0.72)"
+          fillRule="evenodd"
+          className="pointer-events-auto transition-all duration-300"
+        />
+      </svg>
+
+      {/* Spotlight ring */}
+      {spotRect && (
+        <div className="absolute border-2 border-indigo-500/60 rounded-2xl pointer-events-none transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+             style={{ left: spotRect.x, top: spotRect.y, width: spotRect.width, height: spotRect.height }} />
       )}
 
       {/* Tooltip card */}
