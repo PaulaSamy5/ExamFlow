@@ -130,6 +130,7 @@ const OnboardingTour = () => {
           nextStep, prevStep, skipTour, completeTour } = useTour();
 
   const [spotRect,         setSpotRect]         = useState(null);
+  const [pickerRect,       setPickerRect]        = useState(null); // open calendar/time dropdown
   const [tooltipPos,       setTooltipPos]        = useState({ top: 0, left: 0 });
   const [isTransitioning,  setIsTransitioning]   = useState(false);
   const [actionDone,       setActionDone]        = useState(false);
@@ -271,6 +272,15 @@ const OnboardingTour = () => {
         } else {
           setSpotRect(null);
         }
+
+        // Detect open calendar / time picker dropdown and expose it through the overlay
+        const picker = document.querySelector('.tour-picker-dropdown');
+        if (picker) {
+          const pr = picker.getBoundingClientRect();
+          setPickerRect({ x: pr.left - 4, y: pr.top - 4, width: pr.width + 8, height: pr.height + 8 });
+        } else {
+          setPickerRect(null);
+        }
       }
       if (typeof currentStep?.canAdvance === 'function') {
         const ok = currentStep.canAdvance();
@@ -362,17 +372,25 @@ const OnboardingTour = () => {
   return createPortal(
     <div className="fixed inset-0 z-[9990] pointer-events-none">
 
-      {/* SVG backdrop overlay with cutout hole */}
+      {/* SVG backdrop overlay with cutout hole(s) */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 9991 }}>
         <path
           d={
-            spotRect
-              ? `M 0 0 H ${vw} V ${vh} H 0 Z M ${spotRect.x} ${spotRect.y} H ${spotRect.x + spotRect.width} V ${spotRect.y + spotRect.height} H ${spotRect.x} Z`
-              : `M 0 0 H ${vw} V ${vh} H 0 Z`
+            (() => {
+              const base = `M 0 0 H ${vw} V ${vh} H 0 Z`;
+              const spot = spotRect
+                ? ` M ${spotRect.x} ${spotRect.y} H ${spotRect.x + spotRect.width} V ${spotRect.y + spotRect.height} H ${spotRect.x} Z`
+                : '';
+              // Extra cutout for open date/time picker dropdown
+              const picker = pickerRect
+                ? ` M ${pickerRect.x} ${pickerRect.y} H ${pickerRect.x + pickerRect.width} V ${pickerRect.y + pickerRect.height} H ${pickerRect.x} Z`
+                : '';
+              return base + spot + picker;
+            })()
           }
           fill="rgba(10, 14, 30, 0.72)"
           fillRule="evenodd"
-          className="pointer-events-auto transition-all duration-300"
+          className="pointer-events-auto"
         />
       </svg>
 
