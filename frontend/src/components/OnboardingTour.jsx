@@ -49,7 +49,7 @@ function scrollIntoViewAndWait(el) {
     const vh = window.innerHeight;
     const vw = window.innerWidth;
     const alreadyCentred = r.top >= 0 && r.bottom <= vh && r.left >= 0 && r.right <= vw;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     if (alreadyCentred) { setTimeout(resolve, 80); return; }
     let prevTop = null, stableFrames = 0, cancelled = false;
     const hardStop = setTimeout(() => { cancelled = true; resolve(); }, SCROLL_HARD_TIMEOUT);
@@ -189,10 +189,14 @@ const OnboardingTour = () => {
     if (!isActive) return;
     const handleScroll = () => {
       if (isTransitioningRef.current) return; // allow programmatic smooth scroll
-      window.scrollTo(settledScrollLeftRef.current, settledScrollTopRef.current);
+      window.scrollTo(0, settledScrollTopRef.current);
       if (document.documentElement) {
         document.documentElement.scrollTop  = settledScrollTopRef.current;
-        document.documentElement.scrollLeft = settledScrollLeftRef.current;
+        document.documentElement.scrollLeft = 0;
+      }
+      if (document.body) {
+        document.body.scrollTop  = settledScrollTopRef.current;
+        document.body.scrollLeft = 0;
       }
     };
     window.addEventListener('wheel',     lockWheel,     { passive: false });
