@@ -56,7 +56,10 @@ function scrollToElementAndWait(el) {
     // True usable zone on screen (between sticky navbar and fixed bottom bar)
     const visTop    = NAVBAR_H + SCROLL_MARGIN;
     const visBottom = window.innerHeight - BOTTOM_BAR_H - SCROLL_MARGIN;
-    const visCenter = (visTop + visBottom) / 2;
+
+    // Bias toward upper 30% of the visible zone so dropdowns (calendar, time)
+    // have plenty of room to open below the element without hitting the bottom bar
+    const visCenter = visTop + (visBottom - visTop) * 0.30;
 
     // Convert viewport-relative element center → document-relative
     const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -130,7 +133,6 @@ const OnboardingTour = () => {
           nextStep, prevStep, skipTour, completeTour } = useTour();
 
   const [spotRect,         setSpotRect]         = useState(null);
-  const [pickerRect,       setPickerRect]        = useState(null); // open calendar/time dropdown
   const [tooltipPos,       setTooltipPos]        = useState({ top: 0, left: 0 });
   const [isTransitioning,  setIsTransitioning]   = useState(false);
   const [actionDone,       setActionDone]        = useState(false);
@@ -255,11 +257,25 @@ const OnboardingTour = () => {
       if (currentStep?.selector) {
         const el = document.querySelector(currentStep.selector);
         if (el) {
-          const r        = el.getBoundingClientRect();
-          const nextRect = {
+          const r = el.getBoundingClientRect();
+          let nextRect = {
             x: r.left - SPOTLIGHT_PADDING, y: r.top - SPOTLIGHT_PADDING,
             width: r.width + SPOTLIGHT_PADDING * 2, height: r.height + SPOTLIGHT_PADDING * 2,
           };
+
+          // When a date/time picker dropdown is open, expand the spotlight to
+          // include it so the blue ring and SVG cutout animate to wrap both.
+          const picker = document.querySelector('.tour-picker-dropdown');
+          if (picker) {
+            const pr = picker.getBoundingClientRect();
+            const pad = SPOTLIGHT_PADDING;
+            const mergeX  = Math.min(nextRect.x, pr.left - pad);
+            const mergeY  = Math.min(nextRect.y, pr.top  - pad);
+            const mergeX2 = Math.max(nextRect.x + nextRect.width,  pr.right  + pad);
+            const mergeY2 = Math.max(nextRect.y + nextRect.height, pr.bottom + pad);
+            nextRect = { x: mergeX, y: mergeY, width: mergeX2 - mergeX, height: mergeY2 - mergeY };
+          }
+
           setSpotRect(prev => {
             if (!prev ||
                 Math.abs(prev.x - nextRect.x) > 0.5 || Math.abs(prev.y - nextRect.y) > 0.5 ||
@@ -271,15 +287,6 @@ const OnboardingTour = () => {
           });
         } else {
           setSpotRect(null);
-        }
-
-        // Detect open calendar / time picker dropdown and expose it through the overlay
-        const picker = document.querySelector('.tour-picker-dropdown');
-        if (picker) {
-          const pr = picker.getBoundingClientRect();
-          setPickerRect({ x: pr.left - 4, y: pr.top - 4, width: pr.width + 8, height: pr.height + 8 });
-        } else {
-          setPickerRect(null);
         }
       }
       if (typeof currentStep?.canAdvance === 'function') {
@@ -372,21 +379,13 @@ const OnboardingTour = () => {
   return createPortal(
     <div className="fixed inset-0 z-[9990] pointer-events-none">
 
-      {/* SVG backdrop overlay with cutout hole(s) */}
+      {/* SVG backdrop overlay with spotlight cutout */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 9991 }}>
         <path
           d={
-            (() => {
-              const base = `M 0 0 H ${vw} V ${vh} H 0 Z`;
-              const spot = spotRect
-                ? ` M ${spotRect.x} ${spotRect.y} H ${spotRect.x + spotRect.width} V ${spotRect.y + spotRect.height} H ${spotRect.x} Z`
-                : '';
-              // Extra cutout for open date/time picker dropdown
-              const picker = pickerRect
-                ? ` M ${pickerRect.x} ${pickerRect.y} H ${pickerRect.x + pickerRect.width} V ${pickerRect.y + pickerRect.height} H ${pickerRect.x} Z`
-                : '';
-              return base + spot + picker;
-            })()
+            spotRect
+              ? `M 0 0 H ${vw} V ${vh} H 0 Z M ${spotRect.x} ${spotRect.y} H ${spotRect.x + spotRect.width} V ${spotRect.y + spotRect.height} H ${spotRect.x} Z`
+              : `M 0 0 H ${vw} V ${vh} H 0 Z`
           }
           fill="rgba(10, 14, 30, 0.72)"
           fillRule="evenodd"
