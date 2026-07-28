@@ -93,11 +93,25 @@ function computeTooltipPos(rect, vw, vh) {
   }
   const leftIdeal = rect.x + rect.width / 2 - TOOLTIP_WIDTH / 2;
   const left      = Math.max(16, Math.min(leftIdeal, vw - TOOLTIP_WIDTH - 16));
-  const below     = rect.y + rect.height + SPOTLIGHT_PADDING + TOOLTIP_OFFSET;
-  const above     = rect.y - SPOTLIGHT_PADDING - TOOLTIP_OFFSET - tooltipH;
-  if (below + tooltipH < vh) return { top: below, left };
-  if (above > 0)             return { top: above, left };
-  return { top: vh / 2 - tooltipH / 2, left };
+  const below = rect.y + rect.height + SPOTLIGHT_PADDING + TOOLTIP_OFFSET;
+  const above = rect.y - SPOTLIGHT_PADDING - TOOLTIP_OFFSET - tooltipH;
+
+  // 1. If it fits comfortably below, place it there
+  if (below + tooltipH < vh - 16) {
+    return { top: below, left };
+  }
+  // 2. If it fits comfortably above, place it there
+  if (above > 16) {
+    return { top: above, left };
+  }
+  // 3. Otherwise (tall element), place on the side with more space, clamped to screen edges
+  const spaceAbove = rect.y;
+  const spaceBelow = vh - (rect.y + rect.height);
+  if (spaceAbove >= spaceBelow) {
+    return { top: Math.max(16, above), left };
+  } else {
+    return { top: Math.min(vh - tooltipH - 16, below), left };
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
