@@ -43,9 +43,32 @@ function waitForElement(selector, callback) {
   return () => { done = true; observer.disconnect(); clearTimeout(timeout); };
 }
 
+// Returns true if the element or any ancestor up to <body> is position:fixed.
+// Fixed elements have viewport-relative rects that never change with scrollY,
+// so computing a document scroll target from them causes massive over-scroll.
+function isInsideFixed(node) {
+  let el = node;
+  while (el && el !== document.body) {
+    if (window.getComputedStyle(el).position === 'fixed') return true;
+    el = el.parentElement;
+  }
+  return false;
+}
+
 function scrollToElementAndWait(el) {
   return new Promise((resolve) => {
     if (!el) { setTimeout(resolve, 60); return; }
+
+    // ── Fixed-element guard ─────────────────────────────────────────────────
+    // Elements inside a fixed container (e.g. the sticky bottom action bar)
+    // are always visible and do not scroll with the page.
+    // Their getBoundingClientRect() returns viewport coords, NOT document
+    // coords, so we must NEVER compute a scroll target from them.
+    if (isInsideFixed(el)) {
+      setTimeout(resolve, 60);
+      return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // If the element is a sub-field of a larger section card, scroll to the parent
     // section so the entire logical block remains comfortably visible.
@@ -54,7 +77,7 @@ function scrollToElementAndWait(el) {
 
     // ── Already-visible guard ───────────────────────────────────────────────
     // The safe viewport is the strip between the sticky navbar and the fixed
-    // bottom action bar.  Add a small comfort margin (20 px) on each edge.
+    // bottom action bar. Add a small comfort margin (20 px) on each edge.
     const COMFORT = 20;
     const safeTop    = NAVBAR_H    + COMFORT;
     const safeBottom = window.innerHeight - BOTTOM_BAR_H - COMFORT;
