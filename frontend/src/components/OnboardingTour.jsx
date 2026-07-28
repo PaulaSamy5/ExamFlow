@@ -3,194 +3,197 @@ import { createPortal } from 'react-dom';
 import { useTour } from '../store/TourContext';
 import { ChevronRight, ChevronLeft, X, Sparkles } from 'lucide-react';
 
-// Padding around the spotlight rectangle
-const SPOTLIGHT_PADDING = 12;
-const TOOLTIP_OFFSET    = 20;
-const TOOLTIP_WIDTH     = 340;
-// Max ms to wait for the target element to appear in the DOM
-const ELEMENT_WAIT_MAX  = 6000;
+// ─── Constants ───────────────────────────────────────────────────────────────
+const SPOTLIGHT_PADDING  = 12;
+const TOOLTIP_OFFSET     = 20;
+const TOOLTIP_WIDTH      = 340;
+const ELEMENT_WAIT_MAX   = 6000;   // ms to wait for element to appear
+const SCROLL_STABLE_FRAMES = 8;    // consecutive stable frames = scroll done
+const SCROLL_HARD_TIMEOUT  = 1600; // ms hard cap for scroll+settle
 
-/**
- * Wait for `selector` to appear in the DOM.
- * Returns a cancel function.
- */
+// ─── Scroll-key set (Space, PgUp, PgDn, Home, End, Arrow ↑↓) ────────────────
+const SCROLL_KEYS = new Set([32, 33, 34, 35, 36, 38, 40]);
+
+// ─── Prevent any user-initiated wheel / touch / keyboard scroll ──────────────
+function lockUserScroll(e) {
+  e.preventDefault();
+}
+function lockScrollKeys(e) {
+  // Allow normal typing in form elements
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  if (['input', 'textarea', 'select'].includes(tag)) return;
+  if (SCROLL_KEYS.has(e.keyCode)) e.preventDefault();
+}
+
+// ─── Wait for a selector to appear (MutationObserver + hard timeout) ─────────
 function waitForElement(selector, callback) {
   if (!selector) { callback(null); return () => {}; }
 
-  // First try a MutationObserver for instant detection
   let done = false;
   const finish = (el) => {
     if (done) return;
     done = true;
     observer.disconnect();
-    clearTimeout(timeoutId);
+    clearTimeout(timeout);
     callback(el);
   };
 
   const check = () => {
     const el = document.querySelector(selector);
-    if (el) finish(el);
-    return el;
+    if (el) { finish(el); return true; }
+    return false;
   };
 
-  // Immediate check
   if (check()) return () => { done = true; };
 
-  const observer = new MutationObserver(() => { check(); });
+  const observer = new MutationObserver(check);
   observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-  // Fallback timeout
-  const timeoutId = setTimeout(() => {
+  const timeout = setTimeout(() => {
     observer.disconnect();
     if (!done) { done = true; callback(document.querySelector(selector)); }
   }, ELEMENT_WAIT_MAX);
 
-  return () => {
-    done = true;
-    observer.disconnect();
-    clearTimeout(timeoutId);
-  };
+  return () => { done = true; observer.disconnect(); clearTimeout(timeout); };
 }
 
-/**
- * Smoothly scroll element to the center of the viewport,
- * then resolve only when the element is fully visible (scroll settled).
- * Uses a rAF loop that checks the rect until stable for ~5 consecutive frames.
- */
-function scrollAndWait(el) {
+// ─── Tour-controlled scroll: scrolls window to centre `el` then waits until
+//     window.scrollY has been stable for SCROLL_STABLE_FRAMES frames ───────────
+function scrollWindowToElement(el) {
   return new Promise((resolve) => {
     if (!el) { resolve(); return; }
 
-    const r = el.getBoundingClientRect();
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
-    const fullyVisible =
-      r.top >= 0 && r.bottom <= vh && r.left >= 0 && r.right <= vw;
+    const rect       = el.getBoundingClientRect();
+    const docTop     = rect.top + window.scrollY;
+    const targetY    = Math.max(0, docTop - window.innerHeight / 2 + rect.height / 2);
 
-    if (fullyVisible) { resolve(); return; }
+    // Already close enough?
+    if (Math.abs(window.scrollY - targetY) < 2) { resolve(); return; }
 
-    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    window.scrollTo({ top: targetY, behavior: 'smooth' });
 
-    // Poll until the element's viewport position is stable (scroll has stopped)
     let stableFrames = 0;
-    let prevTop = null;
-    let cancelled = false;
-    const STABLE_NEEDED = 6; // frames with no change → scroll settled
+    let prevY        = null;
+    let cancelled    = false;
+
+    const hardStop = setTimeout(() => { cancelled = true; resolve(); }, SCROLL_HARD_TIMEOUT);
 
     const poll = () => {
       if (cancelled) return;
-      const rect = el.getBoundingClientRect();
-      if (prevTop !== null && Math.abs(rect.top - prevTop) < 0.5) {
-        stableFrames++;
-        if (stableFrames >= STABLE_NEEDED) { resolve(); return; }
+      const cur = window.scrollY;
+      if (prevY !== null && Math.abs(cur - prevY) < 0.5) {
+        if (++stableFrames >= SCROLL_STABLE_FRAMES) {
+          clearTimeout(hardStop);
+          resolve();
+          return;
+        }
       } else {
         stableFrames = 0;
       }
-      prevTop = rect.top;
+      prevY = cur;
       requestAnimationFrame(poll);
     };
     requestAnimationFrame(poll);
-
-    // Hard timeout so we never hang
-    setTimeout(() => { cancelled = true; resolve(); }, 1200);
   });
 }
 
-/**
- * Compute the tooltip position so it stays within the viewport.
- * Prefers side-positioning (left/right) on desktop screens.
- */
+// ─── Tooltip position: side-by-side on desktop, above/below on mobile ────────
 function computeTooltipPos(rect, vw, vh) {
   if (!rect) return { top: vh / 2 - 100, left: vw / 2 - TOOLTIP_WIDTH / 2 };
+  const tooltipH = 230;
 
-  const tooltipH = 220;
-  const isDesktop = vw >= 800;
-
-  if (isDesktop) {
+  if (vw >= 800) {
     if (rect.x + rect.width / 2 < vw / 2) {
       const left = rect.x + rect.width + TOOLTIP_OFFSET;
       if (left + TOOLTIP_WIDTH < vw - 16) {
-        const top = Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16));
-        return { top, left };
+        return { top: Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16)), left };
       }
     } else {
       const left = rect.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET;
       if (left > 16) {
-        const top = Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16));
-        return { top, left };
+        return { top: Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16)), left };
       }
     }
   }
 
-  const spotBottom = rect.y + rect.height + SPOTLIGHT_PADDING;
-  const spotTop    = rect.y - SPOTLIGHT_PADDING;
-  const leftIdeal  = rect.x + rect.width / 2 - TOOLTIP_WIDTH / 2;
-  const left       = Math.max(16, Math.min(leftIdeal, vw - TOOLTIP_WIDTH - 16));
+  const leftIdeal = rect.x + rect.width / 2 - TOOLTIP_WIDTH / 2;
+  const left      = Math.max(16, Math.min(leftIdeal, vw - TOOLTIP_WIDTH - 16));
+  const below     = rect.y + rect.height + SPOTLIGHT_PADDING + TOOLTIP_OFFSET;
+  const above     = rect.y - SPOTLIGHT_PADDING - TOOLTIP_OFFSET - tooltipH;
 
-  if (spotBottom + TOOLTIP_OFFSET + tooltipH < vh) return { top: spotBottom + TOOLTIP_OFFSET, left };
-  if (spotTop - TOOLTIP_OFFSET - tooltipH > 0)    return { top: spotTop - TOOLTIP_OFFSET - tooltipH, left };
+  if (below + tooltipH < vh) return { top: below, left };
+  if (above > 0)             return { top: above, left };
   return { top: vh / 2 - tooltipH / 2, left };
 }
 
-// ---------------------------------------------------------------------------
-
+// ═════════════════════════════════════════════════════════════════════════════
 const OnboardingTour = () => {
   const {
     isActive, currentStep, currentStepIndex, totalSteps,
     nextStep, prevStep, skipTour, completeTour
   } = useTour();
 
-  const [spotRect,        setSpotRect]        = useState(null);
-  const [tooltipPos,      setTooltipPos]      = useState({ top: 0, left: 0 });
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [actionDone,      setActionDone]      = useState(false);
-  const [canProceed,      setCanProceed]      = useState(true);
-  const [isOptionalFilled,setIsOptionalFilled]= useState(false);
+  const [spotRect,         setSpotRect]         = useState(null);
+  const [tooltipPos,       setTooltipPos]        = useState({ top: 0, left: 0 });
+  const [isTransitioning,  setIsTransitioning]   = useState(false);
+  const [actionDone,       setActionDone]        = useState(false);
+  const [canProceed,       setCanProceed]        = useState(true);
+  const [isOptionalFilled, setIsOptionalFilled]  = useState(false);
 
-  // Ref holding the cancellation fn for the active waitForElement call
   const cancelWaitRef = useRef(null);
-  // Sequential step-change counter so stale async callbacks can be ignored
-  const stepGenRef    = useRef(0);
+  const stepGenRef    = useRef(0);        // stale-check counter
 
   const isLastStep        = currentStepIndex === totalSteps - 1;
   const isWelcomeOrFinish = !currentStep?.selector;
 
-  // ---------------------------------------------------------------------------
-  // CORE: run when the step changes.
-  //   1. Cancel any previous wait.
-  //   2. Hide spotlight while transitioning.
-  //   3. Wait for the element → scroll → wait for scroll to settle → show spotlight.
-  // ---------------------------------------------------------------------------
+  // ── Global scroll lock (tour owns scrolling, user cannot scroll) ────────────
+  useEffect(() => {
+    if (!isActive) return;
+    window.addEventListener('wheel',     lockUserScroll,  { passive: false });
+    window.addEventListener('touchmove', lockUserScroll,  { passive: false });
+    window.addEventListener('keydown',   lockScrollKeys,  { passive: false });
+    return () => {
+      window.removeEventListener('wheel',     lockUserScroll);
+      window.removeEventListener('touchmove', lockUserScroll);
+      window.removeEventListener('keydown',   lockScrollKeys);
+    };
+  }, [isActive]);
+
+  // ── Core: run on every step change ─────────────────────────────────────────
+  // Pipeline:
+  //   1. Cancel previous wait
+  //   2. Hide spotlight (isTransitioning = true)
+  //   3. Wait for element to exist in DOM
+  //   4. Scroll window to centre element + wait for scroll to settle
+  //   5. Compute spotlight rect from settled position
+  //   6. Reveal (isTransitioning = false) → RAF loop takes over tracking
   const updateSpotlight = useCallback(async () => {
     if (!isActive || !currentStep) return;
 
-    // Each invocation gets a unique generation number so we can abort stale ones
-    const gen = ++stepGenRef.current;
+    const gen   = ++stepGenRef.current;
     const stale = () => gen !== stepGenRef.current;
 
-    // Cancel any outstanding waitForElement from a previous step
+    // Cancel any previous outstanding wait
     if (cancelWaitRef.current) { cancelWaitRef.current(); cancelWaitRef.current = null; }
 
-    // Reset state for the new step
+    // Hide while transitioning
     setIsTransitioning(true);
     setSpotRect(null);
     setActionDone(false);
     setCanProceed(true);
     setIsOptionalFilled(false);
 
-    // Centre-screen (welcome / finish) — no element needed
+    // ── Centre-screen step (welcome / finish) ──────────────────────────────
     if (!currentStep.selector) {
       if (stale()) return;
       setTooltipPos({
         top:  window.innerHeight / 2 - 110,
         left: window.innerWidth  / 2 - TOOLTIP_WIDTH / 2,
       });
-      // Small paint delay so the fade-in feels intentional
-      setTimeout(() => { if (!stale()) setIsTransitioning(false); }, 180);
+      setTimeout(() => { if (!stale()) setIsTransitioning(false); }, 200);
       return;
     }
 
-    // ── 1. Locate the element (wait for it if it isn't in the DOM yet) ──
+    // ── 1. Locate element (wait for it if not yet rendered) ────────────────
     let el = document.querySelector(currentStep.selector);
     if (!el) {
       await new Promise((resolve) => {
@@ -202,11 +205,10 @@ const OnboardingTour = () => {
       });
       cancelWaitRef.current = null;
     }
-
     if (stale()) return;
 
     if (!el) {
-      // Element never appeared — show tooltip centred
+      // Element never appeared → show tooltip centred
       setTooltipPos({
         top:  window.innerHeight / 2 - 110,
         left: window.innerWidth  / 2 - TOOLTIP_WIDTH / 2,
@@ -215,42 +217,36 @@ const OnboardingTour = () => {
       return;
     }
 
-    // ── 2. Scroll the element into view and wait until scroll settles ──
-    await scrollAndWait(el);
-
+    // ── 2. Scroll window to element and wait until settled ──────────────────
+    await scrollWindowToElement(el);
     if (stale()) return;
 
-    // ── 3. Now compute the spotlight from the settled rect ──
-    const r = el.getBoundingClientRect();
+    // ── 3. Compute spotlight from the settled viewport position ─────────────
+    const r        = el.getBoundingClientRect();
     const nextRect = {
-      x:      r.left  - SPOTLIGHT_PADDING,
-      y:      r.top   - SPOTLIGHT_PADDING,
+      x:      r.left   - SPOTLIGHT_PADDING,
+      y:      r.top    - SPOTLIGHT_PADDING,
       width:  r.width  + SPOTLIGHT_PADDING * 2,
       height: r.height + SPOTLIGHT_PADDING * 2,
     };
     setSpotRect(nextRect);
     setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight));
 
-    // ── 4. Reveal tooltip ──
+    // ── 4. Reveal ──────────────────────────────────────────────────────────
     setIsTransitioning(false);
-
   }, [isActive, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-run whenever the step index changes
   useEffect(() => {
     updateSpotlight();
   }, [currentStepIndex, updateSpotlight]);
 
-  // ---------------------------------------------------------------------------
-  // Continuous RAF loop — keeps the spotlight locked to the element while the
-  // user scrolls, resizes, or interacts with the page.
-  // Only runs after isTransitioning is false so it never races the initial setup.
-  // ---------------------------------------------------------------------------
+  // ── Continuous RAF tracking loop (only runs after scroll settled) ───────────
+  // Keeps the spotlight glued to the element while it resizes, animates, etc.
   useEffect(() => {
     if (!isActive || isTransitioning) return;
-
     let active = true;
-    const updateLoop = () => {
+
+    const loop = () => {
       if (!active) return;
 
       if (!currentStep?.selector) {
@@ -262,154 +258,120 @@ const OnboardingTour = () => {
       } else {
         const el = document.querySelector(currentStep.selector);
         if (el) {
-          const r = el.getBoundingClientRect();
-          let nextRect = {
-            x:      r.left  - SPOTLIGHT_PADDING,
-            y:      r.top   - SPOTLIGHT_PADDING,
+          const r   = el.getBoundingClientRect();
+          let rect  = {
+            x:      r.left   - SPOTLIGHT_PADDING,
+            y:      r.top    - SPOTLIGHT_PADDING,
             width:  r.width  + SPOTLIGHT_PADDING * 2,
             height: r.height + SPOTLIGHT_PADDING * 2,
           };
 
-          // Expand spotlight to cover any open date/time picker dropdown
-          const dropdown = el.querySelector('.tour-picker-dropdown');
-          if (dropdown) {
-            const dr = dropdown.getBoundingClientRect();
-            const minX = Math.min(nextRect.x, dr.left  - SPOTLIGHT_PADDING);
-            const minY = Math.min(nextRect.y, dr.top   - SPOTLIGHT_PADDING);
-            const maxX = Math.max(nextRect.x + nextRect.width,  dr.right  + SPOTLIGHT_PADDING);
-            const maxY = Math.max(nextRect.y + nextRect.height, dr.bottom + SPOTLIGHT_PADDING);
-            nextRect = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+          // Expand to include any open date/time picker dropdown
+          const dd = el.querySelector('.tour-picker-dropdown');
+          if (dd) {
+            const dr = dd.getBoundingClientRect();
+            rect = {
+              x:      Math.min(rect.x,              dr.left   - SPOTLIGHT_PADDING),
+              y:      Math.min(rect.y,              dr.top    - SPOTLIGHT_PADDING),
+              width:  Math.max(rect.x + rect.width, dr.right  + SPOTLIGHT_PADDING) - Math.min(rect.x, dr.left - SPOTLIGHT_PADDING),
+              height: Math.max(rect.y + rect.height,dr.bottom + SPOTLIGHT_PADDING) - Math.min(rect.y, dr.top  - SPOTLIGHT_PADDING),
+            };
           }
 
           setSpotRect(prev => {
             if (!prev ||
-                Math.abs(prev.x      - nextRect.x)      > 0.5 ||
-                Math.abs(prev.y      - nextRect.y)      > 0.5 ||
-                Math.abs(prev.width  - nextRect.width)  > 0.5 ||
-                Math.abs(prev.height - nextRect.height) > 0.5) {
-              setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight));
-              return nextRect;
+                Math.abs(prev.x      - rect.x)      > 0.5 ||
+                Math.abs(prev.y      - rect.y)      > 0.5 ||
+                Math.abs(prev.width  - rect.width)  > 0.5 ||
+                Math.abs(prev.height - rect.height) > 0.5) {
+              setTooltipPos(computeTooltipPos(rect, window.innerWidth, window.innerHeight));
+              return rect;
             }
             return prev;
           });
         } else {
           setSpotRect(null);
-          setTooltipPos({
-            top:  window.innerHeight / 2 - 110,
-            left: window.innerWidth  / 2 - TOOLTIP_WIDTH / 2,
-          });
         }
       }
 
       // Poll canAdvance
       if (typeof currentStep?.canAdvance === 'function') {
-        const allowed = currentStep.canAdvance();
-        setCanProceed(prev => prev !== allowed ? allowed : prev);
+        const ok = currentStep.canAdvance();
+        setCanProceed(prev => prev !== ok ? ok : prev);
       } else {
         setCanProceed(true);
       }
 
       // Poll optional fill
-      if (currentStep?.isOptional && typeof currentStep?.checkOptionalFilled === 'function') {
+      if (currentStep?.isOptional && typeof currentStep.checkOptionalFilled === 'function') {
         const filled = currentStep.checkOptionalFilled();
         setIsOptionalFilled(prev => prev !== filled ? filled : prev);
       } else {
         setIsOptionalFilled(false);
       }
 
-      requestAnimationFrame(updateLoop);
+      requestAnimationFrame(loop);
     };
 
-    requestAnimationFrame(updateLoop);
+    requestAnimationFrame(loop);
     return () => { active = false; };
   }, [isActive, isTransitioning, currentStep, currentStepIndex]);
 
-  // ---------------------------------------------------------------------------
-  // Body-scroll locking.
-  // Lock scroll ONLY for purely informational steps (no canAdvance, no
-  // requiresAction) — i.e. steps where the user only reads and clicks Next.
-  // Form-interaction steps MUST allow scrolling so the user can reach inputs.
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    const needsInteraction = currentStep?.requiresAction || currentStep?.canAdvance || currentStep?.isOptional;
-    if (isActive && !needsInteraction) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [isActive, currentStep]);
-
-  // ---------------------------------------------------------------------------
-  // Block clicks on specific selectors (e.g. Create Exam btn during overview)
-  // ---------------------------------------------------------------------------
+  // ── Block clicks on specific selectors (e.g. Create Exam btn during overview)
   useEffect(() => {
     if (!isActive || !currentStep?.blockSelectors?.length) return;
-    const styleEl = document.createElement('style');
-    styleEl.id = 'tour-block-selectors-style';
-    styleEl.innerHTML = `${currentStep.blockSelectors.join(', ')} { pointer-events: none !important; opacity: 0.65; cursor: not-allowed !important; }`;
-    document.head.appendChild(styleEl);
-    return () => { if (styleEl.parentNode) styleEl.parentNode.removeChild(styleEl); };
+    const s = document.createElement('style');
+    s.id = 'tour-block-selectors-style';
+    s.innerHTML = `${currentStep.blockSelectors.join(', ')} { pointer-events: none !important; opacity: 0.65; cursor: not-allowed !important; }`;
+    document.head.appendChild(s);
+    return () => { if (s.parentNode) s.parentNode.removeChild(s); };
   }, [isActive, currentStep, currentStepIndex]);
 
-  // ---------------------------------------------------------------------------
-  // Action steps — auto-advance when the user clicks the highlighted element
-  // ---------------------------------------------------------------------------
+  // ── Action steps: auto-advance when user clicks highlighted element ─────────
   useEffect(() => {
     if (!isActive || !currentStep?.requiresAction || !currentStep?.selector || actionDone) return;
     const el = document.querySelector(currentStep.selector);
     if (!el) return;
-    const handleClick = () => {
+    const handle = () => {
       setActionDone(true);
       setTimeout(() => nextStep(), 400);
     };
-    el.addEventListener('click', handleClick, { once: true });
-    return () => el.removeEventListener('click', handleClick);
+    el.addEventListener('click', handle, { once: true });
+    return () => el.removeEventListener('click', handle);
   }, [isActive, currentStep, actionDone, nextStep]);
 
-  // ---------------------------------------------------------------------------
-  // Nothing to render while tour is inactive
-  // ---------------------------------------------------------------------------
   if (!isActive) return null;
 
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // ---------------------------------------------------------------------------
-  // Last step — full-screen celebration card
-  // ---------------------------------------------------------------------------
+  // ── Last step: full-screen celebration ─────────────────────────────────────
   if (isLastStep && isWelcomeOrFinish) {
     return createPortal(
       <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4" style={{ pointerEvents: 'all' }}>
         <div className="absolute inset-0 bg-[rgba(10,14,30,0.8)] backdrop-blur-sm" />
 
-        {/* Confetti */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {Array.from({ length: 30 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full animate-bounce"
-              style={{
-                width:  Math.random() * 8 + 4,
-                height: Math.random() * 8 + 4,
-                left:   `${Math.random() * 100}%`,
-                top:    `${Math.random() * 100}%`,
-                background: ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'][Math.floor(Math.random() * 6)],
-                animationDelay:    `${Math.random() * 2}s`,
-                animationDuration: `${1.5 + Math.random() * 2}s`,
-                opacity: 0.7,
-              }}
-            />
+            <div key={i} className="absolute rounded-full animate-bounce" style={{
+              width:  Math.random() * 8 + 4,
+              height: Math.random() * 8 + 4,
+              left:   `${Math.random() * 100}%`,
+              top:    `${Math.random() * 100}%`,
+              background: ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'][Math.floor(Math.random() * 6)],
+              animationDelay:    `${Math.random() * 2}s`,
+              animationDuration: `${1.5 + Math.random() * 2}s`,
+              opacity: 0.7,
+            }} />
           ))}
         </div>
 
         <div className="relative z-10 bg-white dark:bg-[#0f1729] border border-slate-200/80 dark:border-indigo-500/20 rounded-3xl shadow-2xl shadow-indigo-500/20 p-8 max-w-sm w-full text-center animate-in zoom-in-90 fade-in duration-500">
-          <div className="mx-auto mb-5 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-xl shadow-indigo-500/30 animate-in zoom-in duration-700 delay-150">
+          <div className="mx-auto mb-5 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-xl shadow-indigo-500/30">
             <svg viewBox="0 0 52 52" className="w-10 h-10" fill="none">
               <circle cx="26" cy="26" r="25" stroke="white" strokeWidth="2" strokeOpacity="0.3" />
               <path d="M14 27l8 8 16-16" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-                className="[stroke-dasharray:50] [stroke-dashoffset:50] animate-[drawCheck_0.6s_0.3s_ease-out_forwards]"
-              />
+                className="[stroke-dasharray:50] [stroke-dashoffset:50] animate-[drawCheck_0.6s_0.3s_ease-out_forwards]" />
             </svg>
           </div>
 
@@ -437,67 +399,50 @@ const OnboardingTour = () => {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Main overlay
-  // ---------------------------------------------------------------------------
+  // ── Main overlay ────────────────────────────────────────────────────────────
   return createPortal(
     <div className="fixed inset-0 z-[9990] pointer-events-none">
 
-      {/* Backdrop panels (4-sided cut-out around spotlight) */}
+      {/* 4-panel backdrop with spotlight cut-out */}
       {!spotRect ? (
         <div className="absolute inset-0 bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto" />
       ) : (
         <>
-          {/* Top */}
-          <div
-            className="absolute left-0 top-0 w-full bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
-            style={{ height: Math.max(0, spotRect.y) }}
-          />
-          {/* Bottom */}
-          <div
-            className="absolute left-0 w-full bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
-            style={{ top: spotRect.y + spotRect.height, height: Math.max(0, vh - (spotRect.y + spotRect.height)) }}
-          />
-          {/* Left */}
-          <div
-            className="absolute left-0 bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
-            style={{ top: spotRect.y, height: spotRect.height, width: Math.max(0, spotRect.x) }}
-          />
-          {/* Right */}
-          <div
-            className="absolute bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
-            style={{ top: spotRect.y, left: spotRect.x + spotRect.width, height: spotRect.height, width: Math.max(0, vw - (spotRect.x + spotRect.width)) }}
-          />
+          <div className="absolute left-0 top-0 w-full bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
+               style={{ height: Math.max(0, spotRect.y) }} />
+          <div className="absolute left-0 w-full bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
+               style={{ top: spotRect.y + spotRect.height, height: Math.max(0, vh - (spotRect.y + spotRect.height)) }} />
+          <div className="absolute left-0 bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
+               style={{ top: spotRect.y, height: spotRect.height, width: Math.max(0, spotRect.x) }} />
+          <div className="absolute bg-[rgba(10,14,30,0.72)] backdrop-blur-[1.5px] pointer-events-auto transition-all duration-300"
+               style={{ top: spotRect.y, left: spotRect.x + spotRect.width, height: spotRect.height, width: Math.max(0, vw - (spotRect.x + spotRect.width)) }} />
 
           {/* Spotlight ring */}
-          <div
-            className="absolute border-2 border-indigo-500/60 rounded-2xl pointer-events-none transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.4)]"
-            style={{ left: spotRect.x, top: spotRect.y, width: spotRect.width, height: spotRect.height }}
-          />
+          <div className="absolute border-2 border-indigo-500/60 rounded-2xl pointer-events-none transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+               style={{ left: spotRect.x, top: spotRect.y, width: spotRect.width, height: spotRect.height }} />
         </>
       )}
 
       {/* Tooltip card */}
       <div
         id="tour-tooltip-card"
-        className={`absolute pointer-events-auto transition-all duration-300 ${isTransitioning ? 'opacity-0 scale-95 translate-y-2' : 'opacity-100 scale-100 translate-y-0'}`}
+        className={`absolute pointer-events-auto transition-all duration-300 ${
+          isTransitioning ? 'opacity-0 scale-95 translate-y-2' : 'opacity-100 scale-100 translate-y-0'
+        }`}
         style={{ top: tooltipPos.top, left: tooltipPos.left, width: TOOLTIP_WIDTH, zIndex: 9999 }}
       >
-        {/* Outer glow ring */}
+        {/* Glow ring */}
         <div className="absolute -inset-[1px] rounded-[28px] bg-gradient-to-br from-indigo-500/40 via-violet-500/20 to-indigo-500/40 blur-[2px]" />
 
         <div className="relative rounded-[26px] overflow-hidden bg-[#0b0f1e]/95 backdrop-blur-2xl border border-white/[0.07] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7),0_0_0_1px_rgba(99,102,241,0.12)]">
-
-          {/* Top ambient strip */}
+          {/* Top strip */}
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-60" />
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
           {/* Progress bar */}
           <div className="h-[2px] bg-white/5 w-full">
-            <div
-              className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-400 transition-all duration-700 ease-out"
-              style={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }}
-            />
+            <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-400 transition-all duration-700 ease-out"
+                 style={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }} />
           </div>
 
           <div className="p-5 relative">
@@ -514,11 +459,9 @@ const OnboardingTour = () => {
                   Step {currentStepIndex + 1} / {totalSteps}
                 </p>
               </div>
-              <button
-                onClick={skipTour}
+              <button onClick={skipTour}
                 className="h-7 w-7 rounded-xl flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all"
-                title="Skip tour"
-              >
+                title="Skip tour">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -534,7 +477,7 @@ const OnboardingTour = () => {
             {currentStep?.requiresAction && !actionDone && (
               <div className="mb-4 flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
                 <span className="flex h-2 w-2 rounded-full bg-indigo-400 animate-pulse shrink-0" />
-                <p className="text-[11.5px] font-semibold text-indigo-300">Click the highlighted element above to continue</p>
+                <p className="text-[11.5px] font-semibold text-indigo-300">Click the highlighted element to continue</p>
               </div>
             )}
 
@@ -552,27 +495,20 @@ const OnboardingTour = () => {
 
             {/* Footer */}
             <div className="flex items-center justify-between">
-              {/* Dot progress */}
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalSteps }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-full transition-all duration-400 ${
-                      i === currentStepIndex ? 'w-4 h-1.5 bg-indigo-400'
-                      : i < currentStepIndex ? 'w-1.5 h-1.5 bg-indigo-700'
-                      : 'w-1.5 h-1.5 bg-white/10'
-                    }`}
-                  />
+                  <div key={i} className={`rounded-full transition-all duration-400 ${
+                    i === currentStepIndex ? 'w-4 h-1.5 bg-indigo-400'
+                    : i < currentStepIndex ? 'w-1.5 h-1.5 bg-indigo-700'
+                    : 'w-1.5 h-1.5 bg-white/10'
+                  }`} />
                 ))}
               </div>
 
-              {/* Nav buttons */}
               <div className="flex items-center gap-2">
                 {currentStepIndex > 0 && (
-                  <button
-                    onClick={prevStep}
-                    className="h-8 px-3.5 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/8 flex items-center gap-1 transition-all border border-white/5 hover:border-white/10"
-                  >
+                  <button onClick={prevStep}
+                    className="h-8 px-3.5 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/8 flex items-center gap-1 transition-all border border-white/5 hover:border-white/10">
                     <ChevronLeft className="h-3.5 w-3.5" />
                     Back
                   </button>
@@ -588,19 +524,14 @@ const OnboardingTour = () => {
                     <span className="relative">
                       {isLastStep
                         ? '🎉 Finish'
-                        : (currentStep?.isOptional && !isOptionalFilled)
-                          ? 'Skip'
-                          : 'Next'}
+                        : (currentStep?.isOptional && !isOptionalFilled) ? 'Skip' : 'Next'}
                     </span>
                     {!isLastStep && <ChevronRight className="h-3.5 w-3.5 relative" />}
                   </button>
                 ) : (
-                  <button
-                    disabled
-                    className="h-8 px-4 rounded-xl text-[11px] font-bold text-white/30 bg-white/5 border border-white/5 flex items-center gap-1.5 cursor-not-allowed"
-                  >
-                    Next
-                    <ChevronRight className="h-3.5 w-3.5" />
+                  <button disabled
+                    className="h-8 px-4 rounded-xl text-[11px] font-bold text-white/30 bg-white/5 border border-white/5 flex items-center gap-1.5 cursor-not-allowed">
+                    Next <ChevronRight className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
