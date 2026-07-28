@@ -47,8 +47,12 @@ function scrollIntoViewAndWait(el) {
     if (!el) { resolve(); return; }
     const r  = el.getBoundingClientRect();
     const vh = window.innerHeight;
-    const vw = window.innerWidth;
-    const alreadyCentred = r.top >= 0 && r.bottom <= vh && r.left >= 0 && r.right <= vw;
+    
+    // Check if the element is already centered in the viewport (within 5px)
+    const targetTop = vh / 2 - r.height / 2;
+    const scrollDiff = r.top - targetTop;
+    const alreadyCentred = Math.abs(scrollDiff) < 5;
+
     el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     if (alreadyCentred) { setTimeout(resolve, 80); return; }
     let prevTop = null, stableFrames = 0, cancelled = false;
