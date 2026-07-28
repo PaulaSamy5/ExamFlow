@@ -52,6 +52,24 @@ function scrollToElementAndWait(el) {
     const scrollContainer = el.closest('.tour-schedule-timing, .tour-basic-info') || el;
     const rect = scrollContainer.getBoundingClientRect();
 
+    // ── Already-visible guard ───────────────────────────────────────────────
+    // The safe viewport is the strip between the sticky navbar and the fixed
+    // bottom action bar.  Add a small comfort margin (20 px) on each edge.
+    const COMFORT = 20;
+    const safeTop    = NAVBAR_H    + COMFORT;
+    const safeBottom = window.innerHeight - BOTTOM_BAR_H - COMFORT;
+
+    const alreadyVisible =
+      rect.top    >= safeTop    &&
+      rect.bottom <= safeBottom;
+
+    if (alreadyVisible) {
+      // Element is fully inside the visible zone — do NOT scroll
+      setTimeout(resolve, 60);
+      return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     // Convert viewport-relative element top → document-relative
     const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     const elDocTop       = currentScrollY + rect.top;
