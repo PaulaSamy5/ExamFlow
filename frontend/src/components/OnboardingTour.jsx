@@ -43,9 +43,6 @@ function waitForElement(selector, callback) {
   return () => { done = true; observer.disconnect(); clearTimeout(timeout); };
 }
 
-// ─── Tour-controlled scroll: always uses window.scrollTo so the window (not a
-// sub-container) is moved. getBoundingClientRect+scrollY is the most reliable
-// way to convert viewport position → document position.
 function scrollToElementAndWait(el) {
   return new Promise((resolve) => {
     if (!el) { setTimeout(resolve, 60); return; }
@@ -53,20 +50,12 @@ function scrollToElementAndWait(el) {
     // Viewport-relative rect (works regardless of layout / transforms)
     const rect = el.getBoundingClientRect();
 
-    // True usable zone on screen (between sticky navbar and fixed bottom bar)
-    const visTop    = NAVBAR_H + SCROLL_MARGIN;
-    const visBottom = window.innerHeight - BOTTOM_BAR_H - SCROLL_MARGIN;
-
-    // Bias toward upper 30% of the visible zone so dropdowns (calendar, time)
-    // have plenty of room to open below the element without hitting the bottom bar
-    const visCenter = visTop + (visBottom - visTop) * 0.30;
-
-    // Convert viewport-relative element center → document-relative
+    // Convert viewport-relative element top → document-relative
     const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
-    const elDocCenter    = currentScrollY + rect.top + rect.height / 2;
+    const elDocTop       = currentScrollY + rect.top;
 
-    // Final scroll target
-    const targetY = Math.max(0, elDocCenter - visCenter);
+    // Align the top of the element exactly 24px below the sticky navbar
+    const targetY = Math.max(0, elDocTop - NAVBAR_H - 24);
 
     // Scroll instantly (no smooth animations to avoid scroll-snapping race conditions)
     el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
@@ -83,11 +72,7 @@ function computeTooltipPos(rect, vw, vh) {
   if (!rect) return { top: vh / 2 - 100, left: vw / 2 - TOOLTIP_WIDTH / 2 };
   const tooltipH = 230;
 
-  // Design Rule: Only use side placement for narrow elements (e.g. date pickers, input fields).
-  // Wide elements (like cards) look much better with a centered top/bottom layout.
-  const isNarrow = rect.width <= 500;
-
-  if (vw >= 800 && isNarrow) {
+  if (vw >= 800) {
     // Determine which side of the screen has more space relative to the element
     const spaceLeft = rect.x;
     const spaceRight = vw - (rect.x + rect.width);
