@@ -115,9 +115,11 @@ const TOUR_STEPS = [
   {
     stepIndex: 11,
     title: "Question Builder 🎨",
-    description: "Build diverse questions (MCQs, Fill-in-the-blanks, Coding sandboxes, or UML diagrams) and allocate points per section.",
+    description: "Build diverse questions (MCQs, Fill-in-the-blanks, Coding sandboxes, or UML diagrams) and allocate points per section. Please add at least one question to proceed!",
     route: "/exams/new",
-    selector: ".tour-question-builder"
+    selector: ".tour-question-builder",
+    canAdvance: () => !!document.querySelector('[id^="question-card-"]'),
+    blockedHelperText: "Please create at least one question so we can publish your quiz!"
   },
   {
     stepIndex: 12,
@@ -183,6 +185,23 @@ export const TourProvider = ({ children }) => {
       navigate(step.route, { replace: true });
     }
   }, [currentStepIndex, isActive, location.pathname]);
+
+  // If the user navigates away (e.g. browser back/forward or page links),
+  // synchronize the tour step index to the new route.
+  useEffect(() => {
+    if (!isActive) return;
+    const currentStep = TOUR_STEPS[currentStepIndex];
+    if (!currentStep) return;
+
+    // Only synchronize if the user manually navigated to a different page route
+    if (location.pathname !== currentStep.route) {
+      // Find the first step matching the new route
+      const matchingIndex = TOUR_STEPS.findIndex(s => s.route === location.pathname);
+      if (matchingIndex !== -1) {
+        setCurrentStepIndex(matchingIndex);
+      }
+    }
+  }, [isActive, location.pathname]);
 
   const startTour = () => {
     setCurrentStepIndex(0);
