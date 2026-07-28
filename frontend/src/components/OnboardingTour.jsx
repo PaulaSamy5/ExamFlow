@@ -10,9 +10,9 @@ const TOOLTIP_WIDTH     = 340;
 const ELEMENT_WAIT_MAX  = 6000;
 const SCROLL_KEYS       = new Set([32, 33, 34, 35, 36, 38, 40]);
 // Fixed chrome that reduces the true visible viewport
-const NAVBAR_H          = 72;   // sticky top navbar
-const BOTTOM_BAR_H      = 96;   // fixed bottom action bar (bottom-6 + height ≈ 96px)
-const SCROLL_MARGIN     = 24;   // breathing room above/below element
+const NAVBAR_H      = 72;   // sticky top navbar height (px)
+const BOTTOM_BAR_H  = 140;  // fixed bottom bar: bottom-6 (24) + bar (~80) + extra padding
+const SCROLL_MARGIN = 36;   // comfortable breathing room above/below highlighted element
 
 // ─── User-scroll prevention handlers ─────────────────────────────────────────
 function lockWheel(e)  { e.preventDefault(); }
@@ -43,46 +43,31 @@ function waitForElement(selector, callback) {
   return () => { done = true; observer.disconnect(); clearTimeout(timeout); };
 }
 
-// ─── Tour-controlled scroll: explicit window.scrollTo accounting for fixed chrome
-// scrollIntoView() silently skips when the element rect is inside the raw viewport
-// even if a fixed bottom bar is visually covering it. By computing the target
-// scroll position ourselves we guarantee the window always moves to the right place.
-function getDocumentOffsetTop(el) {
-  let top = 0;
-  let node = el;
-  while (node && node !== document.body) {
-    top += node.offsetTop;
-    node = node.offsetParent;
-  }
-  return top;
-}
-
+// ─── Tour-controlled scroll: always uses window.scrollTo so the window (not a
+// sub-container) is moved. getBoundingClientRect+scrollY is the most reliable
+// way to convert viewport position → document position.
 function scrollToElementAndWait(el) {
   return new Promise((resolve) => {
     if (!el) { setTimeout(resolve, 60); return; }
 
-    // Centre of the usable visible zone (between navbar and bottom bar)
+    // Viewport-relative rect (works regardless of layout / transforms)
+    const rect = el.getBoundingClientRect();
+
+    // True usable zone on screen (between sticky navbar and fixed bottom bar)
     const visTop    = NAVBAR_H + SCROLL_MARGIN;
     const visBottom = window.innerHeight - BOTTOM_BAR_H - SCROLL_MARGIN;
     const visCenter = (visTop + visBottom) / 2;
 
-    // Document-relative centre of the target element
-    const docTop    = getDocumentOffsetTop(el);
-    const elCenter  = docTop + el.offsetHeight / 2;
+    // Convert viewport-relative element center → document-relative
+    const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const elDocCenter    = currentScrollY + rect.top + rect.height / 2;
 
-    // Target window scroll position
-    const targetY   = Math.max(0, elCenter - visCenter);
-    const currentY  = window.scrollY || document.documentElement.scrollTop || 0;
-
-    if (Math.abs(targetY - currentY) < 8) {
-      // Already in the right place
-      setTimeout(resolve, 80);
-      return;
-    }
+    // Final scroll target
+    const targetY = Math.max(0, elDocCenter - visCenter);
 
     window.scrollTo({ top: targetY, behavior: 'smooth' });
-    // 500ms is enough for any browser smooth-scroll + a tiny safety buffer
-    setTimeout(resolve, 500);
+    // 550ms gives smooth scroll plenty of time to finish in all browsers
+    setTimeout(resolve, 550);
   });
 }
 
