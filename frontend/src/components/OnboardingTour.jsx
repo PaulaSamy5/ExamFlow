@@ -45,39 +45,8 @@ function waitForElement(selector, callback) {
 function scrollIntoViewAndWait(el) {
   return new Promise((resolve) => {
     if (!el) { resolve(); return; }
-    const r  = el.getBoundingClientRect();
-    const vh = window.innerHeight;
-    
-    // Check if the element is already centered in the viewport (within 5px)
-    const targetTop = vh / 2 - r.height / 2;
-    const scrollDiff = r.top - targetTop;
-    const alreadyCentred = Math.abs(scrollDiff) < 5;
-
     el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-    if (alreadyCentred) { setTimeout(resolve, 80); return; }
-    let prevTop = null, stableFrames = 0, cancelled = false;
-    const hardStop = setTimeout(() => { cancelled = true; resolve(); }, SCROLL_HARD_TIMEOUT);
-    
-    // Delay polling by 150ms to let the browser initiate the smooth scroll
-    setTimeout(() => {
-      if (cancelled) return;
-      const poll = () => {
-        if (cancelled) return;
-        const top = el.getBoundingClientRect().top;
-        if (prevTop !== null && Math.abs(top - prevTop) < 0.5) {
-          if (++stableFrames >= SCROLL_STABLE_FRAMES) {
-            clearTimeout(hardStop);
-            resolve();
-            return;
-          }
-        } else {
-          stableFrames = 0;
-        }
-        prevTop = top;
-        requestAnimationFrame(poll);
-      };
-      requestAnimationFrame(poll);
-    }, 150);
+    setTimeout(resolve, 800); // Wait 800ms for smooth scroll to complete
   });
 }
 
