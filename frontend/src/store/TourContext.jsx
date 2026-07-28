@@ -159,14 +159,18 @@ export const TourProvider = ({ children }) => {
     }
   }, [user]);
 
-  // Synchronize route if step changes and requires a route switch
+  // Synchronize route whenever the step OR the current pathname changes.
+  // requiresAction steps are excluded — their button click drives navigation,
+  // and we must not immediately snap back to the step's declared route.
   useEffect(() => {
     if (!isActive) return;
     const step = TOUR_STEPS[currentStepIndex];
-    if (step && location.pathname !== step.route) {
-      navigate(step.route);
+    if (!step?.route) return;
+    if (step.requiresAction) return;          // let the button's own <Link> navigate
+    if (location.pathname !== step.route) {
+      navigate(step.route, { replace: true });
     }
-  }, [currentStepIndex, isActive]);
+  }, [currentStepIndex, isActive, location.pathname]);
 
   const startTour = () => {
     setCurrentStepIndex(0);
