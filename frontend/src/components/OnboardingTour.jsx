@@ -83,7 +83,11 @@ function computeTooltipPos(rect, vw, vh) {
   if (!rect) return { top: vh / 2 - 100, left: vw / 2 - TOOLTIP_WIDTH / 2 };
   const tooltipH = 230;
 
-  if (vw >= 800) {
+  // Design Rule: Only use side placement for narrow elements (e.g. date pickers, input fields).
+  // Wide elements (like cards) look much better with a centered top/bottom layout.
+  const isNarrow = rect.width <= 500;
+
+  if (vw >= 800 && isNarrow) {
     // Determine which side of the screen has more space relative to the element
     const spaceLeft = rect.x;
     const spaceRight = vw - (rect.x + rect.width);
@@ -103,7 +107,7 @@ function computeTooltipPos(rect, vw, vh) {
     }
   }
 
-  // Mobile fallback: Top or Bottom placement
+  // Mobile or Wide Element: Centered Top or Bottom placement
   const leftIdeal = rect.x + rect.width / 2 - TOOLTIP_WIDTH / 2;
   const left      = Math.max(16, Math.min(leftIdeal, vw - TOOLTIP_WIDTH - 16));
   const below = rect.y + rect.height + SPOTLIGHT_PADDING + TOOLTIP_OFFSET;
