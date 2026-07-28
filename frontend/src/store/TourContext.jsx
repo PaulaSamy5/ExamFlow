@@ -93,6 +93,18 @@ const TOUR_STEPS = [
   },
   {
     stepIndex: 9,
+    title: "Exam Duration ⏳",
+    description: "Specify the length of the exam in minutes. This ensures that students are automatically submitted when their individual timer expires.",
+    route: "/exams/new",
+    selector: ".tour-duration",
+    canAdvance: () => {
+      const val = parseFloat(document.querySelector('.tour-duration input')?.value);
+      return !isNaN(val) && val > 0;
+    },
+    blockedHelperText: "Please enter a valid exam duration (in minutes) to continue."
+  },
+  {
+    stepIndex: 10,
     title: "Go to Construction 🏗️",
     description: "Great — your exam settings are ready! Now click 'Go to Construction' to start adding questions.",
     route: "/exams/new",
@@ -101,35 +113,35 @@ const TOUR_STEPS = [
     actionType: "click"
   },
   {
-    stepIndex: 10,
+    stepIndex: 11,
     title: "Question Builder 🎨",
     description: "Build diverse questions (MCQs, Fill-in-the-blanks, Coding sandboxes, or UML diagrams) and allocate points per section.",
     route: "/exams/new",
     selector: ".tour-question-builder"
   },
   {
-    stepIndex: 11,
+    stepIndex: 12,
     title: "Smart Publishing Validation 🚀",
     description: "When ready, click Broadcast Live. Our validation engine checks all questions and alerts you if any sections require attention.",
     route: "/exams/new",
     selector: ".tour-publish-btn"
   },
   {
-    stepIndex: 12,
+    stepIndex: 13,
     title: "Submissions & Grades 📋",
     description: "Monitor real-time student activity. Access detailed grades, AI semantic feedback, and export analysis.",
     route: "/instructor/dashboard",
     selector: ".tour-dashboard-stats"
   },
   {
-    stepIndex: 13,
+    stepIndex: 14,
     title: "Student Join Experience 📲",
     description: "Students can join your live exams instantly by scanning the unique QR Code or entering the Access Code.",
     route: "/instructor/dashboard",
     selector: ".tour-student-join-section"
   },
   {
-    stepIndex: 14,
+    stepIndex: 15,
     title: "You're All Set! 🎉",
     description: "You're ready to run seamless evaluations. Welcome to next-gen academic testing!",
     route: "/instructor/dashboard",

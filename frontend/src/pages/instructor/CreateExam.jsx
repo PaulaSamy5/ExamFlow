@@ -2826,7 +2826,7 @@ const CreateExam = () => {
                 const showDurationError = !!errors.duration;
 
                 return (
-                  <div className={`${exam.examType === 'PRINTABLE_ONLY' ? '' : 'border-t border-slate-100 dark:border-slate-800 pt-5'}`}>
+                  <div className={`tour-duration ${exam.examType === 'PRINTABLE_ONLY' ? '' : 'border-t border-slate-100 dark:border-slate-800 pt-5'}`}>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                       <div className="flex items-center gap-2 shrink-0">
                         <div className={`p-1.5 rounded-lg transition-colors ${showDurationError ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500' : 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400'}`}>
