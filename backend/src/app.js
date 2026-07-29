@@ -71,9 +71,15 @@ app.use(helmet({
 }));
 
 // ─── Rate Limiters ───
+// Skip rate limiting for authenticated requests — bearer-token auth already
+// proves identity, and IP-based bucketing causes false 429s for users behind
+// shared NATs or cloud reverse proxies (e.g. Railway, Vercel, university WiFi).
+const skipAuthenticated = (req) => !!(req.headers.authorization?.startsWith('Bearer '));
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15-minute window
-  max: 300,                  // 300 requests per window per IP
+  max: 1000,                 // 1000 requests per window per IP (unauthenticated only)
+  skip: skipAuthenticated,   // authenticated requests are exempt
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again later.' },
