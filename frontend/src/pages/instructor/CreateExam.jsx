@@ -15,6 +15,7 @@ import { toast } from 'react-hot-toast';
 import UMLCanvas from '../../components/UMLCanvas';
 import RichTextEditor from '../../components/RichTextEditor';
 import { useAuth } from '../../store/AuthContext';
+import { useTour } from '../../store/TourContext';
 
 const MathRenderer = ({ tex, displayMode = false }) => {
   const containerRef = useRef(null);
@@ -1410,6 +1411,7 @@ const CreateExam = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isActive: isTourActive } = useTour();
   const [metaCollapsed, setMetaCollapsed] = useState(true);
 
   // Strongly sync native draft at process initial render to eliminate race condition
@@ -1486,6 +1488,30 @@ const CreateExam = () => {
     if (draftState?.sections?.length > 0) return draftState.sections;
     return [{ id: 1, title: 'Exam Questions', description: '', questions: [] }];
   });
+
+  // When the onboarding tour is active for a new exam, force reset states to
+  // clean Phase 01 blueprint defaults. This prevents cached localStorage drafts
+  // from initializing the workspace at Phase 02 (Construction) which causes
+  // the tour elements from Phase 01 to be missing from the DOM and delay rendering.
+  useEffect(() => {
+    if (isTourActive && !id) {
+      setStep(1);
+      setExam({
+        title: '',
+        description: '',
+        totalGrade: 100,
+        duration: '',
+        startTime: getLocalNow(),
+        endTime: '',
+        showResults: null,
+        requireAIGradeApproval: 0,
+        examType: '',
+        examMeta: defaultExamMeta
+      });
+      setSections([{ id: 1, title: 'Exam Questions', description: '', questions: [] }]);
+    }
+  }, [isTourActive, id]);
+
   const [isAutoGrade, setIsAutoGrade] = useState(true);
   const [submissionCount, setSubmissionCount] = useState(0);
 
