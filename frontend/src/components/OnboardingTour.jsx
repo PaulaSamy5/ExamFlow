@@ -100,8 +100,9 @@ function scrollToElementAndWait(el) {
     // Align the top of the element exactly 24px below the sticky navbar
     const targetY = Math.max(0, elDocTop - NAVBAR_H - 24);
 
-    // Scroll instantly (no smooth animations to avoid scroll-snapping race conditions)
-    scrollContainer.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+    // Scroll instantly using a single precise target — do NOT also call scrollIntoView()
+    // because that fires a separate scroll to 'center' which races against scrollTo()
+    // and creates a visible flash/delay between steps on the same page.
     window.scrollTo(0, targetY);
     if (document.documentElement) document.documentElement.scrollTop = targetY;
     if (document.body) document.body.scrollTop = targetY;
