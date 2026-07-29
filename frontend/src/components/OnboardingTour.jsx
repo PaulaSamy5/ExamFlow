@@ -238,6 +238,14 @@ const OnboardingTour = () => {
     }
     if (stale()) return;
 
+    // Special optimization: For the question builder step, if a question card is present,
+    // highlight the first question card instead of the massive outer container.
+    // This makes the spotlight smaller and focuses on the actual question!
+    if (el && currentStep.selector === '.tour-question-builder') {
+      const questionCard = document.querySelector('[id^="question-card-"]');
+      if (questionCard) el = questionCard;
+    }
+
     if (!el) {
       setTooltipPos({ top: window.innerHeight / 2 - 110, left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2 });
       setTransitioning(false);
@@ -270,7 +278,7 @@ const OnboardingTour = () => {
   // ── Global scroll lock ──────────────────────────────────────────────────────
   // Uses the REF (not state) so handler is never stale, even during React batching
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || currentStep?.allowScroll) return;
     const handleScroll = () => {
       if (isTransitioningRef.current) return; // allow programmatic smooth scroll
       window.scrollTo(0, settledScrollTopRef.current);
@@ -293,7 +301,7 @@ const OnboardingTour = () => {
       window.removeEventListener('keydown',   lockKeys);
       window.removeEventListener('scroll',    handleScroll);
     };
-  }, [isActive]); // stable — ref handles isTransitioning updates without re-adding
+  }, [isActive, currentStep?.allowScroll]); // re-bind when allowScroll changes
 
   // ── Continuous RAF tracking (keeps spotlight on element after scroll settles) ─
   useEffect(() => {
@@ -302,7 +310,14 @@ const OnboardingTour = () => {
     const loop = () => {
       if (!active) return;
       if (currentStep?.selector) {
-        const el = document.querySelector(currentStep.selector);
+        let el = document.querySelector(currentStep.selector);
+        // Special optimization: For the question builder step, if a question card is present,
+        // highlight the first question card instead of the massive outer container.
+        // This makes the spotlight smaller and focuses on the actual question!
+        if (currentStep.selector === '.tour-question-builder') {
+          const questionCard = document.querySelector('[id^="question-card-"]');
+          if (questionCard) el = questionCard;
+        }
         if (el) {
           const r = el.getBoundingClientRect();
           let nextRect = {

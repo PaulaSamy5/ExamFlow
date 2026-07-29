@@ -118,6 +118,7 @@ const TOUR_STEPS = [
     description: "Build diverse questions (MCQs, Fill-in-the-blanks, Coding sandboxes, or UML diagrams) and allocate points per section. Please add at least one question to proceed!",
     route: "/exams/new",
     selector: ".tour-question-builder",
+    allowScroll: true,
     canAdvance: () => !!document.querySelector('[id^="question-card-"]'),
     blockedHelperText: "Please create at least one question so we can publish your quiz!"
   },
