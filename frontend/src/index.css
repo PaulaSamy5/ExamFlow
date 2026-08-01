@@ -646,3 +646,22 @@ html.dark .hero-gradient-text {
   from { stroke-dashoffset: 50; }
   to   { stroke-dashoffset: 0; }
 }
+
+/* Continuously-falling confetti on the tour's finish screen. Each particle
+   loops this cycle forever (animation-iteration-count: infinite) — a
+   negative animation-delay (set per-particle in JS) pre-seeds it partway
+   through the cycle so the whole field is already mid-fall and staggered
+   on the very first frame instead of every dot spawning together at the
+   top. --drift/--spin are set per-particle via inline style. */
+@keyframes tourConfettiFall {
+  0%   { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { transform: translate3d(var(--drift, 0px), 110vh, 0) rotate(var(--spin, 360deg)); opacity: 0; }
+}
+
+.tour-confetti-particle {
+  top: 0;
+  animation: tourConfettiFall linear infinite;
+  will-change: transform, opacity;
+}

@@ -208,17 +208,31 @@ const OnboardingTour = () => {
   const [canProceed,       setCanProceed]        = useState(true);
   const [isOptionalFilled, setIsOptionalFilled]  = useState(false);
 
-  // Finish-screen confetti particle layout — computed once and reused across
-  // every re-render. These were previously randomized inline in JSX, so any
-  // unrelated re-render (e.g. the RAF tracking loop below) reshuffled every
-  // dot's position/size/delay mid-animation, reading as a stutter/freeze.
+  // Finish-screen confetti — continuously falling from top to bottom, looping
+  // forever for as long as the screen is mounted. Computed once via useMemo
+  // (not inline in JSX) so an unrelated re-render never reshuffles a
+  // particle mid-fall — that previously reset every dot's position each
+  // render, and separately, plain animate-bounce only bobs a dot in place
+  // (no real travel), which read as static rather than a celebration.
+  // A NEGATIVE animation-delay pre-seeds each particle partway into its own
+  // fall cycle, so the whole field is already mid-flight and staggered on
+  // the very first frame instead of all 32 starting bunched at the top.
   const confettiParticles = useMemo(() => (
-    Array.from({ length: 28 }).map(() => ({
-      width: Math.random() * 8 + 4, height: Math.random() * 8 + 4,
-      left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
-      background: ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'][Math.floor(Math.random() * 6)],
-      animationDelay: `${Math.random() * 2}s`, animationDuration: `${1.5 + Math.random() * 2}s`, opacity: 0.7,
-    }))
+    Array.from({ length: 32 }).map(() => {
+      const duration = 3.5 + Math.random() * 3.5; // 3.5s – 7s per fall cycle
+      const isSquare = Math.random() < 0.35;
+      const size = isSquare ? 5 + Math.random() * 5 : 4 + Math.random() * 6;
+      return {
+        left: `${Math.random() * 100}%`,
+        width: size, height: size,
+        borderRadius: isSquare ? '2px' : '9999px',
+        background: ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'][Math.floor(Math.random() * 6)],
+        '--drift': `${(Math.random() - 0.5) * 160}px`,
+        '--spin': `${Math.random() < 0.5 ? '' : '-'}${360 + Math.random() * 360}deg`,
+        animationDuration: `${duration}s`,
+        animationDelay: `-${Math.random() * duration}s`,
+      };
+    })
   ), []);
 
   const cancelWaitRef      = useRef(null);
@@ -535,7 +549,7 @@ const OnboardingTour = () => {
         <div className="absolute inset-0 bg-[rgba(10,14,30,0.85)] backdrop-blur-sm" />
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {confettiParticles.map((p, i) => (
-            <div key={i} className="absolute rounded-full animate-bounce" style={p} />
+            <div key={i} className="tour-confetti-particle absolute" style={p} />
           ))}
         </div>
         <div className="relative z-10 bg-white dark:bg-[#0f1729] border border-slate-200/80 dark:border-indigo-500/20 rounded-3xl shadow-2xl shadow-indigo-500/20 p-8 max-w-sm w-full text-center animate-in zoom-in-90 fade-in duration-500">
