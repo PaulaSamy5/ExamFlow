@@ -2980,7 +2980,7 @@ const CreateExam = () => {
             {sections.map((section, sIdx) => {
               let globalQNum = sections.slice(0, sIdx).reduce((acc, s) => acc + s.questions.length, 0);
               return (
-                <div key={section.id} className="space-y-6 animate-in slide-in-from-left-4 fade-in duration-500">
+                <div key={section.id} className="tour-question-section space-y-6 animate-in slide-in-from-left-4 fade-in duration-500">
                   {/* Section Header */}
                   <div className="flex items-start gap-4 px-1">
                     <div className="flex flex-col items-center gap-1 shrink-0 mt-1">

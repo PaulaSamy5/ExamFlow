@@ -278,12 +278,13 @@ const OnboardingTour = () => {
     }
     if (stale()) return;
 
-    // Special optimization: For the question builder step, if a question card is present,
-    // highlight the first question card instead of the massive outer container.
-    // This makes the spotlight smaller and focuses on the actual question!
+    // Special optimization: For the question builder step, highlight the section
+    // card (header + question list) instead of the massive outer container. It's
+    // a normal block element that grows on its own as questions are added/removed,
+    // so the glow always fits however many questions currently exist.
     if (el && currentStep.selector === '.tour-question-builder') {
-      const questionCard = document.querySelector('[id^="question-card-"]');
-      if (questionCard) el = questionCard;
+      const questionSection = document.querySelector('.tour-question-section');
+      if (questionSection) el = questionSection;
     }
 
     if (!el) {
@@ -401,12 +402,12 @@ const OnboardingTour = () => {
       if (!active) return;
       if (currentStep?.selector) {
         let el = document.querySelector(currentStep.selector);
-        // Special optimization: For the question builder step, if a question card is present,
-        // highlight the first question card instead of the massive outer container.
-        // This makes the spotlight smaller and focuses on the actual question!
+        // Special optimization: highlight the section card (header + question
+        // list) rather than the massive outer container — it grows on its own
+        // as questions are added/removed, so the glow always fits the content.
         if (currentStep.selector === '.tour-question-builder') {
-          const questionCard = document.querySelector('[id^="question-card-"]');
-          if (questionCard) el = questionCard;
+          const questionSection = document.querySelector('.tour-question-section');
+          if (questionSection) el = questionSection;
         }
 
         // ── Highlight Mode ──────────────────────────────────────────────────
