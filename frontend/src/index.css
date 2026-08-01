@@ -640,3 +640,9 @@ html.dark .hero-gradient-text {
 .tour-highlight-clear {
   z-index: 9992 !important;
 }
+
+/* Draws the checkmark stroke in on the tour's finish screen. */
+@keyframes drawCheck {
+  from { stroke-dashoffset: 50; }
+  to   { stroke-dashoffset: 0; }
+}

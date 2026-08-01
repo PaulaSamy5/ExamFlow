@@ -543,7 +543,7 @@ const OnboardingTour = () => {
             Welcome aboard! You now know everything you need to run seamless, professional exams on ExamFlow.
           </p>
           <button onClick={completeTour}
-            className="w-full h-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-600/25 active:scale-[0.98] flex items-center justify-center gap-2">
+            className="w-full h-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-600/25 active:scale-[0.98] flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0f1729]">
             <Sparkles className="h-4 w-4" />
             Start Building Exams
           </button>
@@ -625,7 +625,7 @@ const OnboardingTour = () => {
                 </p>
               </div>
               <button onClick={skipTour}
-                className="h-7 w-7 rounded-xl flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all"
+                className="h-7 w-7 rounded-xl flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0f1e]"
                 title="Skip tour">
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -675,7 +675,7 @@ const OnboardingTour = () => {
               <div className="flex items-center gap-2">
                 {currentStepIndex > 0 && (
                   <button onClick={prevStep}
-                    className="h-8 px-3.5 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/8 flex items-center gap-1 transition-all border border-white/5 hover:border-white/10">
+                    className="h-8 px-3.5 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/8 flex items-center gap-1 transition-all border border-white/5 hover:border-white/10 outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0f1e]">
                     <ChevronLeft className="h-3.5 w-3.5" />
                     Back
                   </button>
@@ -686,7 +686,7 @@ const OnboardingTour = () => {
                   canProceed ? (
                     <button
                       onClick={isLastStep ? completeTour : nextStep}
-                      className="relative h-8 px-4 rounded-xl text-[11px] font-bold text-white flex items-center gap-1.5 transition-all active:scale-95 overflow-hidden group"
+                      className="relative h-8 px-4 rounded-xl text-[11px] font-bold text-white flex items-center gap-1.5 transition-all active:scale-95 overflow-hidden group outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0f1e]"
                       style={{ background: 'linear-gradient(135deg, #6366f1 0%, #7c3aed 100%)' }}
                     >
                       <span className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-200 rounded-xl" />
@@ -697,7 +697,7 @@ const OnboardingTour = () => {
                     </button>
                   ) : (
                     <button disabled
-                      className="h-8 px-4 rounded-xl text-[11px] font-bold text-white/30 bg-white/5 border border-white/5 flex items-center gap-1.5 cursor-not-allowed">
+                      className="h-8 px-4 rounded-xl text-[11px] font-bold text-white/30 bg-white/5 border border-white/5 flex items-center gap-1.5 cursor-not-allowed outline-none">
                       Next <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                   )
