@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { authStorage } from './authStorage';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -9,7 +10,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = authStorage.getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -24,8 +25,7 @@ api.interceptors.response.use(
       const currentPath = window.location.pathname;
       // Don't redirect when already on auth pages
       if (!['/login', '/register', '/forgot-password', '/reset-password'].includes(currentPath)) {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        authStorage.clearSession();
         window.location.href = '/login?session=expired';
       }
     }

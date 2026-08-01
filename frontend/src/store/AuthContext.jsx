@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { authStorage } from '../lib/authStorage';
 
 const AuthContext = createContext();
 
@@ -11,10 +12,10 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
+    const savedUser = authStorage.getUser();
+    const token = authStorage.getToken();
     if (savedUser && token) {
-      setUser(JSON.parse(savedUser));
+      setUser(savedUser);
     }
     setLoading(false);
   }, []);
@@ -26,15 +27,14 @@ export const AuthProvider = ({ children }) => {
     return '/student/dashboard';
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, remember = true) => {
     try {
       const { data } = await api.post('/auth/login', { email, password });
       if (data.requiresVerification) {
         return { success: true, verificationRequired: true, email: data.email };
       }
       setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('token', data.token);
+      authStorage.setSession(data.user, data.token, remember);
       navigate(getRedirectPath(data.user.role));
       return { success: true, user: data.user };
     } catch (err) {
@@ -50,8 +50,7 @@ export const AuthProvider = ({ children }) => {
         return { success: true, verificationRequired: true, email: data.email };
       }
       setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('token', data.token);
+      authStorage.setSession(data.user, data.token, true);
       navigate(getRedirectPath(data.user.role));
       return { success: true };
     } catch (err) {
@@ -64,8 +63,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await api.patch('/auth/profile', { name, username, profileImage, newPassword });
       setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('token', data.token);
+      authStorage.updateUser(data.user, data.token);
       return { success: true, user: data.user };
     } catch (err) {
       const errorMessage = err.response?.data?.error || 'Profile update failed';
@@ -77,8 +75,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await api.post('/auth/verify', { email, code });
       setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('token', data.token);
+      authStorage.setSession(data.user, data.token, true);
       if (!skipNavigation) {
         navigate(getRedirectPath(data.user.role));
       }
@@ -91,8 +88,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = (redirectTo = '/', skipNavigation = false) => {
     setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    authStorage.clearSession();
     if (!skipNavigation) {
       navigate(redirectTo);
     }

@@ -9,6 +9,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ email: '', password: '' });
   const { login } = useAuth();
@@ -41,7 +42,7 @@ const Login = () => {
     }
 
     setLoading(true);
-    const result = await login(email, password);
+    const result = await login(email, password, rememberMe);
     if (result && result.success) {
       const firstName = result.user?.name ? result.user.name.trim().split(/\s+/)[0] : '';
       if (firstName) {
@@ -127,6 +128,20 @@ const Login = () => {
               </div>
               <FieldError message={errors.password} />
             </div>
+
+            {/* Remember Me */}
+            <label htmlFor="login-remember" className="flex items-center gap-2.5 select-none cursor-pointer ml-1 -mt-1">
+              <input
+                id="login-remember"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-0 cursor-pointer accent-indigo-600"
+              />
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Remember me on this device
+              </span>
+            </label>
 
             {/* Submit Button */}
             <button
