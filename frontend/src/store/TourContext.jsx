@@ -160,7 +160,7 @@ const TOUR_STEPS = [
     title: "Student Join Experience 📲",
     description: "Students can join your live exams instantly by scanning the unique QR Code or entering the Access Code.",
     route: "/instructor/dashboard",
-    selector: ".tour-student-join-section"
+    selector: ".tour-qr-btn"
   },
   {
     stepIndex: 15,
