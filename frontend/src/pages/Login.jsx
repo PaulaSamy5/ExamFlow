@@ -129,19 +129,35 @@ const Login = () => {
               <FieldError message={errors.password} />
             </div>
 
-            {/* Remember Me */}
-            <label htmlFor="login-remember" className="flex items-center gap-2.5 select-none cursor-pointer ml-1 -mt-1">
-              <input
-                id="login-remember"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={e => setRememberMe(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-0 cursor-pointer accent-indigo-600"
-              />
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+            {/* Remember Me — custom-styled, not a native checkbox */}
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={rememberMe}
+              onClick={() => setRememberMe(v => !v)}
+              className="group flex items-center gap-2.5 select-none ml-1 -mt-1 outline-none"
+            >
+              <span className={`relative h-[18px] w-[18px] shrink-0 rounded-[6px] border flex items-center justify-center transition-all duration-200 group-active:scale-90 ${
+                rememberMe
+                  ? 'bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-600/30'
+                  : 'bg-white dark:bg-slate-950/40 border-slate-300 dark:border-slate-700 group-hover:border-indigo-400 dark:group-hover:border-indigo-500/60'
+              } group-focus-visible:ring-2 group-focus-visible:ring-indigo-400/60 group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-white dark:group-focus-visible:ring-offset-slate-900`}>
+                <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none">
+                  <path
+                    d="M3 8.5l3 3 7-7"
+                    stroke="white"
+                    strokeWidth="2.25"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="transition-[stroke-dashoffset] duration-300 ease-out [stroke-dasharray:20]"
+                    style={{ strokeDashoffset: rememberMe ? 0 : 20 }}
+                  />
+                </svg>
+              </span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
                 Remember me on this device
               </span>
-            </label>
+            </button>
 
             {/* Submit Button */}
             <button
