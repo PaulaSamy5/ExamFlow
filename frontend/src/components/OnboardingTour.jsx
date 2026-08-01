@@ -479,7 +479,7 @@ const OnboardingTour = () => {
           }
           fill="rgba(10, 14, 30, 0.72)"
           fillRule="evenodd"
-          className="pointer-events-auto"
+          className={currentStep?.allowScroll ? "pointer-events-none" : "pointer-events-auto"}
         />
       </svg>
 
