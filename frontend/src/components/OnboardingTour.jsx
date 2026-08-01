@@ -298,9 +298,23 @@ const OnboardingTour = () => {
   useEffect(() => { updateSpotlight(); }, [currentStepIndex, updateSpotlight]);
 
   // ── Global scroll lock ──────────────────────────────────────────────────────
-  // Uses the REF (not state) so handler is never stale, even during React batching
+  // Unified effect: the allowScroll branch explicitly removes all lock handlers
+  // (not just via cleanup) so that no accumulated stale listener can survive a
+  // step transition — regardless of how many times React ran the effect.
   useEffect(() => {
-    if (!isActive || currentStep?.allowScroll) return;
+    // Always start by stripping any previously-registered lock handlers.
+    // This is the primary unlock mechanism for allowScroll steps.
+    window.removeEventListener('wheel',     lockWheel);
+    window.removeEventListener('touchmove', lockTouch);
+    window.removeEventListener('keydown',   lockKeys);
+
+    if (!isActive || currentStep?.allowScroll) {
+      // Tour is inactive OR this step intentionally allows free scroll —
+      // listeners are already removed above; nothing more to do.
+      return;
+    }
+
+    // ── Lock scroll for all other steps ───────────────────────────────────
     const handleScroll = () => {
       if (isTransitioningRef.current) return; // allow programmatic smooth scroll
       window.scrollTo(0, settledScrollTopRef.current);
@@ -323,7 +337,7 @@ const OnboardingTour = () => {
       window.removeEventListener('keydown',   lockKeys);
       window.removeEventListener('scroll',    handleScroll);
     };
-  }, [isActive, currentStep?.allowScroll]); // re-bind when allowScroll changes
+  }, [isActive, currentStep?.allowScroll]); // re-bind whenever scroll policy changes
 
   // ── Continuous RAF tracking (keeps spotlight on element after scroll settles) ─
   useEffect(() => {
