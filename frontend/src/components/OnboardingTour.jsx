@@ -659,20 +659,24 @@ const OnboardingTour = () => {
             <div className="h-px bg-white/5 mb-4" />
 
             {/* Footer */}
-            <div className="flex items-center justify-between">
+            {/* min-w-0 on the row + on the dot strip lets the (purely decorative)
+                progress dots shrink and clip instead of forcing the row wider than
+                the card — shrink-0 on the buttons guarantees they're always fully
+                visible and never pushed past the card edge. */}
+            <div className="flex items-center justify-between gap-3 min-w-0">
               {/* Dot progress */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 min-w-0 overflow-hidden shrink">
                 {Array.from({ length: totalSteps }).map((_, i) => (
-                  <div key={i} className={`rounded-full transition-all duration-400 ${
-                    i === currentStepIndex ? 'w-4 h-1.5 bg-indigo-400'
-                    : i < currentStepIndex ? 'w-1.5 h-1.5 bg-indigo-700'
-                    : 'w-1.5 h-1.5 bg-white/10'
+                  <div key={i} className={`shrink-0 rounded-full transition-all duration-400 ${
+                    i === currentStepIndex ? 'w-3.5 h-1.5 bg-indigo-400'
+                    : i < currentStepIndex ? 'w-1 h-1.5 bg-indigo-700'
+                    : 'w-1 h-1.5 bg-white/10'
                   }`} />
                 ))}
               </div>
 
               {/* Nav buttons */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 {currentStepIndex > 0 && (
                   <button onClick={prevStep}
                     className="h-8 px-3.5 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white hover:bg-white/8 flex items-center gap-1 transition-all border border-white/5 hover:border-white/10 outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0f1e]">
