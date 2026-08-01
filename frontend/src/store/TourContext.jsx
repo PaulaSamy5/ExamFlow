@@ -127,7 +127,9 @@ const TOUR_STEPS = [
     title: "Smart Publishing Validation 🚀",
     description: "When ready, click Broadcast Live. Our validation engine checks all questions and alerts you if any sections require attention.",
     route: "/exams/new",
-    selector: ".tour-publish-btn"
+    selector: ".tour-publish-btn",
+    requiresAction: true,
+    actionType: "click"
   },
   {
     stepIndex: 13,
