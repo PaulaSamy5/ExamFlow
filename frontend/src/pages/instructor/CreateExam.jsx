@@ -3460,7 +3460,7 @@ const CreateExam = () => {
 
           return (
             <div
-              className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200"
+              className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200"
               style={{ backgroundColor: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(6px)' }}
             >
               <div className="w-full max-w-[460px] bg-white dark:bg-slate-900 rounded-3xl shadow-[0_32px_72px_-16px_rgba(0,0,0,0.3)] dark:shadow-[0_32px_72px_-16px_rgba(0,0,0,0.65)] border border-slate-200/80 dark:border-slate-700/50 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-300">
@@ -3544,7 +3544,7 @@ const CreateExam = () => {
         {/* ── Multi-Answer Warning Modal ── */}
         {showMultiAnswerWarning && (
           <div
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200"
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200"
             style={{ backgroundColor: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(6px)' }}
           >
             <div className="w-full max-w-[460px] bg-white dark:bg-slate-900 rounded-3xl shadow-[0_32px_72px_-16px_rgba(0,0,0,0.3)] dark:shadow-[0_32px_72px_-16px_rgba(0,0,0,0.65)] border border-slate-200/80 dark:border-slate-700/50 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-300">
