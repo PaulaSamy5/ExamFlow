@@ -1411,7 +1411,7 @@ const CreateExam = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isActive: isTourActive } = useTour();
+  const { isActive: isTourActive, currentStepIndex: tourStepIndex } = useTour();
   const [metaCollapsed, setMetaCollapsed] = useState(true);
 
   // Strongly sync native draft at process initial render to eliminate race condition
@@ -1493,12 +1493,21 @@ const CreateExam = () => {
     return [{ id: 1, title: 'Exam Questions', description: '', questions: [] }];
   });
 
-  // When the onboarding tour is active for a new exam, force reset states to
-  // clean Phase 01 blueprint defaults. This prevents cached localStorage drafts
-  // from initializing the workspace at Phase 02 (Construction) which causes
-  // the tour elements from Phase 01 to be missing from the DOM and delay rendering.
+  // When the onboarding tour first arrives here for a new exam, force reset
+  // states to clean Phase 01 blueprint defaults. This prevents cached
+  // localStorage drafts from initializing the workspace at Phase 02
+  // (Construction), which causes the tour elements from Phase 01 to be
+  // missing from the DOM and delay rendering.
+  // Runs once on mount only (empty deps — reads isTourActive/tourStepIndex
+  // as they were at mount time). Gated to stepIndex <= 3 (still on/arriving
+  // at "Choose Exam Type") so a page refresh mid-wizard — which resumes the
+  // tour at its saved step, remounting this component with isTourActive
+  // already true — does NOT wipe out questions/answers already built. Using
+  // an empty dep array (rather than watching tourStepIndex) also means
+  // clicking the tour's Back button from a later step back down to <= 3
+  // doesn't re-trigger this and wipe in-progress selections.
   useEffect(() => {
-    if (isTourActive && !id) {
+    if (isTourActive && !id && tourStepIndex <= 3) {
       setStep(1);
       setExam({
         title: '',
@@ -1514,7 +1523,8 @@ const CreateExam = () => {
       });
       setSections([{ id: 1, title: 'Exam Questions', description: '', questions: [] }]);
     }
-  }, [isTourActive, id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [isAutoGrade, setIsAutoGrade] = useState(true);
   const [submissionCount, setSubmissionCount] = useState(0);

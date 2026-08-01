@@ -11,6 +11,20 @@ const OnboardingStorage = {
   },
   setCompleted: (userId, val) => {
     localStorage.setItem(`examflow_onboarding_completed_${userId}`, val ? 'true' : 'false');
+  },
+  // Tracks the in-progress step so a page refresh mid-tour resumes in place
+  // instead of restarting from Welcome.
+  getStep: (userId) => {
+    const raw = localStorage.getItem(`examflow_onboarding_step_${userId}`);
+    if (raw === null) return null;
+    const n = parseInt(raw, 10);
+    return Number.isNaN(n) ? null : n;
+  },
+  setStep: (userId, index) => {
+    localStorage.setItem(`examflow_onboarding_step_${userId}`, String(index));
+  },
+  clearStep: (userId) => {
+    localStorage.removeItem(`examflow_onboarding_step_${userId}`);
   }
 };
 
@@ -166,15 +180,31 @@ export const TourProvider = ({ children }) => {
     if (user && user.role === 'INSTRUCTOR') {
       const completed = OnboardingStorage.getCompleted(user.id);
       if (!completed) {
-        // Start tour automatically for first-time instructors
-        setTimeout(() => {
-          startTour();
-        }, 1200); // Small delay to let initial dashboard load render
+        const savedStep = OnboardingStorage.getStep(user.id);
+        if (savedStep !== null && savedStep > 0 && savedStep < TOUR_STEPS.length) {
+          // Resume exactly where the tour left off (e.g. after a page refresh)
+          // instead of restarting from Welcome — no forced navigation, since
+          // a refresh reloads at the same URL the user was already on.
+          setCurrentStepIndex(savedStep);
+          setIsActive(true);
+        } else {
+          // Start tour automatically for first-time instructors
+          setTimeout(() => {
+            startTour();
+          }, 1200); // Small delay to let initial dashboard load render
+        }
       }
     } else {
       setIsActive(false);
     }
   }, [user]);
+
+  // Persist the in-progress step so a page refresh can resume in place.
+  useEffect(() => {
+    if (isActive && user) {
+      OnboardingStorage.setStep(user.id, currentStepIndex);
+    }
+  }, [isActive, currentStepIndex, user]);
 
   // Synchronize route whenever the step OR the current pathname changes.
   useEffect(() => {
@@ -210,6 +240,7 @@ export const TourProvider = ({ children }) => {
   const startTour = () => {
     setCurrentStepIndex(0);
     setIsActive(true);
+    if (user) OnboardingStorage.clearStep(user.id); // fresh start, not a resume
     if (location.pathname !== "/instructor/dashboard") {
       navigate("/instructor/dashboard");
     }
@@ -239,6 +270,7 @@ export const TourProvider = ({ children }) => {
     setIsActive(false);
     if (user) {
       OnboardingStorage.setCompleted(user.id, true);
+      OnboardingStorage.clearStep(user.id);
     }
   };
 
@@ -246,6 +278,7 @@ export const TourProvider = ({ children }) => {
     setIsActive(false);
     if (user) {
       OnboardingStorage.setCompleted(user.id, true);
+      OnboardingStorage.clearStep(user.id);
     }
   };
 
