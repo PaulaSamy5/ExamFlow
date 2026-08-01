@@ -302,17 +302,22 @@ const OnboardingTour = () => {
   // (not just via cleanup) so that no accumulated stale listener can survive a
   // step transition — regardless of how many times React ran the effect.
   useEffect(() => {
+    // Diagnostic logging
+    console.log(`[TourScrollLock] Evaluating scroll state. Active: ${isActive}, Step: ${currentStepIndex + 1}, allowScroll: ${currentStep?.allowScroll}`);
+
     // Always start by stripping any previously-registered lock handlers.
-    // This is the primary unlock mechanism for allowScroll steps.
-    window.removeEventListener('wheel',     lockWheel);
-    window.removeEventListener('touchmove', lockTouch);
-    window.removeEventListener('keydown',   lockKeys);
+    // We must pass the exact same options ({ passive: false }) used in addEventListener,
+    // otherwise modern browsers (like Chrome/Edge/Firefox) may fail to match and remove them.
+    window.removeEventListener('wheel',     lockWheel, { passive: false });
+    window.removeEventListener('touchmove', lockTouch, { passive: false });
+    window.removeEventListener('keydown',   lockKeys,  { passive: false });
 
     if (!isActive || currentStep?.allowScroll) {
-      // Tour is inactive OR this step intentionally allows free scroll —
-      // listeners are already removed above; nothing more to do.
+      console.log(`[TourScrollLock] Scroll is UNLOCKED for step ${currentStepIndex + 1}`);
       return;
     }
+
+    console.log(`[TourScrollLock] Scroll is LOCKED for step ${currentStepIndex + 1}`);
 
     // ── Lock scroll for all other steps ───────────────────────────────────
     const handleScroll = () => {
@@ -332,10 +337,10 @@ const OnboardingTour = () => {
     window.addEventListener('keydown',   lockKeys,      { passive: false });
     window.addEventListener('scroll',    handleScroll,  { passive: true  });
     return () => {
-      window.removeEventListener('wheel',     lockWheel);
-      window.removeEventListener('touchmove', lockTouch);
-      window.removeEventListener('keydown',   lockKeys);
-      window.removeEventListener('scroll',    handleScroll);
+      window.removeEventListener('wheel',     lockWheel,    { passive: false });
+      window.removeEventListener('touchmove', lockTouch,    { passive: false });
+      window.removeEventListener('keydown',   lockKeys,     { passive: false });
+      window.removeEventListener('scroll',    handleScroll, { passive: true  });
     };
   }, [isActive, currentStep?.allowScroll]); // re-bind whenever scroll policy changes
 
