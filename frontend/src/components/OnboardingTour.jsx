@@ -122,9 +122,21 @@ function roundPos(pos) {
   return { top: Math.round(pos.top), left: Math.round(pos.left) };
 }
 
-function computeTooltipPos(rect, vw, vh) {
-  if (!rect) return { top: Math.round(vh / 2 - 100), left: Math.round(vw / 2 - TOOLTIP_WIDTH / 2) };
+function computeTooltipPos(rect, vw, vh, currentStep) {
   const tooltipH = 230;
+
+  // ── Pin to fixed position on scrollable steps ────────────────────────────
+  // When a step allows free page scrolling (e.g. step 12 - Question Builder),
+  // the page content scrolls but the tour card itself must remain completely
+  // stationary at a stable, fixed position on the screen.
+  if (currentStep?.allowScroll) {
+    return roundPos({
+      top: vh - tooltipH - BOTTOM_BAR_H - 24,
+      left: vw - TOOLTIP_WIDTH - 24
+    });
+  }
+
+  if (!rect) return { top: Math.round(vh / 2 - 100), left: Math.round(vw / 2 - TOOLTIP_WIDTH / 2) };
 
   // ── Bottom-bar element guard ──────────────────────────────────────────────
   // When the element lives inside the fixed bottom action bar its rect.y is
@@ -273,7 +285,7 @@ const OnboardingTour = () => {
       width: Math.round(r.width + SPOTLIGHT_PADDING * 2), height: Math.round(r.height + SPOTLIGHT_PADDING * 2),
     };
     setSpotRect(nextRect);
-    setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight));
+    setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight, currentStep));
 
     // 4. Record settled scroll
     settledScrollTopRef.current  = window.scrollY || document.documentElement.scrollTop  || document.body.scrollTop;
@@ -358,7 +370,7 @@ const OnboardingTour = () => {
             if (!prev ||
                 prev.x !== nextRect.x || prev.y !== nextRect.y ||
                 prev.width !== nextRect.width || prev.height !== nextRect.height) {
-              setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight));
+              setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight, currentStep));
               return nextRect;
             }
             return prev;
