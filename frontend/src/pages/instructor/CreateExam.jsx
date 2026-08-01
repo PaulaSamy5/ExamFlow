@@ -1431,10 +1431,14 @@ const CreateExam = () => {
 
   const [step, setStep] = useState(draftState?.step || 1);
 
-  // Scroll to top when internal step changes
+  // Scroll to top when internal step changes.
+  // Skip during the onboarding tour: the tour's scrollToElementAndWait() already
+  // positions the page correctly, and a competing smooth-scroll-to-top animation
+  // causes visible jitter as the two scroll commands fight each other.
   useEffect(() => {
+    if (isTourActive) return;
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [step]);
+  }, [step]); // isTourActive intentionally omitted: we read its current value at run-time
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(!!id && !draftState);

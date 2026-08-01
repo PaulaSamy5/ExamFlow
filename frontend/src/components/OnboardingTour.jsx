@@ -112,8 +112,18 @@ function scrollToElementAndWait(el) {
   });
 }
 
+// Round a raw tooltip position object to integer pixels.
+// Sub-pixel float coordinates (e.g. 120.455 vs 120.621) cause the RAF loop
+// to see a change on every frame, triggering React state updates → re-renders
+// → layout shifts → new float coords → repeat (feedback loop / jitter).
+// Integer rounding eliminates this entirely: a static element always produces
+// the same integers, the change guard never fires, and there are zero wasted renders.
+function roundPos(pos) {
+  return { top: Math.round(pos.top), left: Math.round(pos.left) };
+}
+
 function computeTooltipPos(rect, vw, vh) {
-  if (!rect) return { top: vh / 2 - 100, left: vw / 2 - TOOLTIP_WIDTH / 2 };
+  if (!rect) return { top: Math.round(vh / 2 - 100), left: Math.round(vw / 2 - TOOLTIP_WIDTH / 2) };
   const tooltipH = 230;
 
   // ── Bottom-bar element guard ──────────────────────────────────────────────
@@ -126,7 +136,7 @@ function computeTooltipPos(rect, vw, vh) {
     const safeBottom = vh - BOTTOM_BAR_H - 20;
     const top  = safeTop + (safeBottom - safeTop) * 0.30;   // upper-30% of safe zone
     const left = Math.max(16, Math.min(vw / 2 - TOOLTIP_WIDTH / 2, vw - TOOLTIP_WIDTH - 16));
-    return { top, left };
+    return roundPos({ top, left });
   }
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -140,13 +150,13 @@ function computeTooltipPos(rect, vw, vh) {
       const targetLeft = rect.x + rect.width + TOOLTIP_OFFSET;
       const left = Math.max(16, Math.min(targetLeft, vw - TOOLTIP_WIDTH - 16));
       const top  = Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16));
-      return { top, left };
+      return roundPos({ top, left });
     } else {
       // More space on the left: place tooltip to the left, clamped to viewport margins
       const targetLeft = rect.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET;
       const left = Math.max(16, Math.min(targetLeft, vw - TOOLTIP_WIDTH - 16));
       const top  = Math.max(16, Math.min(rect.y + rect.height / 2 - tooltipH / 2, vh - tooltipH - 16));
-      return { top, left };
+      return roundPos({ top, left });
     }
   }
 
@@ -158,19 +168,19 @@ function computeTooltipPos(rect, vw, vh) {
 
   // 1. If it fits comfortably below, place it there
   if (below + tooltipH < vh - 16) {
-    return { top: below, left };
+    return roundPos({ top: below, left });
   }
   // 2. If it fits comfortably above, place it there
   if (above > 16) {
-    return { top: above, left };
+    return roundPos({ top: above, left });
   }
   // 3. Otherwise (tall element), place on the side with more space, clamped to screen edges
   const spaceAbove = rect.y;
   const spaceBelow = vh - (rect.y + rect.height);
   if (spaceAbove >= spaceBelow) {
-    return { top: Math.max(16, above), left };
+    return roundPos({ top: Math.max(16, above), left });
   } else {
-    return { top: Math.min(vh - tooltipH - 16, below), left };
+    return roundPos({ top: Math.min(vh - tooltipH - 16, below), left });
   }
 }
 
@@ -256,11 +266,11 @@ const OnboardingTour = () => {
     await scrollToElementAndWait(el);
     if (stale()) return;
 
-    // 3. Compute spotlight
+    // 3. Compute spotlight — round to integers to prevent sub-pixel feedback loops
     const r        = el.getBoundingClientRect();
     const nextRect = {
-      x: r.left - SPOTLIGHT_PADDING, y: r.top - SPOTLIGHT_PADDING,
-      width: r.width + SPOTLIGHT_PADDING * 2, height: r.height + SPOTLIGHT_PADDING * 2,
+      x: Math.round(r.left - SPOTLIGHT_PADDING), y: Math.round(r.top - SPOTLIGHT_PADDING),
+      width: Math.round(r.width + SPOTLIGHT_PADDING * 2), height: Math.round(r.height + SPOTLIGHT_PADDING * 2),
     };
     setSpotRect(nextRect);
     setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight));
@@ -319,10 +329,15 @@ const OnboardingTour = () => {
           if (questionCard) el = questionCard;
         }
         if (el) {
+          // Round to integers — prevents sub-pixel float fluctuations (e.g. 120.455 vs
+          // 120.621) from repeatedly passing the change guard, which would trigger React
+          // state updates every frame → re-renders → layout shifts → more position changes
+          // → feedback-loop jitter. Integers are stable: a static element always produces
+          // the same value, the guard never fires, and wasted renders drop to zero.
           const r = el.getBoundingClientRect();
           let nextRect = {
-            x: r.left - SPOTLIGHT_PADDING, y: r.top - SPOTLIGHT_PADDING,
-            width: r.width + SPOTLIGHT_PADDING * 2, height: r.height + SPOTLIGHT_PADDING * 2,
+            x: Math.round(r.left - SPOTLIGHT_PADDING), y: Math.round(r.top - SPOTLIGHT_PADDING),
+            width: Math.round(r.width + SPOTLIGHT_PADDING * 2), height: Math.round(r.height + SPOTLIGHT_PADDING * 2),
           };
 
           // When a date/time picker dropdown is open, expand the spotlight to
@@ -331,17 +346,18 @@ const OnboardingTour = () => {
           if (picker) {
             const pr = picker.getBoundingClientRect();
             const pad = SPOTLIGHT_PADDING;
-            const mergeX  = Math.min(nextRect.x, pr.left - pad);
-            const mergeY  = Math.min(nextRect.y, pr.top  - pad);
-            const mergeX2 = Math.max(nextRect.x + nextRect.width,  pr.right  + pad);
-            const mergeY2 = Math.max(nextRect.y + nextRect.height, pr.bottom + pad);
+            const mergeX  = Math.round(Math.min(nextRect.x, pr.left - pad));
+            const mergeY  = Math.round(Math.min(nextRect.y, pr.top  - pad));
+            const mergeX2 = Math.round(Math.max(nextRect.x + nextRect.width,  pr.right  + pad));
+            const mergeY2 = Math.round(Math.max(nextRect.y + nextRect.height, pr.bottom + pad));
             nextRect = { x: mergeX, y: mergeY, width: mergeX2 - mergeX, height: mergeY2 - mergeY };
           }
 
+          // Use strict integer equality — no epsilon needed once coords are rounded
           setSpotRect(prev => {
             if (!prev ||
-                Math.abs(prev.x - nextRect.x) > 0.5 || Math.abs(prev.y - nextRect.y) > 0.5 ||
-                Math.abs(prev.width - nextRect.width) > 0.5 || Math.abs(prev.height - nextRect.height) > 0.5) {
+                prev.x !== nextRect.x || prev.y !== nextRect.y ||
+                prev.width !== nextRect.width || prev.height !== nextRect.height) {
               setTooltipPos(computeTooltipPos(nextRect, window.innerWidth, window.innerHeight));
               return nextRect;
             }
