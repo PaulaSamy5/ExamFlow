@@ -605,3 +605,31 @@ html.dark .hero-gradient-text {
 .hamburger-icon.is-open {
   transform: rotate(90deg);
 }
+
+/* ── Tour "Highlight Mode" — used on scrollable tour steps in place of a
+   moving spotlight rectangle. Applied directly to the real target element
+   so it scrolls naturally with the page and never needs position tracking. ── */
+@keyframes tourHighlightPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px rgba(99, 102, 241, 0.55),
+      0 0 24px 4px rgba(99, 102, 241, 0.35),
+      0 20px 40px -12px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(139, 92, 246, 0.85),
+      0 0 40px 10px rgba(139, 92, 246, 0.5),
+      0 20px 40px -12px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.tour-highlight-target {
+  position: relative !important;
+  z-index: 9992 !important;
+  border-radius: 16px;
+  outline: 2px solid rgba(129, 140, 248, 0.9);
+  outline-offset: 3px;
+  animation: tourHighlightPulse 1.8s ease-in-out infinite;
+  transition: outline-color 0.2s ease;
+}

@@ -214,6 +214,23 @@ const OnboardingTour = () => {
   const isTransitioningRef = useRef(false);
   const settledScrollTopRef  = useRef(0);
   const settledScrollLeftRef = useRef(0);
+  // The DOM node currently wearing the "Highlight Mode" glow class (Step 12 /
+  // any allowScroll step) — tracked outside React state since it mutates a
+  // real page element directly rather than something we render.
+  const highlightElRef = useRef(null);
+
+  // Add the glow class to `el` and strip it from whatever wore it before.
+  // Highlight Mode targets the real DOM node so it scrolls with the page —
+  // no rect tracking, no spotlight math, nothing to keep in sync on scroll.
+  const setHighlightTarget = useCallback((el) => {
+    if (highlightElRef.current === el) return;
+    if (highlightElRef.current) highlightElRef.current.classList.remove('tour-highlight-target');
+    if (el) el.classList.add('tour-highlight-target');
+    highlightElRef.current = el;
+  }, []);
+
+  // Always clear any lingering highlight class on unmount
+  useEffect(() => () => setHighlightTarget(null), [setHighlightTarget]);
 
   const isLastStep        = currentStepIndex === totalSteps - 1;
   const isWelcomeOrFinish = !currentStep?.selector;
@@ -241,6 +258,7 @@ const OnboardingTour = () => {
 
     // Centre-screen (welcome / finish)
     if (!currentStep.selector) {
+      setHighlightTarget(null);
       if (stale()) return;
       setTooltipPos({ top: window.innerHeight / 2 - 110, left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2 });
       settledScrollTopRef.current  = window.scrollY;
@@ -269,6 +287,7 @@ const OnboardingTour = () => {
     }
 
     if (!el) {
+      setHighlightTarget(null);
       setTooltipPos({ top: window.innerHeight / 2 - 110, left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2 });
       setTransitioning(false);
       return;
@@ -277,6 +296,21 @@ const OnboardingTour = () => {
     // 2. Scroll to element (using explicit window.scrollTo so fixed chrome is respected)
     await scrollToElementAndWait(el);
     if (stale()) return;
+
+    // ── Highlight Mode ────────────────────────────────────────────────────
+    // Scrollable steps (e.g. Question Builder) glow the real target element
+    // directly instead of a spotlight rectangle — it scrolls with the page
+    // natively, so there's nothing to recompute on every scroll frame.
+    if (currentStep.allowScroll) {
+      setSpotRect(null);
+      setHighlightTarget(el);
+      setTooltipPos(computeTooltipPos(null, window.innerWidth, window.innerHeight, currentStep));
+      settledScrollTopRef.current  = window.scrollY || document.documentElement.scrollTop  || document.body.scrollTop;
+      settledScrollLeftRef.current = window.scrollX || document.documentElement.scrollLeft || document.body.scrollLeft;
+      setTransitioning(false);
+      return;
+    }
+    setHighlightTarget(null);
 
     // 3. Compute spotlight — round to integers to prevent sub-pixel feedback loops
     const r        = el.getBoundingClientRect();
@@ -293,7 +327,7 @@ const OnboardingTour = () => {
 
     // 5. Reveal
     setTransitioning(false);
-  }, [isActive, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isActive, currentStep, setHighlightTarget]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { updateSpotlight(); }, [currentStepIndex, updateSpotlight]);
 
@@ -374,7 +408,14 @@ const OnboardingTour = () => {
           const questionCard = document.querySelector('[id^="question-card-"]');
           if (questionCard) el = questionCard;
         }
-        if (el) {
+
+        // ── Highlight Mode ──────────────────────────────────────────────────
+        // The glow lives on the real DOM node, which scrolls with the page on
+        // its own — just keep the class on the right element as it changes
+        // (e.g. once the first question card appears). No rect/position math.
+        if (currentStep.allowScroll) {
+          setHighlightTarget(el);
+        } else if (el) {
           // Round to integers — prevents sub-pixel float fluctuations (e.g. 120.455 vs
           // 120.621) from repeatedly passing the change guard, which would trigger React
           // state updates every frame → re-renders → layout shifts → more position changes
@@ -429,7 +470,7 @@ const OnboardingTour = () => {
     };
     requestAnimationFrame(loop);
     return () => { active = false; };
-  }, [isActive, isTransitioning, currentStep, currentStepIndex]);
+  }, [isActive, isTransitioning, currentStep, currentStepIndex, setHighlightTarget]);
 
   // ── Block clicks on specific selectors (Create Exam btn during overview) ────
   useEffect(() => {
@@ -500,7 +541,14 @@ const OnboardingTour = () => {
   }
 
   // ── Main overlay ────────────────────────────────────────────────────────────
+  // Rendered as two SEPARATE fixed-position root-level layers (not one nested
+  // wrapper) so a Highlight Mode target's z-index can sit between them: the
+  // real page element (z-9992, set via .tour-highlight-target in index.css)
+  // paints above the dark overlay layer (z-9990) but below the tooltip layer
+  // (z-9999). Nesting them in one wrapper would make z-index inside it purely
+  // relative to siblings in that wrapper, unreachable from outside.
   return createPortal(
+    <>
     <div className="fixed inset-0 z-[9990] pointer-events-none">
 
       {/* SVG backdrop overlay with spotlight cutout */}
@@ -517,17 +565,19 @@ const OnboardingTour = () => {
         />
       </svg>
 
-      {/* Spotlight ring */}
+      {/* Spotlight ring — normal (non-Highlight-Mode) steps only */}
       {spotRect && (
         <div className="absolute border-2 border-indigo-500/60 rounded-2xl pointer-events-none transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.4)]"
              style={{ left: spotRect.x, top: spotRect.y, width: spotRect.width, height: spotRect.height }} />
       )}
+    </div>
 
+    <div className="fixed inset-0 z-[9999] pointer-events-none">
       {/* Tooltip card */}
       <div
         id="tour-tooltip-card"
         className={`absolute pointer-events-auto transition-all duration-300 ${isTransitioning ? 'opacity-0 scale-95 translate-y-2' : 'opacity-100 scale-100 translate-y-0'}`}
-        style={{ top: tooltipPos.top, left: tooltipPos.left, width: TOOLTIP_WIDTH, zIndex: 9999 }}
+        style={{ top: tooltipPos.top, left: tooltipPos.left, width: TOOLTIP_WIDTH }}
       >
         {/* Outer glow */}
         <div className="absolute -inset-[1px] rounded-[28px] bg-gradient-to-br from-indigo-500/40 via-violet-500/20 to-indigo-500/40 blur-[2px]" />
@@ -639,7 +689,8 @@ const OnboardingTour = () => {
           </div>
         </div>
       </div>
-    </div>,
+    </div>
+    </>,
     document.body
   );
 };
