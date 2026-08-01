@@ -3628,7 +3628,7 @@ const CreateExam = () => {
         )}
 
         {/* ── Fixed Interaction Matrix ── */}
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 sm:px-6 z-[100]">
+        <div className="tour-bottom-bar fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 sm:px-6 z-[100]">
           <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800/80 p-4 shadow-[0_15px_35px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_50px_rgba(0,0,0,0.4)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
             
             {/* Left section: Stats & Draft status */}

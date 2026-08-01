@@ -633,3 +633,10 @@ html.dark .hero-gradient-text {
   animation: tourHighlightPulse 1.8s ease-in-out infinite;
   transition: outline-color 0.2s ease;
 }
+
+/* Lifts an already-fixed/positioned element (e.g. the bottom action bar)
+   above the Highlight Mode overlay so it reads at full brightness instead
+   of dimmed — no glow, it just needs to stay legible and usable. */
+.tour-highlight-clear {
+  z-index: 9992 !important;
+}

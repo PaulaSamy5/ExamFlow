@@ -229,8 +229,20 @@ const OnboardingTour = () => {
     highlightElRef.current = el;
   }, []);
 
-  // Always clear any lingering highlight class on unmount
-  useEffect(() => () => setHighlightTarget(null), [setHighlightTarget]);
+  // The fixed bottom action bar (Points / Broadcast Live) sits below the dark
+  // overlay in z-order, so it reads as dimmed and hard to check during a
+  // Highlight Mode step even though it's still clickable. Lift it above the
+  // overlay too — no glow, it just needs to stay legible.
+  const clearOverlayElRef = useRef(null);
+  const setClearOverlayTarget = useCallback((el) => {
+    if (clearOverlayElRef.current === el) return;
+    if (clearOverlayElRef.current) clearOverlayElRef.current.classList.remove('tour-highlight-clear');
+    if (el) el.classList.add('tour-highlight-clear');
+    clearOverlayElRef.current = el;
+  }, []);
+
+  // Always clear any lingering highlight classes on unmount
+  useEffect(() => () => { setHighlightTarget(null); setClearOverlayTarget(null); }, [setHighlightTarget, setClearOverlayTarget]);
 
   const isLastStep        = currentStepIndex === totalSteps - 1;
   const isWelcomeOrFinish = !currentStep?.selector;
@@ -259,6 +271,7 @@ const OnboardingTour = () => {
     // Centre-screen (welcome / finish)
     if (!currentStep.selector) {
       setHighlightTarget(null);
+      setClearOverlayTarget(null);
       if (stale()) return;
       setTooltipPos({ top: window.innerHeight / 2 - 110, left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2 });
       settledScrollTopRef.current  = window.scrollY;
@@ -289,6 +302,7 @@ const OnboardingTour = () => {
 
     if (!el) {
       setHighlightTarget(null);
+      setClearOverlayTarget(null);
       setTooltipPos({ top: window.innerHeight / 2 - 110, left: window.innerWidth / 2 - TOOLTIP_WIDTH / 2 });
       setTransitioning(false);
       return;
@@ -305,6 +319,7 @@ const OnboardingTour = () => {
     if (currentStep.allowScroll) {
       setSpotRect(null);
       setHighlightTarget(el);
+      setClearOverlayTarget(document.querySelector('.tour-bottom-bar'));
       setTooltipPos(computeTooltipPos(null, window.innerWidth, window.innerHeight, currentStep));
       settledScrollTopRef.current  = window.scrollY || document.documentElement.scrollTop  || document.body.scrollTop;
       settledScrollLeftRef.current = window.scrollX || document.documentElement.scrollLeft || document.body.scrollLeft;
@@ -312,6 +327,7 @@ const OnboardingTour = () => {
       return;
     }
     setHighlightTarget(null);
+    setClearOverlayTarget(null);
 
     // 3. Compute spotlight — round to integers to prevent sub-pixel feedback loops
     const r        = el.getBoundingClientRect();
@@ -328,7 +344,7 @@ const OnboardingTour = () => {
 
     // 5. Reveal
     setTransitioning(false);
-  }, [isActive, currentStep, setHighlightTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isActive, currentStep, setHighlightTarget, setClearOverlayTarget]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { updateSpotlight(); }, [currentStepIndex, updateSpotlight]);
 
@@ -416,6 +432,7 @@ const OnboardingTour = () => {
         // (e.g. once the first question card appears). No rect/position math.
         if (currentStep.allowScroll) {
           setHighlightTarget(el);
+          setClearOverlayTarget(document.querySelector('.tour-bottom-bar'));
         } else if (el) {
           // Round to integers — prevents sub-pixel float fluctuations (e.g. 120.455 vs
           // 120.621) from repeatedly passing the change guard, which would trigger React
@@ -471,7 +488,7 @@ const OnboardingTour = () => {
     };
     requestAnimationFrame(loop);
     return () => { active = false; };
-  }, [isActive, isTransitioning, currentStep, currentStepIndex, setHighlightTarget]);
+  }, [isActive, isTransitioning, currentStep, currentStepIndex, setHighlightTarget, setClearOverlayTarget]);
 
   // ── Block clicks on specific selectors (Create Exam btn during overview) ────
   useEffect(() => {
@@ -488,7 +505,7 @@ const OnboardingTour = () => {
     if (!isActive || !currentStep?.requiresAction || !currentStep?.selector || actionDone) return;
     const el = document.querySelector(currentStep.selector);
     if (!el) return;
-    const handle = () => { setActionDone(true); setTimeout(() => nextStep(), 400); };
+    const handle = () => { setActionDone(true); setTimeout(() => nextStep(), 150); };
     el.addEventListener('click', handle, { once: true });
     return () => el.removeEventListener('click', handle);
   }, [isActive, currentStep, actionDone, nextStep]);
