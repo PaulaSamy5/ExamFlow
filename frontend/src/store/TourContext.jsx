@@ -118,6 +118,7 @@ const TOUR_STEPS = [
     description: "Build diverse questions (MCQs, Fill-in-the-blanks, Coding sandboxes, or UML diagrams) and allocate points per section. Please add at least one question to proceed!",
     route: "/exams/new",
     selector: ".tour-question-builder",
+    allowScroll: true,
     canAdvance: () => !!document.querySelector('[id^="question-card-"]'),
     blockedHelperText: "Please create at least one question so we can publish your quiz!"
   },
@@ -174,14 +175,15 @@ export const TourProvider = ({ children }) => {
   }, [user]);
 
   // Synchronize route whenever the step OR the current pathname changes.
-  // requiresAction steps are excluded — their button click drives navigation,
-  // and we must not immediately snap back to the step's declared route.
   useEffect(() => {
     if (!isActive) return;
     const step = TOUR_STEPS[currentStepIndex];
     if (!step?.route) return;
     if (step.requiresAction) return;          // let the button's own <Link> navigate
+    
+    console.log(`[TourRouteSync] Checking route. Path: ${location.pathname}, Expected: ${step.route}, StepIndex: ${currentStepIndex}`);
     if (location.pathname !== step.route) {
+      console.log(`[TourRouteSync] Redirecting to ${step.route} from ${location.pathname} for step ${currentStepIndex + 1}`);
       navigate(step.route, { replace: true });
     }
   }, [currentStepIndex, isActive, location.pathname]);
@@ -193,10 +195,10 @@ export const TourProvider = ({ children }) => {
     const currentStep = TOUR_STEPS[currentStepIndex];
     if (!currentStep) return;
 
-    // Only synchronize if the user manually navigated to a different page route
+    console.log(`[TourNavSync] Checking manual navigation. Path: ${location.pathname}, CurrentStepRoute: ${currentStep.route}`);
     if (location.pathname !== currentStep.route) {
-      // Find the first step matching the new route
       const matchingIndex = TOUR_STEPS.findIndex(s => s.route === location.pathname);
+      console.log(`[TourNavSync] Path changed to ${location.pathname}. Matching step index: ${matchingIndex}`);
       if (matchingIndex !== -1) {
         setCurrentStepIndex(matchingIndex);
       }
