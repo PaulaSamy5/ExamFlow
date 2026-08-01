@@ -302,22 +302,36 @@ const OnboardingTour = () => {
   // (not just via cleanup) so that no accumulated stale listener can survive a
   // step transition — regardless of how many times React ran the effect.
   useEffect(() => {
-    // Diagnostic logging
-    console.log(`[TourScrollLock] Evaluating scroll state. Active: ${isActive}, Step: ${currentStepIndex + 1}, allowScroll: ${currentStep?.allowScroll}`);
+    const isLocked = isActive && !currentStep?.allowScroll;
+    const bodyOverflow = window.getComputedStyle(document.body).overflow;
+    const htmlOverflow = window.getComputedStyle(document.documentElement).overflow;
+
+    // Detailed diagnostic logging
+    console.log("[TourScrollLock] Diagnostics Log:", {
+      stepIndex: currentStepIndex,
+      stepTitle: currentStep?.title,
+      isActive,
+      currentStep,
+      allowScroll: currentStep?.allowScroll,
+      isLocked,
+      documentBodyOverflow: document.body.style.overflow,
+      documentBodyComputedOverflow: bodyOverflow,
+      documentHtmlOverflow: document.documentElement.style.overflow,
+      documentHtmlComputedOverflow: htmlOverflow,
+    });
 
     // Always start by stripping any previously-registered lock handlers.
-    // We must pass the exact same options ({ passive: false }) used in addEventListener,
-    // otherwise modern browsers (like Chrome/Edge/Firefox) may fail to match and remove them.
+    console.log("[TourScrollLock] Stripping previous event listeners...");
     window.removeEventListener('wheel',     lockWheel, { passive: false });
     window.removeEventListener('touchmove', lockTouch, { passive: false });
     window.removeEventListener('keydown',   lockKeys,  { passive: false });
 
     if (!isActive || currentStep?.allowScroll) {
-      console.log(`[TourScrollLock] Scroll is UNLOCKED for step ${currentStepIndex + 1}`);
+      console.log(`[TourScrollLock] Scroll is UNLOCKED for step ${currentStepIndex + 1}. Returning early.`);
       return;
     }
 
-    console.log(`[TourScrollLock] Scroll is LOCKED for step ${currentStepIndex + 1}`);
+    console.log(`[TourScrollLock] Scroll is LOCKED for step ${currentStepIndex + 1}. Attaching event listeners...`);
 
     // ── Lock scroll for all other steps ───────────────────────────────────
     const handleScroll = () => {
@@ -337,6 +351,7 @@ const OnboardingTour = () => {
     window.addEventListener('keydown',   lockKeys,      { passive: false });
     window.addEventListener('scroll',    handleScroll,  { passive: true  });
     return () => {
+      console.log("[TourScrollLock] Cleanup called. Removing event listeners...");
       window.removeEventListener('wheel',     lockWheel,    { passive: false });
       window.removeEventListener('touchmove', lockTouch,    { passive: false });
       window.removeEventListener('keydown',   lockKeys,     { passive: false });
