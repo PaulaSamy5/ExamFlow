@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTour } from '../store/TourContext';
 import { ChevronRight, ChevronLeft, X, Sparkles } from 'lucide-react';
@@ -207,6 +207,19 @@ const OnboardingTour = () => {
   const [actionDone,       setActionDone]        = useState(false);
   const [canProceed,       setCanProceed]        = useState(true);
   const [isOptionalFilled, setIsOptionalFilled]  = useState(false);
+
+  // Finish-screen confetti particle layout — computed once and reused across
+  // every re-render. These were previously randomized inline in JSX, so any
+  // unrelated re-render (e.g. the RAF tracking loop below) reshuffled every
+  // dot's position/size/delay mid-animation, reading as a stutter/freeze.
+  const confettiParticles = useMemo(() => (
+    Array.from({ length: 28 }).map(() => ({
+      width: Math.random() * 8 + 4, height: Math.random() * 8 + 4,
+      left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
+      background: ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'][Math.floor(Math.random() * 6)],
+      animationDelay: `${Math.random() * 2}s`, animationDuration: `${1.5 + Math.random() * 2}s`, opacity: 0.7,
+    }))
+  ), []);
 
   const cancelWaitRef      = useRef(null);
   const stepGenRef         = useRef(0);
@@ -521,13 +534,8 @@ const OnboardingTour = () => {
       <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4" style={{ pointerEvents: 'all' }}>
         <div className="absolute inset-0 bg-[rgba(10,14,30,0.85)] backdrop-blur-sm" />
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {Array.from({ length: 28 }).map((_, i) => (
-            <div key={i} className="absolute rounded-full animate-bounce" style={{
-              width: Math.random() * 8 + 4, height: Math.random() * 8 + 4,
-              left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
-              background: ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'][Math.floor(Math.random() * 6)],
-              animationDelay: `${Math.random() * 2}s`, animationDuration: `${1.5 + Math.random() * 2}s`, opacity: 0.7,
-            }} />
+          {confettiParticles.map((p, i) => (
+            <div key={i} className="absolute rounded-full animate-bounce" style={p} />
           ))}
         </div>
         <div className="relative z-10 bg-white dark:bg-[#0f1729] border border-slate-200/80 dark:border-indigo-500/20 rounded-3xl shadow-2xl shadow-indigo-500/20 p-8 max-w-sm w-full text-center animate-in zoom-in-90 fade-in duration-500">
