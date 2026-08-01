@@ -134,7 +134,10 @@ const TOUR_STEPS = [
     selector: ".tour-question-builder",
     allowScroll: true,
     canAdvance: () => !!document.querySelector('[id^="question-card-"]'),
-    blockedHelperText: "Please create at least one question so we can publish your quiz!"
+    blockedHelperText: "Please create at least one question so we can publish your quiz!",
+    // Broadcast Live belongs to the NEXT step — block it here so publishing
+    // only becomes possible once the tour actually reaches that step.
+    blockSelectors: [".tour-publish-btn"]
   },
   {
     stepIndex: 12,
