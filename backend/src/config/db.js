@@ -105,6 +105,27 @@ const COLUMN_MAP = {
   examstaken:              'examsTaken',
   avgscore:                'avgScore',
   bestscore:               'bestScore',
+  // Subscriptions
+  stripecustomerid:        'stripeCustomerId',
+  stripesubscriptionid:    'stripeSubscriptionId',
+  stripepriceid:           'stripePriceId',
+  currentperiodstart:      'currentPeriodStart',
+  currentperiodend:        'currentPeriodEnd',
+  cancelatperiodend:       'cancelAtPeriodEnd',
+  canceledat:              'canceledAt',
+  couponid:                'couponId',
+  updatedat:               'updatedAt',
+  // Invoices
+  subscriptionid:          'subscriptionId',
+  stripeinvoiceid:         'stripeInvoiceId',
+  amountpaid:              'amountPaid',
+  invoicepdfurl:           'invoicePdfUrl',
+  hostedinvoiceurl:        'hostedInvoiceUrl',
+  periodstart:             'periodStart',
+  periodend:               'periodEnd',
+  // SubscriptionEvents
+  eventtype:               'eventType',
+  stripeeventid:           'stripeEventId',
 };
 
 const camelizeRow = (row) => {
@@ -244,9 +265,68 @@ async function initializeSchema() {
       )
     `);
 
+    // ── Billing / Stripe Subscriptions ──
+    // One row per user (UNIQUE userId) tracking their current plan. Users with
+    // no row default to FREE at the application layer -- this table only ever
+    // gets a row once a user's plan actually changes, so it's fully additive
+    // and doesn't touch or require backfilling existing users.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS Subscriptions (
+        id                   SERIAL PRIMARY KEY,
+        userId               INTEGER NOT NULL UNIQUE REFERENCES Users(id),
+        plan                 VARCHAR(50) NOT NULL DEFAULT 'FREE',
+        status               VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+        stripeCustomerId     VARCHAR(255),
+        stripeSubscriptionId VARCHAR(255),
+        stripePriceId        VARCHAR(255),
+        currentPeriodStart   TIMESTAMP,
+        currentPeriodEnd     TIMESTAMP,
+        cancelAtPeriodEnd    INTEGER DEFAULT 0,
+        canceledAt           TIMESTAMP,
+        couponId             VARCHAR(255),
+        createdAt            TIMESTAMP DEFAULT NOW(),
+        updatedAt            TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // One row per Stripe invoice -- powers the Billing page's payment history.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS Invoices (
+        id               SERIAL PRIMARY KEY,
+        userId           INTEGER NOT NULL REFERENCES Users(id),
+        subscriptionId   INTEGER REFERENCES Subscriptions(id),
+        stripeInvoiceId  VARCHAR(255) UNIQUE,
+        amountPaid       FLOAT NOT NULL DEFAULT 0,
+        currency         VARCHAR(10) DEFAULT 'usd',
+        status           VARCHAR(50),
+        invoicePdfUrl    TEXT,
+        hostedInvoiceUrl TEXT,
+        periodStart      TIMESTAMP,
+        periodEnd        TIMESTAMP,
+        createdAt        TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Append-only audit trail of every processed Stripe webhook event.
+    // stripeEventId is UNIQUE so a retried webhook delivery (Stripe retries
+    // anything that doesn't return 200) can never be double-processed.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS SubscriptionEvents (
+        id             SERIAL PRIMARY KEY,
+        userId         INTEGER REFERENCES Users(id),
+        subscriptionId INTEGER REFERENCES Subscriptions(id),
+        eventType      VARCHAR(100) NOT NULL,
+        stripeEventId  VARCHAR(255) UNIQUE,
+        payload        TEXT,
+        createdAt      TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     // ── Indices ──
     await client.query(`CREATE INDEX IF NOT EXISTS IX_Analytics_VisitorId ON Analytics(visitorId)`);
     await client.query(`CREATE INDEX IF NOT EXISTS IX_Analytics_CreatedAt ON Analytics(createdAt)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS IX_Invoices_UserId ON Invoices(userId)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS IX_SubscriptionEvents_UserId ON SubscriptionEvents(userId)`);
 
     // ── Unique constraint for double-submission prevention (BLOCK-4) ──
     try {
@@ -270,6 +350,14 @@ async function initializeSchema() {
     try {
       await client.query(`ALTER TABLE Users DROP CONSTRAINT IF EXISTS CHK_User_Role`);
       await client.query(`ALTER TABLE Users ADD CONSTRAINT CHK_User_Role CHECK (role IN ('STUDENT', 'INSTRUCTOR', 'ADMIN'))`);
+    } catch (e) { /* ignore */ }
+
+    // ── Subscription plan/status check constraints ──
+    try {
+      await client.query(`ALTER TABLE Subscriptions DROP CONSTRAINT IF EXISTS CHK_Subscription_Plan`);
+      await client.query(`ALTER TABLE Subscriptions ADD CONSTRAINT CHK_Subscription_Plan CHECK (plan IN ('FREE', 'STARTER', 'PROFESSIONAL', 'BUSINESS'))`);
+      await client.query(`ALTER TABLE Subscriptions DROP CONSTRAINT IF EXISTS CHK_Subscription_Status`);
+      await client.query(`ALTER TABLE Subscriptions ADD CONSTRAINT CHK_Subscription_Status CHECK (status IN ('ACTIVE', 'TRIALING', 'PAST_DUE', 'CANCELED', 'INCOMPLETE'))`);
     } catch (e) { /* ignore */ }
 
     console.log('✨ PostgreSQL Schema Ready.');

@@ -12,6 +12,7 @@ const examRoutes = require('./modules/exams/exam.routes');
 const submissionRoutes = require('./modules/submissions/submission.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
+const billingRoutes = require('./modules/billing/billing.routes');
 
 const app = express();
 
@@ -130,6 +131,7 @@ app.use('/api/exams', apiLimiter, examRoutes);
 app.use('/api/submissions', apiLimiter, submissionRoutes);
 app.use('/api/admin', apiLimiter, adminRoutes);
 app.use('/api/analytics', apiLimiter, analyticsRoutes);
+app.use('/api/billing', apiLimiter, billingRoutes);
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'OK' }));
