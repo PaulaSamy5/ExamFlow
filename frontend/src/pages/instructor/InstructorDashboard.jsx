@@ -421,7 +421,7 @@ const InstructorDashboard = () => {
                       const isPending = isDelayed && new Date() < new Date(exam.endTime);
 
                       return (
-                        <div key={exam.id} className={`bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 dark:hover:border-slate-700 rounded-xl p-5 flex flex-col justify-between group card-interactive shadow-[0_1px_4px_rgba(99,102,241,0.06),0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-none ${isArchived ? 'exam-closed' : ''}`}>
+                        <div key={exam.id} className={`tour-exam-card bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 dark:hover:border-slate-700 rounded-xl p-5 flex flex-col justify-between group card-interactive shadow-[0_1px_4px_rgba(99,102,241,0.06),0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-none ${isArchived ? 'exam-closed' : ''}`}>
                           {/* Top Section */}
                           <div className="space-y-3 mb-5">
                             <div className="flex items-start justify-between gap-3">
