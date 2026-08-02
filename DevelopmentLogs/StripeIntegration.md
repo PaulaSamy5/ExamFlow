@@ -161,3 +161,5 @@ Frontend's `VITE_STRIPE_PUBLISHABLE_KEY` is still pending — not yet provided b
 - The Stripe Products/Prices themselves can be archived (not hard-deleted — Stripe discourages deleting Prices once created) from the Stripe Dashboard's Product catalog if no longer needed; this has no effect on the ExamFlow codebase either way.
 
 **Milestone 1 prep status: ✅ Stripe test account + backend env vars ready. Still needed before Milestone 2 can be fully wired end-to-end: `VITE_STRIPE_PUBLISHABLE_KEY` for the frontend.**
+
+**Update (same day):** `VITE_STRIPE_PUBLISHABLE_KEY` received and added to `frontend/.env` and `frontend/.env.production` (commit `9fa5ca4`), deployed to Vercel and confirmed successful. Not yet present in the built JS bundle — expected, since Vite only inlines env vars that are actually referenced in source code, and nothing reads it yet (Milestone 2 is what wires it in). All prerequisites for Milestone 2 (Stripe SDK, secret key, 3 price IDs, publishable key) are now in place.
