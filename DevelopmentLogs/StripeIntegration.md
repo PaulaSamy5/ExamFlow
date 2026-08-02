@@ -113,3 +113,51 @@ Each milestone above ends with commit → push → deploy (Vercel + Railway) →
 - Commit `580bdd8` (empty trigger commit) can be left in place harmlessly, or dropped via revert — it has no code effect.
 
 **Milestone 1 status: ✅ complete and verified live in production.**
+
+---
+
+# Step 03
+
+**Date:** 2026-08-02
+
+**Goal:** Get the Stripe test-mode account fully usable — API keys in place, and the 3 paid-plan Products/Prices created — as prep for Milestone 2. No app code behavior changed in this step; this is account/environment setup plus one new reusable script.
+
+**Files Modified:** None.
+
+**New Files:**
+- `backend/scripts/setup-stripe-products.js` — idempotent script (safe to re-run) that creates or reuses the `ExamFlow Starter/Professional/Business` Products + monthly recurring Prices in whatever Stripe account the configured `STRIPE_SECRET_KEY` points at. Refuses to run unless the key starts with `sk_test_`, as a guard against ever accidentally running it against a live key. Prints the resulting `STRIPE_PRICE_ID_*` values to paste into `.env`.
+
+**Deleted Files:** None.
+
+**Database Changes:** None.
+
+**Environment Variables Added** (all in `backend/.env`, not committed — `.env` is gitignored):
+- `STRIPE_SECRET_KEY` — **Purpose:** authenticates the backend's Stripe SDK calls (Checkout Session creation in Milestone 2, webhook processing in Milestone 3). **Required:** yes, for all future milestones. **Development only:** this specific value is a `sk_test_...` key (test mode) — a separate live key will be needed for `STRIPE_SECRET_KEY` in a real production cutover, added only to Railway's env vars at that time, never to this repo.
+- `STRIPE_PRICE_ID_STARTER` / `STRIPE_PRICE_ID_PROFESSIONAL` / `STRIPE_PRICE_ID_BUSINESS` — **Purpose:** the specific Stripe Price objects the Checkout Session (Milestone 2) will reference for each paid plan. **Required:** yes, for Milestone 2 onward. **Development only:** yes, these are test-mode price IDs (`price_...` under the test sandbox); production would need its own live-mode equivalents created the same way, via the same script pointed at a live key.
+
+Frontend's `VITE_STRIPE_PUBLISHABLE_KEY` is still pending — not yet provided by the user.
+
+**Routes Added:** None.
+
+**Components Added:** None.
+
+**Services Added:** None (StripeService remains an empty shell — its real implementation is Milestone 2).
+
+**Bug Fixes:** None.
+
+**Important Notes:**
+- Paula's Stripe account is registered under a supported billing country (not Egypt — Stripe doesn't support Egypt for merchant accounts at all yet) purely to unlock test-mode API access for development. This has zero effect on anything built so far since everything is test-mode only. If/when ExamFlow goes live with real payments, the live-account country and processor choice (Stripe live support vs. an Egypt-compatible alternative like Paymob/Fawry) will need a separate decision — explicitly out of scope for now.
+- `_setup_stripe_products.js` was first run from a scratch location, then promoted to `backend/scripts/setup-stripe-products.js` (matching the existing `backend/scripts/seed-test-accounts.js` convention) since it's a legitimate reusable asset, not throwaway. Run twice locally to confirm idempotency (second run correctly reused all 3 existing products/prices instead of duplicating them).
+- Installing the `stripe` npm package (`backend/package.json`) triggered a real Railway redeploy, which was used as a confirmation check that the Railway GitHub webhook (fixed in Step 02) is now reliably triggering on every push — confirmed: the new commit appeared as Railway's active deployment within the normal ~1 minute window, and both `/api/billing/status` and the pre-existing `/api/exams` route responded correctly (401, as expected without a token) afterward.
+- Resulting test-mode Price IDs (safe to record here — these are not secrets, just identifiers scoped to the test sandbox):
+  - Starter: `price_1TzwPjJuZQ4zdRIdZYXH3wvE`
+  - Professional: `price_1TzwPkJuZQ4zdRIdPcgsBGFO`
+  - Business: `price_1TzwPlJuZQ4zdRId9T9QD0ZM`
+
+**Rollback Instructions:**
+- Delete `backend/scripts/setup-stripe-products.js`.
+- Revert `backend/package.json`/`backend/package-lock.json` to drop the `stripe` dependency (`npm uninstall stripe`).
+- Remove the `STRIPE_SECRET_KEY`/`STRIPE_PRICE_ID_*` lines from `backend/.env` (local-only change, nothing to revert on GitHub since `.env` was never committed).
+- The Stripe Products/Prices themselves can be archived (not hard-deleted — Stripe discourages deleting Prices once created) from the Stripe Dashboard's Product catalog if no longer needed; this has no effect on the ExamFlow codebase either way.
+
+**Milestone 1 prep status: ✅ Stripe test account + backend env vars ready. Still needed before Milestone 2 can be fully wired end-to-end: `VITE_STRIPE_PUBLISHABLE_KEY` for the frontend.**
