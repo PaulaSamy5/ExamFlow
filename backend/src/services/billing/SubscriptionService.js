@@ -1,4 +1,4 @@
-const { get } = require('../../config/db');
+const { get, run } = require('../../config/db');
 
 // Subscriptions only ever gets a row once a user's plan actually changes
 // away from the default -- so "no row" means FREE, not an error. This keeps
@@ -23,4 +23,16 @@ const getSubscriptionForUser = async (userId) => {
   return sub || virtualFreeSubscription(userId);
 };
 
-module.exports = { getSubscriptionForUser };
+// Persists the Stripe Customer ID the first time we create one for a user
+// (so retrying checkout reuses the same Stripe Customer instead of creating
+// duplicates). Row may not exist yet -- upsert on the UNIQUE userId.
+const saveStripeCustomerId = async (userId, stripeCustomerId) => {
+  await run(
+    `INSERT INTO Subscriptions (userId, stripeCustomerId)
+     VALUES (?, ?)
+     ON CONFLICT (userId) DO UPDATE SET stripeCustomerId = EXCLUDED.stripeCustomerId, updatedAt = NOW()`,
+    [userId, stripeCustomerId]
+  );
+};
+
+module.exports = { getSubscriptionForUser, saveStripeCustomerId };
