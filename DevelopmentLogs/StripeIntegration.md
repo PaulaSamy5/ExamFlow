@@ -163,3 +163,54 @@ Frontend's `VITE_STRIPE_PUBLISHABLE_KEY` is still pending — not yet provided b
 **Milestone 1 prep status: ✅ Stripe test account + backend env vars ready. Still needed before Milestone 2 can be fully wired end-to-end: `VITE_STRIPE_PUBLISHABLE_KEY` for the frontend.**
 
 **Update (same day):** `VITE_STRIPE_PUBLISHABLE_KEY` received and added to `frontend/.env` and `frontend/.env.production` (commit `9fa5ca4`), deployed to Vercel and confirmed successful. Not yet present in the built JS bundle — expected, since Vite only inlines env vars that are actually referenced in source code, and nothing reads it yet (Milestone 2 is what wires it in). All prerequisites for Milestone 2 (Stripe SDK, secret key, 3 price IDs, publishable key) are now in place.
+
+---
+
+# Step 04
+
+**Date:** 2026-08-03
+
+**Goal:** Implement Milestone 2 — real Stripe Checkout Session creation — then deploy and verify per Rule 2. This step also documents a second, more serious Railway deployment incident (a genuine production crash-loop), distinct from the earlier webhook-staleness issue in Step 02.
+
+**Files Modified:**
+- `backend/src/services/billing/StripeService.js` — Reason: implemented for real (previously an empty shell). Wraps the Stripe SDK: `createCustomer(user)` creates a Stripe Customer with `metadata.userId` for traceability; `createCheckoutSession({ customerId, plan, userId, role })` creates a `mode: 'subscription'` Checkout Session for the plan's configured Price ID, with `success_url`/`cancel_url` both pointing at the user's role-appropriate dashboard (`?billing=success`/`?billing=canceled` — the actual toast/UI wiring for these lands in Milestone 4). Throws a fatal startup error if `STRIPE_SECRET_KEY` is missing — see Important Notes below for why this mattered.
+- `backend/src/services/billing/SubscriptionService.js` — Reason: added `saveStripeCustomerId(userId, stripeCustomerId)`, an upsert (`INSERT ... ON CONFLICT (userId) DO UPDATE`) so a user's first checkout attempt creates and persists one Stripe Customer, and any retry reuses it instead of creating duplicate Stripe Customers.
+- `backend/src/services/billing/BillingService.js` — Reason: added `createCheckoutSession(user, plan)` orchestration — validates the plan is one of `STARTER`/`PROFESSIONAL`/`BUSINESS` (400 error otherwise), ensures a Stripe Customer exists (creating one via `StripeService` + persisting via `SubscriptionService` on first use), then delegates to `StripeService` for the actual session and returns its URL.
+- `backend/src/modules/billing/billing.controller.js` — Reason: added `createCheckout` — reads `plan` from the request body, fetches the user's current name/email fresh from the DB (the JWT payload only carries `{id, email, role}`, and Stripe needs the display name), calls `BillingService.createCheckoutSession`, returns `{ url }`.
+- `backend/src/modules/billing/billing.routes.js` — Reason: added `POST /checkout` (authenticated) route.
+
+**New Files:** None (all changes landed in Milestone 1's scaffolded files).
+
+**Deleted Files:** None.
+
+**Database Changes:** None new — `Subscriptions.stripeCustomerId` (added in Milestone 1) is now actually written to for the first time, via `saveStripeCustomerId`. No schema change.
+
+**Environment Variables Added:** None new in this step (all four Stripe env vars were added to `backend/.env` in Step 03) — but see Important Notes: this step is what surfaced that **local `.env` values are not automatically available in Railway's production environment**, since `.env` is gitignored and never pushed.
+
+**Routes Added:** `POST /api/billing/checkout` (authenticated) — body `{ plan: 'STARTER' | 'PROFESSIONAL' | 'BUSINESS' }`, returns `{ url: 'https://checkout.stripe.com/...' }` (a real test-mode Checkout URL) on success, `400` for an invalid/missing plan.
+
+**Components Added:** None (still backend-only; pricing page wiring is Milestone 4).
+
+**Services Added:** None new — `StripeService`/`SubscriptionService`/`BillingService` were all scaffolded in Milestone 1; this step is their real implementation.
+
+**Bug Fixes:**
+- Corrected a testing-instruction mistake from Step 03 (not a code bug): I had given the user a `fetch('/api/billing/status', ...)` snippet using a relative URL. That only resolves correctly against `localhost` (where Vite's dev server proxies `/api/*` to the local backend) — on the deployed site, the frontend (Vercel) and backend (Railway) are on completely separate domains with no proxy between them, and `vercel.json`'s catch-all SPA rewrite serves `index.html` for any unmatched path, which is what produced the `"Unexpected token '<'"` JSON-parse error the user saw. The real backend was never broken; the fix was giving the correct fully-qualified Railway URL for testing directly against production.
+
+**Important Notes — a genuine production incident, root-caused and fixed:**
+1. After pushing the Milestone 2 commit, Railway's GitHub webhook had gone stale again (same class of issue as Step 02 — no new deployment appeared at all, even as a skipped/failed entry, for over a day of wall-clock time this time). Fixed the same way: disconnect + reconnect the GitHub source in Railway Settings, followed by a fresh empty "trigger" commit (reconnecting alone doesn't retroactively deploy commits already sitting on GitHub — confirmed this pattern is consistent both times now).
+2. Once a fresh deploy finally did start, the service became **completely unreachable** — not a 404, but TCP connections succeeding (TLS handshake completed) and then hanging with zero bytes received until timeout. This is the signature of a crash-looping container (Railway repeatedly starting and killing a process that dies immediately on boot), not a webhook/proxy issue.
+3. **Root cause:** `StripeService.js` throws a fatal `Error` at module-require time if `STRIPE_SECRET_KEY` isn't set (`if (!process.env.STRIPE_SECRET_KEY) throw new Error(...)`), by design — but `STRIPE_SECRET_KEY` (and the 3 price IDs) had only ever been added to the **local** `backend/.env` file, which is gitignored and therefore never reaches Railway. The moment Railway actually deployed the Milestone 2 code, the app crashed on every boot attempt because the production environment never had these variables.
+4. **Fix:** had the user add all 4 Stripe env vars directly in Railway's dashboard (Variables tab), which is the correct place for production secrets regardless of what's in a local, gitignored `.env` file. Railway auto-redeployed on save; the service came back up immediately (401 on the new route instead of a hung connection).
+5. **Full verification after the fix:** confirmed `/api/exams` (pre-existing route) and `/api/billing/status` both healthy (401 without a token). Created a throwaway test user, called `POST /api/billing/checkout` with `{"plan":"STARTER"}` — got back a real `https://checkout.stripe.com/c/pay/cs_test_...` URL. Called it again with an invalid plan name — got a `400` as designed. Queried the `Subscriptions` table directly and confirmed a row was created for the test user with `stripeCustomerId` populated (proving `saveStripeCustomerId`'s upsert worked against production Postgres, not just locally). Deleted the test user and their `Subscriptions` row immediately after.
+6. **Lesson for all future milestones that add env vars:** local `backend/.env` and `frontend/.env`/`.env.production` are **not** synced to Railway/Vercel automatically. Every new env var must be added in *both* places — the local file (for `git`-ignored local dev) *and* the corresponding platform's dashboard (Railway Variables tab for backend secrets; Vercel Environment Variables for frontend, though `frontend/.env.production` happens to be committed today since it holds no secrets — that convention could change if a future frontend env var needs to be secret). Verify with an authenticated production request after every such change, not just a plain reachability check, since a reachability check alone (e.g. hitting `/` or an existing unrelated route) would not have caught this — only the specific new route depending on the missing var would fail.
+
+**Rollback Instructions:**
+- In `backend/src/services/billing/StripeService.js`: revert to the empty-shell version (`module.exports = {};`).
+- In `backend/src/services/billing/SubscriptionService.js`: remove `saveStripeCustomerId` and its export.
+- In `backend/src/services/billing/BillingService.js`: remove `createCheckoutSession` and its export (keep `getBillingStatus`).
+- In `backend/src/modules/billing/billing.controller.js`: remove `createCheckout` and its export (keep `getStatus`).
+- In `backend/src/modules/billing/billing.routes.js`: remove the `POST /checkout` line (keep `GET /status`).
+- No database rollback needed — `Subscriptions.stripeCustomerId` already existed as a column from Milestone 1; only its usage is being removed, not the column.
+- If reverting, any Stripe Customers already created in the test sandbox can be left as-is (harmless test data) or deleted from the Stripe Dashboard's Customers list.
+
+**Milestone 2 status: ✅ complete and verified live in production.**
