@@ -1,4 +1,5 @@
 const billingService = require('../../services/billing/BillingService');
+const webhookService = require('../../services/billing/WebhookService');
 const { get } = require('../../config/db');
 
 // ─── Get Current Billing Status ───
@@ -30,4 +31,20 @@ const createCheckout = async (req, res) => {
   }
 };
 
-module.exports = { getStatus, createCheckout };
+// ─── Stripe Webhook (mounted in app.js with express.raw(), BEFORE the
+// global express.json() -- req.body here is the raw Buffer Stripe's
+// signature verification requires, not a parsed object) ───
+const handleWebhook = async (req, res) => {
+  const signature = req.headers['stripe-signature'];
+  try {
+    const result = await webhookService.processWebhookEvent(req.body, signature);
+    res.json({ received: true, ...result });
+  } catch (err) {
+    // Signature failures and processing errors both return 400 so Stripe
+    // retries -- a 200 tells Stripe "don't send this again."
+    console.error('❌ [billing.webhook]', err.message);
+    res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+};
+
+module.exports = { getStatus, createCheckout, handleWebhook };

@@ -35,4 +35,45 @@ const saveStripeCustomerId = async (userId, stripeCustomerId) => {
   );
 };
 
-module.exports = { getSubscriptionForUser, saveStripeCustomerId };
+const getByStripeCustomerId = async (stripeCustomerId) => {
+  return get('SELECT * FROM Subscriptions WHERE stripeCustomerId = ?', [stripeCustomerId]);
+};
+
+const getByStripeSubscriptionId = async (stripeSubscriptionId) => {
+  return get('SELECT * FROM Subscriptions WHERE stripeSubscriptionId = ?', [stripeSubscriptionId]);
+};
+
+// Called only from WebhookService, after Stripe confirms a subscription's
+// real state -- this is the single place the Subscriptions table is ever
+// written to from a "this is now true" (not "user requested") source.
+const upsertFromStripeSubscription = async (userId, fields) => {
+  await run(
+    `INSERT INTO Subscriptions
+       (userId, plan, status, stripeCustomerId, stripeSubscriptionId, stripePriceId, currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, canceledAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (userId) DO UPDATE SET
+       plan = EXCLUDED.plan,
+       status = EXCLUDED.status,
+       stripeCustomerId = EXCLUDED.stripeCustomerId,
+       stripeSubscriptionId = EXCLUDED.stripeSubscriptionId,
+       stripePriceId = EXCLUDED.stripePriceId,
+       currentPeriodStart = EXCLUDED.currentPeriodStart,
+       currentPeriodEnd = EXCLUDED.currentPeriodEnd,
+       cancelAtPeriodEnd = EXCLUDED.cancelAtPeriodEnd,
+       canceledAt = EXCLUDED.canceledAt,
+       updatedAt = NOW()`,
+    [
+      userId, fields.plan, fields.status, fields.stripeCustomerId, fields.stripeSubscriptionId,
+      fields.stripePriceId, fields.currentPeriodStart, fields.currentPeriodEnd,
+      fields.cancelAtPeriodEnd ? 1 : 0, fields.canceledAt || null,
+    ]
+  );
+};
+
+module.exports = {
+  getSubscriptionForUser,
+  saveStripeCustomerId,
+  getByStripeCustomerId,
+  getByStripeSubscriptionId,
+  upsertFromStripeSubscription,
+};

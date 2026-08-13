@@ -13,6 +13,7 @@ const submissionRoutes = require('./modules/submissions/submission.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
 const billingRoutes = require('./modules/billing/billing.routes');
+const billingController = require('./modules/billing/billing.controller');
 
 const app = express();
 
@@ -121,6 +122,13 @@ app.use(cors({
   },
   credentials: true,
 }));
+// ─── Stripe Webhook (must be registered BEFORE express.json() below) ───
+// Stripe's signature verification needs the exact raw request bytes; once
+// express.json() parses and re-serializes the body, the signature can no
+// longer be verified. This is why it's registered directly on `app` here
+// instead of inside billing.routes.js (which is mounted after json parsing).
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), billingController.handleWebhook);
+
 // 10MB covers UML diagrams (base64 images); 50MB was far too permissive for a DoS attack surface
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));

@@ -15,6 +15,13 @@ const PRICE_IDS = {
 
 const getPriceIdForPlan = (plan) => PRICE_IDS[plan] || null;
 
+// Reverse lookup used by WebhookService to translate a Stripe subscription's
+// current price back into our plan name (e.g. after an upgrade/downgrade).
+const getPlanForPriceId = (priceId) => {
+  const entry = Object.entries(PRICE_IDS).find(([, id]) => id === priceId);
+  return entry ? entry[0] : null;
+};
+
 const createCustomer = async (user) => {
   const customer = await stripe.customers.create({
     email: user.email,
@@ -50,4 +57,4 @@ const createCheckoutSession = async ({ customerId, plan, userId, role }) => {
   return session.url;
 };
 
-module.exports = { createCustomer, createCheckoutSession, getPriceIdForPlan };
+module.exports = { createCustomer, createCheckoutSession, getPriceIdForPlan, getPlanForPriceId };
