@@ -214,3 +214,55 @@ Frontend's `VITE_STRIPE_PUBLISHABLE_KEY` is still pending — not yet provided b
 - If reverting, any Stripe Customers already created in the test sandbox can be left as-is (harmless test data) or deleted from the Stripe Dashboard's Customers list.
 
 **Milestone 2 status: ✅ complete and verified live in production.**
+
+---
+
+# Step 05
+
+**Date:** 2026-08-13
+
+**Goal:** Implement Milestone 3 — Stripe webhook signature verification + subscription activation — as part of a combined push (requested by the user) to get "select plan → real payment → visible Billing page" fully testable end-to-end, deploy, and verify per Rule 2.
+
+**Files Modified:**
+- `backend/src/app.js` — Reason: registered `POST /api/billing/webhook` directly on `app` (via `express.raw({ type: 'application/json' })`) **before** the global `app.use(express.json(...))` line. Stripe's signature verification needs the exact raw request bytes; once `express.json()` parses and re-serializes a body, the signature can no longer be verified. This is why the webhook route lives directly in `app.js` instead of inside `billing.routes.js` (which is mounted after JSON parsing, alongside every other billing route). No other route or middleware ordering changed.
+- `backend/src/modules/billing/billing.controller.js` — Reason: added `handleWebhook`, called by the route above. Delegates signature verification + event processing to `WebhookService`; a thrown error (bad signature or processing failure) returns `400` (tells Stripe to retry), success returns `200`.
+- `backend/src/services/billing/StripeService.js` — Reason: added `getPlanForPriceId(priceId)`, a reverse lookup (Price ID → plan name) needed by the webhook handlers to determine which plan a Stripe subscription now represents (e.g. after an upgrade/downgrade changes the underlying price).
+- `backend/src/services/billing/SubscriptionService.js` — Reason: added `getByStripeCustomerId`, `getByStripeSubscriptionId` (lookups used to resolve which user a webhook event belongs to), and `upsertFromStripeSubscription(userId, fields)` — the **only** place in the codebase that writes a subscription's plan/status as confirmed-true (as opposed to `saveStripeCustomerId`, which just records intent to start a checkout).
+- `backend/src/services/billing/WebhookService.js` — Reason: implemented for real (previously an empty shell from Milestone 1). Verifies the Stripe signature via `stripe.webhooks.constructEvent`, checks `SubscriptionEvents.stripeEventId` (UNIQUE) for idempotency before doing any work, then routes to one of four handlers: `checkout.session.completed` (retrieves the full Subscription from Stripe and activates it), `customer.subscription.updated` (syncs plan/status/period dates — covers renewals and upgrade/downgrade), `customer.subscription.deleted` (reverts the user to `FREE`/`CANCELED`), `invoice.paid` (inserts a row into `Invoices` for payment history, `ON CONFLICT (stripeInvoiceId) DO NOTHING`). Every handler resolves the target user via `metadata.userId` first (set at checkout-creation time in Milestone 2), falling back to a `stripeCustomerId` lookup. Stripe's raw subscription statuses (`trialing`/`active`/`past_due`/`canceled`/`incomplete`/`incomplete_expired`/`unpaid`/`paused`) are normalized into the `CHK_Subscription_Status` enum via a `STATUS_MAP` with a safe `'INCOMPLETE'` fallback for anything unrecognized, so an unexpected Stripe status can never violate the check constraint and crash the handler.
+
+**New Files:**
+- `backend/scripts/setup-stripe-webhook.js` — idempotent (mirrors `setup-stripe-products.js`): registers the `/api/billing/webhook` endpoint in the Stripe test sandbox for `checkout.session.completed`/`customer.subscription.updated`/`customer.subscription.deleted`/`invoice.paid`, and prints the signing secret. Refuses to run against a non-`sk_test_` key. Notes clearly that Stripe only ever shows the signing secret once, at creation — if lost, the fix is deleting the endpoint in the Dashboard and re-running the script.
+
+**Deleted Files:** None.
+
+**Database Changes:** None new (no schema change) — this step is the first to actually *write* to `Invoices` and `SubscriptionEvents` (both created empty in Milestone 1), and the first to write real subscription state (`plan`, `status`, period dates, `cancelAtPeriodEnd`, `canceledAt`) into `Subscriptions` rather than just `stripeCustomerId`.
+
+**Environment Variables Added:**
+- `STRIPE_WEBHOOK_SECRET` — **Purpose:** verifies that incoming `/api/billing/webhook` requests genuinely came from Stripe (HMAC signature check) rather than an arbitrary POST from anyone who finds the URL. **Required:** yes, `WebhookService` throws a fatal error at require-time if it's missing (same fail-fast convention as `JWT_SECRET`/`STRIPE_SECRET_KEY` elsewhere in this codebase). **Development only:** yes — this value is tied to the *test-mode* webhook endpoint; a live cutover needs its own live-mode webhook endpoint (created the same way, via the same script pointed at a live key) and its own secret, added only to Railway at that time.
+
+**Routes Added:** `POST /api/billing/webhook` (unauthenticated by design — Stripe calls this directly, not a logged-in user; authenticity comes from the signature check, not a JWT).
+
+**Components Added:** None (still backend-only; Milestone 4 is the first with any frontend change).
+
+**Services Added:** None new — `WebhookService` was scaffolded in Milestone 1; this step is its real implementation.
+
+**Bug Fixes:** None.
+
+**Important Notes — process discipline that paid off, and one more deployment incident:**
+- **Applied the Milestone 2 lesson successfully this time:** before writing any webhook code, ran `setup-stripe-webhook.js` to obtain `STRIPE_WEBHOOK_SECRET`, added it to *both* `backend/.env` and Railway's Variables tab, and confirmed the backend was still healthy — all *before* pushing the webhook code. This is the correct order (env var in place first, code that requires it second) and is what should happen for every future milestone that adds a required env var.
+- **Local verification before any deploy:** started the backend locally, confirmed a clean boot (no crash) with the new webhook route registered. Hit it with a deliberately bogus `Stripe-Signature` header — got a proper `400 {"error":"Webhook Error: ..."}` (not a 404), confirming the route exists and signature verification is actually being enforced. Then used `Stripe.webhooks.generateTestHeaderString()` to construct a **real, correctly-signed** synthetic `customer.subscription.updated` event for a throwaway local test user and POSTed it directly to `localhost:5000/api/billing/webhook` — confirmed the resulting `Subscriptions` row had the exact right `plan` (reverse-mapped from the price ID), `status: ACTIVE`, `stripeCustomerId`/`stripeSubscriptionId`/`stripePriceId`, and 30-day period dates, and that a matching row appeared in `SubscriptionEvents`. Re-sent the identical event (same `event.id`) and confirmed the response reported `"duplicate": true` and did not reprocess — idempotency genuinely works, not just in theory.
+- **Deployment incident (this time NOT a crash, initially misdiagnosed as one):** after pushing, the site became unreachable again (`curl` timeouts, TCP connects but nothing comes back) — the exact same *symptom* as the Milestone 2 crash-loop, which triggered the same immediate suspicion. This time, though, the deploy logs (checked directly in the Railway dashboard) showed a completely clean boot all the way through `🚀 System Online` and `PostgreSQL connected` — no crash at all. Waited it out and the service came back up on its own within a couple of minutes. **Conclusion: this was Railway's free-tier "sleeping" cold-start behavior taking longer than usual, not a code or configuration problem.** The practical lesson: a connection timeout right after a deploy is *not* automatically a crash-loop — check the actual deploy logs before assuming the worst; a genuine crash-loop shows an error or an incomplete boot sequence in the logs, a slow cold-start does not.
+- **Full production verification after confirming the service was up:** hit the webhook route with a bogus signature (got the same correct `400` as local), confirmed `/api/exams` and `/api/billing/status` both healthy. Then repeated the full signed-event test directly against the production URL (`https://examflow-production-7689.up.railway.app/api/billing/webhook`) with a fresh throwaway user — confirmed the `Subscriptions` row landed correctly in the **production** database with the right plan/status/Stripe IDs, and the audit row appeared in `SubscriptionEvents`. Deleted the test user, `Subscriptions` row, and `SubscriptionEvents` row immediately after.
+
+**Rollback Instructions:**
+- In `backend/src/app.js`: remove the `billingController` require and the `app.post('/api/billing/webhook', ...)` line.
+- In `backend/src/modules/billing/billing.controller.js`: remove `handleWebhook` and its export, remove the `webhookService` require.
+- In `backend/src/services/billing/WebhookService.js`: revert to the empty-shell version (`module.exports = {};`).
+- In `backend/src/services/billing/SubscriptionService.js`: remove `getByStripeCustomerId`, `getByStripeSubscriptionId`, `upsertFromStripeSubscription`.
+- In `backend/src/services/billing/StripeService.js`: remove `getPlanForPriceId`.
+- Delete `backend/scripts/setup-stripe-webhook.js`.
+- Remove `STRIPE_WEBHOOK_SECRET` from `backend/.env` and Railway's Variables tab.
+- In the Stripe Dashboard (Developers → Webhooks, test mode), delete the registered endpoint for `https://examflow-production-7689.up.railway.app/api/billing/webhook` if no longer needed — otherwise Stripe will keep attempting deliveries to a route that no longer exists (harmless, just noisy failed-delivery entries in the Dashboard).
+- No database rollback needed — `Invoices`/`SubscriptionEvents` already existed as empty tables from Milestone 1; only their write path is being removed, not the tables themselves. Any real rows written by this point can be left as historical data or manually deleted.
+
+**Milestone 3 status: ✅ complete and verified live in production (both locally and directly against the deployed Railway URL, with a real Stripe-signed test event in each case).**
