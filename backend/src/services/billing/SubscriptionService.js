@@ -1,4 +1,4 @@
-const { get, run } = require('../../config/db');
+const { get, query, run } = require('../../config/db');
 
 // Subscriptions only ever gets a row once a user's plan actually changes
 // away from the default -- so "no row" means FREE, not an error. This keeps
@@ -70,10 +70,15 @@ const upsertFromStripeSubscription = async (userId, fields) => {
   );
 };
 
+const getInvoicesForUser = async (userId) => {
+  return query('SELECT * FROM Invoices WHERE userId = ? ORDER BY createdAt DESC', [userId]);
+};
+
 module.exports = {
   getSubscriptionForUser,
   saveStripeCustomerId,
   getByStripeCustomerId,
   getByStripeSubscriptionId,
   upsertFromStripeSubscription,
+  getInvoicesForUser,
 };

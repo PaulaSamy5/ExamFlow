@@ -57,4 +57,45 @@ const createCheckoutSession = async ({ customerId, plan, userId, role }) => {
   return session.url;
 };
 
-module.exports = { createCustomer, createCheckoutSession, getPriceIdForPlan, getPlanForPriceId };
+// In-place plan change on an EXISTING subscription (upgrade or downgrade
+// between paid plans) -- NOT a new Checkout Session, which would create a
+// second, duplicate subscription. Stripe prorates the difference by default.
+// The Subscriptions row is updated by the resulting customer.subscription.updated
+// webhook, same as every other subscription state change.
+const changeSubscriptionPlan = async (stripeSubscriptionId, newPlan) => {
+  const newPriceId = getPriceIdForPlan(newPlan);
+  if (!newPriceId) throw new Error(`No Stripe price configured for plan "${newPlan}"`);
+
+  const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const itemId = subscription.items.data[0]?.id;
+  if (!itemId) throw new Error('Subscription has no items to update');
+
+  return stripe.subscriptions.update(stripeSubscriptionId, {
+    items: [{ id: itemId, price: newPriceId }],
+    proration_behavior: 'create_prorations',
+    metadata: { ...subscription.metadata, plan: newPlan },
+  });
+};
+
+// Cancels at the end of the current billing period (not immediately) --
+// the user keeps access through what they've already paid for, matching
+// standard SaaS cancellation UX. Synced back via customer.subscription.updated.
+const cancelSubscriptionAtPeriodEnd = async (stripeSubscriptionId) => {
+  return stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true });
+};
+
+// Undoes a pending cancellation set by cancelSubscriptionAtPeriodEnd, as
+// long as the subscription hasn't actually ended yet.
+const resumeSubscription = async (stripeSubscriptionId) => {
+  return stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: false });
+};
+
+module.exports = {
+  createCustomer,
+  createCheckoutSession,
+  getPriceIdForPlan,
+  getPlanForPriceId,
+  changeSubscriptionPlan,
+  cancelSubscriptionAtPeriodEnd,
+  resumeSubscription,
+};

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { FieldError, inputStateClass } from '../components/FieldError';
+import BillingCard from '../components/BillingCard';
 import { useTour } from '../store/TourContext';
 
 const ProfileSettings = () => {
@@ -306,6 +307,9 @@ const ProfileSettings = () => {
               )}
             </div>
             
+            {/* Billing Card */}
+            <BillingCard />
+
             {/* Replay Tour Card — Instructors only */}
             {user?.role === 'INSTRUCTOR' && (
               <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xl">

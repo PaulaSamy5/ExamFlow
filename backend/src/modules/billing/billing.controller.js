@@ -31,6 +31,58 @@ const createCheckout = async (req, res) => {
   }
 };
 
+// ─── Switch plan (upgrade/downgrade an existing subscription, or start a
+// new Checkout if there isn't one yet -- see BillingService.changePlan) ───
+const changePlan = async (req, res) => {
+  const { plan } = req.body;
+  try {
+    const user = await get('SELECT id, email, name, role FROM Users WHERE id = ?', [req.user.id]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const result = await billingService.changePlan(user, plan);
+    res.json(result);
+  } catch (err) {
+    if (err.status === 400) return res.status(400).json({ error: err.message });
+    console.error('❌ [billing.changePlan]', err.message);
+    res.status(500).json({ error: 'Failed to change plan' });
+  }
+};
+
+// ─── Cancel at period end ───
+const cancelSubscription = async (req, res) => {
+  try {
+    const result = await billingService.cancelSubscription(req.user.id);
+    res.json(result);
+  } catch (err) {
+    if (err.status === 400) return res.status(400).json({ error: err.message });
+    console.error('❌ [billing.cancelSubscription]', err.message);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+};
+
+// ─── Undo a pending cancel-at-period-end ───
+const resumeSubscription = async (req, res) => {
+  try {
+    const result = await billingService.resumeSubscription(req.user.id);
+    res.json(result);
+  } catch (err) {
+    if (err.status === 400) return res.status(400).json({ error: err.message });
+    console.error('❌ [billing.resumeSubscription]', err.message);
+    res.status(500).json({ error: 'Failed to resume subscription' });
+  }
+};
+
+// ─── Payment history ───
+const getInvoices = async (req, res) => {
+  try {
+    const invoices = await billingService.getInvoices(req.user.id);
+    res.json(invoices);
+  } catch (err) {
+    console.error('❌ [billing.getInvoices]', err.message);
+    res.status(500).json({ error: 'Failed to load payment history' });
+  }
+};
+
 // ─── Stripe Webhook (mounted in app.js with express.raw(), BEFORE the
 // global express.json() -- req.body here is the raw Buffer Stripe's
 // signature verification requires, not a parsed object) ───
@@ -47,4 +99,4 @@ const handleWebhook = async (req, res) => {
   }
 };
 
-module.exports = { getStatus, createCheckout, handleWebhook };
+module.exports = { getStatus, createCheckout, changePlan, cancelSubscription, resumeSubscription, getInvoices, handleWebhook };
