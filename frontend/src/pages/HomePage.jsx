@@ -1,7 +1,8 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
+import { savePendingPlan } from '../lib/pendingPlan';
 import {
   Sparkles, Brain, FileEdit, SpellCheck, ShieldCheck,
   ArrowRight, Check, Crown, Zap, Rocket, ChevronDown,
@@ -459,8 +460,11 @@ function HowItWorksSection() {
    5. PRICING / SUBSCRIPTION
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 function PricingSection() {
+  const navigate = useNavigate();
+
   const plans = [
     {
+      key: 'FREE',
       name: 'Free',
       price: '$0',
       period: '/month',
@@ -471,6 +475,7 @@ function PricingSection() {
       popular: false,
     },
     {
+      key: 'STARTER',
       name: 'Starter',
       price: '$29',
       period: '/month',
@@ -481,6 +486,7 @@ function PricingSection() {
       popular: false,
     },
     {
+      key: 'PROFESSIONAL',
       name: 'Professional',
       price: '$79',
       period: '/month',
@@ -491,6 +497,7 @@ function PricingSection() {
       popular: true,
     },
     {
+      key: 'BUSINESS',
       name: 'Business',
       price: '$149',
       period: '/month',
@@ -501,6 +508,19 @@ function PricingSection() {
       popular: false,
     },
   ];
+
+  // Reaching this component at all means the visitor is logged out --
+  // HomePage redirects authenticated users away before PricingSection ever
+  // renders. So every click here is a new/returning visitor who still needs
+  // to authenticate; the Free plan needs no Stripe involvement at all, paid
+  // plans get remembered and picked back up automatically right after
+  // login/register (see AuthContext.redirectAfterAuth).
+  const handleSelectPlan = (planKey) => {
+    if (planKey !== 'FREE') {
+      savePendingPlan(planKey);
+    }
+    navigate('/register');
+  };
 
   return (
     <section className="py-24 sm:py-32 px-6 lg:px-8 relative" id="pricing">
@@ -520,12 +540,6 @@ function PricingSection() {
             <p className="mt-4 text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
               Choose the plan that fits your needs. Upgrade or downgrade at any time.
             </p>
-
-            {/* Trial notice */}
-            <div className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm font-medium">
-              <Sparkles className="h-4 w-4" />
-              Currently in trial phase — subscriptions will be available soon
-            </div>
           </div>
         </Reveal>
 
@@ -566,14 +580,14 @@ function PricingSection() {
                   </ul>
 
                   <button
-                    disabled
-                    className={`w-full py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-300 cursor-not-allowed opacity-40 border ${
+                    onClick={() => handleSelectPlan(plan.key)}
+                    className={`w-full py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-300 active:scale-[0.98] border ${
                       plan.popular
-                        ? 'bg-white/10 border-white/20 text-white'
-                        : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'
+                        ? 'bg-white text-indigo-600 border-white hover:bg-indigo-50'
+                        : 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 border-transparent hover:bg-slate-800 dark:hover:bg-slate-100'
                     }`}
                   >
-                    Coming Soon
+                    {plan.key === 'FREE' ? 'Get Started Free' : 'Select Plan'}
                   </button>
               </div>
             ))}

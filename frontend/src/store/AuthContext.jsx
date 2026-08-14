@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import api from '../lib/api';
 import { authStorage } from '../lib/authStorage';
+import { getPendingPlan, clearPendingPlan } from '../lib/pendingPlan';
 
 const AuthContext = createContext();
 
@@ -27,6 +29,26 @@ export const AuthProvider = ({ children }) => {
     return '/student/dashboard';
   };
 
+  // ─── Post-auth redirect: continue to Stripe Checkout if the user selected
+  // a paid plan on the Landing Page before logging in/registering, otherwise
+  // fall back to the normal role-based dashboard redirect. Called from every
+  // point a user becomes authenticated (login, instant-register, OTP verify).
+  const redirectAfterAuth = async (role) => {
+    const plan = getPendingPlan();
+    if (!plan) {
+      navigate(getRedirectPath(role));
+      return;
+    }
+    clearPendingPlan();
+    try {
+      const { data } = await api.post('/billing/checkout', { plan });
+      window.location.href = data.url; // external redirect to Stripe -- not a router navigation
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Could not start checkout for the selected plan. You can try again from the Pricing page.');
+      navigate(getRedirectPath(role));
+    }
+  };
+
   const login = async (email, password, remember = true) => {
     try {
       const { data } = await api.post('/auth/login', { email, password });
@@ -35,7 +57,7 @@ export const AuthProvider = ({ children }) => {
       }
       setUser(data.user);
       authStorage.setSession(data.user, data.token, remember);
-      navigate(getRedirectPath(data.user.role));
+      await redirectAfterAuth(data.user.role);
       return { success: true, user: data.user };
     } catch (err) {
       const errorMessage = err.response?.data?.error || (err.request ? 'Unable to reach the server. Please try again later.' : 'Login failed: ' + err.message);
@@ -51,7 +73,7 @@ export const AuthProvider = ({ children }) => {
       }
       setUser(data.user);
       authStorage.setSession(data.user, data.token, true);
-      navigate(getRedirectPath(data.user.role));
+      await redirectAfterAuth(data.user.role);
       return { success: true };
     } catch (err) {
       const errorMessage = err.response?.data?.error || (err.request ? 'Unable to reach the server. Please try again later.' : 'Registration failed: ' + err.message);
@@ -77,7 +99,7 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       authStorage.setSession(data.user, data.token, true);
       if (!skipNavigation) {
-        navigate(getRedirectPath(data.user.role));
+        await redirectAfterAuth(data.user.role);
       }
       return { success: true, user: data.user };
     } catch (err) {
