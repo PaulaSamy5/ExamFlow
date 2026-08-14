@@ -266,3 +266,49 @@ Frontend's `VITE_STRIPE_PUBLISHABLE_KEY` is still pending — not yet provided b
 - No database rollback needed — `Invoices`/`SubscriptionEvents` already existed as empty tables from Milestone 1; only their write path is being removed, not the tables themselves. Any real rows written by this point can be left as historical data or manually deleted.
 
 **Milestone 3 status: ✅ complete and verified live in production (both locally and directly against the deployed Railway URL, with a real Stripe-signed test event in each case).**
+
+---
+
+# Step 06
+
+**Date:** 2026-08-14
+
+**Goal:** Implement Milestone 4 — wire the Landing Page pricing cards to real Stripe Checkout, including the "select plan while logged out → register/login → automatically continue to payment" flow — then deploy and verify. First frontend-facing milestone; every prior step was backend-only.
+
+**Files Modified:**
+- `frontend/src/pages/HomePage.jsx` — Reason: `PricingSection`'s 4 plan buttons were `disabled` with "Coming Soon" text and no handler at all. Added a `key` (`FREE`/`STARTER`/`PROFESSIONAL`/`BUSINESS`) to each plan object, replaced the disabled button with a real one calling `handleSelectPlan(plan.key)`, and removed the now-inaccurate "Currently in trial phase — subscriptions will be available soon" banner. `handleSelectPlan` saves the plan (paid plans only) via `pendingPlan.js` and navigates to `/register`. **Why it's safe to always go to `/register` and not branch on auth state here:** `HomePage` already returns `<Navigate>` and redirects logged-in users away before `PricingSection` ever renders (confirmed by reading the top of the file), so every click in this component is guaranteed to come from a logged-out visitor — no dead "already logged in" branch was added.
+- `frontend/src/store/AuthContext.jsx` — Reason: added `redirectAfterAuth(role)`, called from the three places a user becomes authenticated (`login`, the instant-success path in `register`, and `verifyOTP`) in place of the old direct `navigate(getRedirectPath(role))`. It checks for a pending plan; if present, clears it and creates a real Checkout Session via `POST /billing/checkout`, then does a full `window.location.href` redirect to Stripe (not a router navigation, since it's leaving the app entirely). If there's no pending plan, or the checkout call fails, it falls back to the exact same role-based dashboard redirect as before — a plain login with nothing pending behaves identically to pre-Milestone-4.
+- `frontend/src/pages/Dashboard.jsx` — Reason: Stripe's `success_url`/`cancel_url` (set in Milestone 2's `StripeService`) both land back on the role-appropriate dashboard with a `?billing=success` or `?billing=canceled` query param. Added a `useEffect` reading that param via `useSearchParams`, showing a toast (`react-hot-toast`, matching the app's existing notification convention) and stripping the param from the URL afterward (`replace: true`, so refreshing doesn't re-fire it). Deliberately worded the success toast as "Payment successful! Your plan will update in a moment" rather than claiming the plan is already active — the actual `Subscriptions` row is only ever written by the webhook (Milestone 3), never trusted from a redirect alone, since a redirect firing isn't proof a webhook has landed yet.
+
+**New Files:**
+- `frontend/src/lib/pendingPlan.js` — thin `localStorage` wrapper (`savePendingPlan`/`getPendingPlan`/`clearPendingPlan`) under the key `examflow_pending_plan`. This is the only mechanism connecting "plan selected on Landing Page" to "continue to Checkout after auth," since (per the Step 01 architecture review) nothing like a redirect-after-login mechanism existed anywhere in the codebase before this.
+
+**Deleted Files:** None.
+
+**Database Changes:** None.
+
+**Environment Variables Added:** None.
+
+**Routes Added:** None (reuses `POST /api/billing/checkout` from Milestone 2).
+
+**Components Added:** None new (all changes are to existing pages/context).
+
+**Services Added:** None.
+
+**Bug Fixes:** None (a double-firing toast observed during dev-server testing was investigated and confirmed to be a React StrictMode dev-only artifact — see Important Notes — not an actual bug, so nothing needed fixing).
+
+**Important Notes:**
+- **Verified the full chain locally, end to end, exactly as the user will experience it:** visited the landing page logged out, confirmed the pricing buttons read "Select Plan" (not "Coming Soon"), clicked Professional, confirmed both the `/register` redirect and `examflow_pending_plan = PROFESSIONAL` in `localStorage`. Then — simulating "I already have an account" — went to `/login` instead of finishing registration, logged in with an existing test user, and confirmed the browser actually landed on a real `checkout.stripe.com` URL (not the dashboard), with the pending plan cleared from `localStorage` afterward. This proves the mechanism works regardless of whether the user completes register *or* login — both funnel through the same `redirectAfterAuth`.
+- **Regression-checked the unmodified path:** logged in with no pending plan set — confirmed it still lands on `/instructor/dashboard` exactly as before this milestone, with no behavior change for the vast majority of logins that have nothing to do with billing.
+- **Dashboard toast verified in both directions:** navigated directly to `.../dashboard?billing=success` and `.../dashboard?billing=canceled` and confirmed the correct toast text appears and the query param is stripped from the URL in both cases.
+- **Investigated a real discrepancy before dismissing it:** the success toast rendered *twice* during dev-server testing (`npm run dev`). Rather than assume it was harmless, ran `npm run build` + `npm run preview` (an actual production build) and repeated the exact same test with a synthetic `localStorage` session (via `page.addInitScript`, no real login needed) — the toast fired exactly once. `frontend/src/main.jsx` wraps the app in `<React.StrictMode>`, which deliberately double-invokes effects in development only (a documented React behavior, stripped entirely from production builds) specifically to help catch missing-cleanup bugs — this is exactly that, confirmed rather than assumed, and requires no code change.
+- **Copy change beyond just the buttons:** the "Currently in trial phase — subscriptions will be available soon" banner directly contradicted the now-functional Select Plan buttons, so it was removed as part of the same "remove the Coming Soon state" request rather than left as stale, confusing copy.
+
+**Rollback Instructions:**
+- In `frontend/src/pages/HomePage.jsx`: revert the pricing button to `disabled` with "Coming Soon" text (drop the `key` fields and `handleSelectPlan`); optionally restore the trial-phase banner if desired.
+- In `frontend/src/store/AuthContext.jsx`: remove `redirectAfterAuth` and revert its three call sites back to `navigate(getRedirectPath(role))` directly.
+- In `frontend/src/pages/Dashboard.jsx`: remove the `useEffect`/`useSearchParams` block and its imports (`useEffect`, `useSearchParams`, `toast`).
+- Delete `frontend/src/lib/pendingPlan.js`.
+- No backend or database rollback needed — this step only added frontend call sites for the `POST /api/billing/checkout` endpoint that already existed from Milestone 2.
+
+**Milestone 4 status: ✅ complete and verified live in production (Vercel deploy confirmed, bundle contains the new pricing/redirect code, "Coming Soon" text confirmed absent from the deployed bundle).**
