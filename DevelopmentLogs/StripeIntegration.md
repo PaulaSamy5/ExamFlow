@@ -365,4 +365,40 @@ Frontend's `VITE_STRIPE_PUBLISHABLE_KEY` is still pending — not yet provided b
 
 **Milestone 5 status: ✅ complete and verified live in production (backend endpoints confirmed reachable and correct via a real authenticated round-trip against the deployed Railway URL; frontend confirmed live via the deployed Vercel bundle).**
 
+---
+
+# Step 08
+
+**Date:** 2026-08-15
+
+**Goal:** Deliver the requested comprehensive testing guide covering the whole billing/subscription system (Phases 1–7: backend, frontend, database, Stripe Dashboard, edge cases, deployment, rollback), now that Milestones 1–5 are all complete and independently verified.
+
+**Files Modified:** None.
+
+**New Files:**
+- `DevelopmentLogs/BillingTestingGuide.md` — the full step-by-step checklist. Reflects exactly what's implemented today (every endpoint, response shape, and error case listed matches the real code, not an aspirational spec). Two items from the original request are explicitly called out as **not currently applicable** rather than silently included as if they exist: "Profile badge updates" (no plan badge exists outside the Billing card itself) and "Landing page plan updates" (logged-in users never see the Landing Page at all, so there's no plan state to reflect there). Phase 7 (Rollback) intentionally points back to this file's own per-step Rollback Instructions rather than duplicating them in a second document, to avoid the two ever drifting out of sync.
+
+**Deleted Files:** None.
+
+**Database Changes:** None.
+
+**Environment Variables Added:** None.
+
+**Routes Added:** None.
+
+**Components Added:** None.
+
+**Services Added:** None.
+
+**Bug Fixes:** None.
+
+**Important Notes:**
+- The guide's Phase 6 (Deployment Verification) directly encodes the Railway webhook-staleness lesson learned the hard way across Steps 02, 05, and 07 — checking the active deployment's commit SHA against `git log` immediately after every push, rather than assuming a timeout means something is broken in the code.
+- No separate `docs/BILLING_IMPLEMENTATION_LOG.md` was created — this journal (`StripeIntegration.md`) already serves that exact purpose per the original Rule 3 from Step 01, and a second parallel log would only risk the two falling out of sync.
+
+**Rollback Instructions:**
+- Delete `DevelopmentLogs/BillingTestingGuide.md` if no longer wanted. Purely documentation — no code or infrastructure to revert.
+
+**Testing guide status: ✅ delivered.**
+
 
