@@ -312,3 +312,57 @@ Frontend's `VITE_STRIPE_PUBLISHABLE_KEY` is still pending — not yet provided b
 - No backend or database rollback needed — this step only added frontend call sites for the `POST /api/billing/checkout` endpoint that already existed from Milestone 2.
 
 **Milestone 4 status: ✅ complete and verified live in production (Vercel deploy confirmed, bundle contains the new pricing/redirect code, "Coming Soon" text confirmed absent from the deployed bundle).**
+
+---
+
+# Step 07
+
+**Date:** 2026-08-15
+
+**Goal:** Implement Milestone 5 — the Billing page inside Profile (current plan, status, renewal date, upgrade/downgrade, cancel, resume, payment history) — plus the backend endpoints it needs (`change-plan`, `cancel`, `resume`, `invoices`), deploy, and verify.
+
+**Files Modified:**
+- `backend/src/services/billing/StripeService.js` — Reason: added three functions on top of Milestone 2/3's `createCheckoutSession`: `changeSubscriptionPlan(stripeSubscriptionId, newPlan)` (in-place `stripe.subscriptions.update` with `proration_behavior: 'create_prorations'` — deliberately **not** a new Checkout Session, which would create a second, duplicate subscription instead of modifying the existing one), `cancelSubscriptionAtPeriodEnd` (`cancel_at_period_end: true` — user keeps access through what they already paid for, not an immediate cutoff), `resumeSubscription` (undoes that flag). All three let the resulting `customer.subscription.updated` webhook (Milestone 3) be the one to actually update the `Subscriptions` row, same as every other state change — nothing here writes to the database directly.
+- `backend/src/services/billing/SubscriptionService.js` — Reason: added `getInvoicesForUser(userId)`, a simple `SELECT * FROM Invoices WHERE userId = ? ORDER BY createdAt DESC`.
+- `backend/src/services/billing/BillingService.js` — Reason: added `changePlan(user, plan)`, `cancelSubscription(userId)`, `resumeSubscription(userId)`, `getInvoices(userId)` orchestrating the above. `changePlan` has a deliberate fallback: if the user has no active Stripe subscription yet (still on FREE, or a fully-ended past subscription), it transparently calls `createCheckoutSession` instead of erroring — so the same "Upgrade" button in the UI works correctly whether this is someone's first paid plan or a switch between two paid plans, without the frontend needing to know which case it is.
+- `backend/src/modules/billing/billing.controller.js` — Reason: added `changePlan`, `cancelSubscription`, `resumeSubscription`, `getInvoices` controller functions, thin wrappers around the `BillingService` calls above (matching the existing `getStatus`/`createCheckout` pattern exactly).
+- `backend/src/modules/billing/billing.routes.js` — Reason: added `POST /change-plan`, `POST /cancel`, `POST /resume`, `GET /invoices` (all `authMiddleware`-protected, matching every other billing route).
+- `frontend/src/pages/ProfileSettings.jsx` — Reason: imported and rendered the new `BillingCard` component, placed between the existing Security card and the Replay Tour card — follows the page's established "stack of cards in the right column" layout with zero structural changes to the surrounding form.
+
+**New Files:**
+- `frontend/src/components/BillingCard.jsx` — the actual Billing UI: current plan name + status badge, renewal/cancellation date (`date-fns` `format`, matching the exact convention already used in `InstructorDashboard.jsx`), a Cancel/Resume button that swaps based on `cancelAtPeriodEnd`, an "Upgrade your plan" (or "Switch plan," worded differently depending on whether the user is on Free or already paid) grid offering every *other* paid plan as a one-click switch, and a Payment History list from `GET /billing/invoices` with links out to Stripe's hosted invoice pages. Uses the app's existing card styling (`bg-slate-50 dark:bg-slate-900/60 border ... rounded-3xl p-6 shadow-xl`) verbatim — no new design system introduced.
+
+**Deleted Files:** None.
+
+**Database Changes:** None (no schema change — this milestone is the first to *read* `Invoices` via the API, and the first to trigger `changeSubscriptionPlan`/cancel/resume paths that ultimately write through the same `upsertFromStripeSubscription` webhook path Milestone 3 already built).
+
+**Environment Variables Added:** None.
+
+**Routes Added:** `POST /api/billing/change-plan`, `POST /api/billing/cancel`, `POST /api/billing/resume`, `GET /api/billing/invoices` (all authenticated).
+
+**Components Added:** `BillingCard` (see above).
+
+**Services Added:** None new — extended the existing three billing services.
+
+**Bug Fixes:** None.
+
+**Important Notes:**
+- **`getBillingStatus` gained a `hasActiveSubscription` field** (`!!sub.stripeSubscriptionId && sub.status !== 'CANCELED'`) specifically so the frontend can decide whether to show the Cancel button without needing to expose raw Stripe IDs to the client or duplicate that logic in `BillingCard`.
+- **Local verification before any deploy, using real (test-mode) Stripe objects, not synthetic ones:** created a real Stripe Customer + real Subscription via the SDK directly (`payment_method: 'pm_card_visa'`, Stripe's standard always-succeeds test card), synced it into the DB with a properly-signed webhook call (same technique as Step 05), then ran through the full sequence against `localhost:5000`: status read, invoice list, an invalid-plan rejection (400), a same-plan no-op rejection (400, "Already on the X plan"), a real upgrade (STARTER → PROFESSIONAL, confirmed Stripe actually prorated it), cancel-at-period-end, resume, and confirmed an `Invoices` row appeared with the right amount. All 9 steps passed. Canceled the real Stripe subscription and deleted all test rows immediately after.
+- **UI verification via Playwright, also against real local servers:** logged in as a fresh test instructor and discovered the onboarding tour (built earlier this session) auto-starts for new instructors and actively fights direct navigation to `/profile` — worked around it in the test by setting `examflow_onboarding_completed_<userId>` in `localStorage` before navigating, which is exactly the flag the tour itself checks, so this isn't a workaround around a bug, just correctly bypassing an unrelated feature to isolate this one. Confirmed the Free-plan state (badge, "No active subscription," three upgrade options, "No payments yet") both by text assertions and a screenshot, then clicked "Starter" from the Billing page as an already-logged-in user and confirmed it landed on a real `checkout.stripe.com` URL — this is the "upgrade from within the app" path, distinct from Milestone 4's "select plan while logged out" path, and both now confirmed working.
+- **Deployment hit the exact same Railway webhook staleness as Steps 02 and 05** — pushed the Milestone 5 commit, waited, `POST /billing/change-plan` kept returning 404 (route not found) while `/api/exams` stayed healthy (server up, just running old code). Same diagnosis, same fix: disconnect + reconnect the GitHub source in Railway's Settings, then an empty trigger commit (`ac41cd4`) to actually pull the already-pushed code. Deployed successfully within about a minute of the trigger commit landing. **This is now a firmly established pattern across three separate milestones** — see the "Practical implication" note in Step 05; the fix is quick once recognized, but it is not a one-time fluke, so expect to repeat it for future milestones too, and check for it proactively (a 404 on a route that should exist, right after a push, with the rest of the API healthy) rather than assuming something is broken in the code.
+- **Full production verification after the fix:** confirmed `/api/exams` (pre-existing) and `/api/billing/status`, `/api/billing/invoices`, `/api/billing/cancel`, `/api/billing/resume` all correctly reachable and auth-gated (401 without a token). Then ran an authenticated round-trip directly against the production URL with a throwaway user: status read (FREE), `change-plan` → `STARTER` (confirmed `type: "checkout"` with a real URL), `cancel` with no subscription (confirmed the correct 400 "No active subscription to cancel"), and `invoices` (confirmed an empty array for a brand-new user). Deleted the test user and all related rows immediately after. Separately confirmed the Vercel deploy: fetched the live JS bundle and confirmed it contains `examflow_pending_plan`, `Switch plan`, `Resume Subscription`, and `Get Started Free` — i.e. both Milestone 4's and Milestone 5's frontend code are genuinely live, not just committed.
+
+**Rollback Instructions:**
+- In `backend/src/services/billing/StripeService.js`: remove `changeSubscriptionPlan`, `cancelSubscriptionAtPeriodEnd`, `resumeSubscription` and their exports (keep `createCustomer`/`createCheckoutSession`/`getPriceIdForPlan`/`getPlanForPriceId` from earlier milestones).
+- In `backend/src/services/billing/SubscriptionService.js`: remove `getInvoicesForUser`.
+- In `backend/src/services/billing/BillingService.js`: remove `changePlan`, `cancelSubscription`, `resumeSubscription`, `getInvoices` (keep `getBillingStatus`/`createCheckoutSession`; also revert `getBillingStatus`'s return value to drop `hasActiveSubscription` if fully rolling back).
+- In `backend/src/modules/billing/billing.controller.js`: remove `changePlan`, `cancelSubscription`, `resumeSubscription`, `getInvoices`.
+- In `backend/src/modules/billing/billing.routes.js`: remove the 4 new route lines (keep `GET /status` and `POST /checkout`).
+- In `frontend/src/pages/ProfileSettings.jsx`: remove the `BillingCard` import and its render.
+- Delete `frontend/src/components/BillingCard.jsx`.
+- No database rollback needed — nothing in this step altered the schema.
+
+**Milestone 5 status: ✅ complete and verified live in production (backend endpoints confirmed reachable and correct via a real authenticated round-trip against the deployed Railway URL; frontend confirmed live via the deployed Vercel bundle).**
+
+
