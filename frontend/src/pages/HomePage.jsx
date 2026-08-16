@@ -514,12 +514,17 @@ function PricingSection() {
   // renders. So every click here is a new/returning visitor who still needs
   // to authenticate; the Free plan needs no Stripe involvement at all, paid
   // plans get remembered and picked back up automatically right after
-  // login/register (see AuthContext.redirectAfterAuth).
+  // login/register (see AuthContext.redirectAfterAuth). Paid plans go to
+  // Login first (not Register) -- most visitors already have an account,
+  // and Login's own "Create an account" link carries the pending plan
+  // forward for anyone who needs to sign up.
   const handleSelectPlan = (planKey) => {
-    if (planKey !== 'FREE') {
-      savePendingPlan(planKey);
+    if (planKey === 'FREE') {
+      navigate('/register');
+      return;
     }
-    navigate('/register');
+    savePendingPlan(planKey);
+    navigate('/login');
   };
 
   return (

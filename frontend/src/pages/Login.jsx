@@ -44,11 +44,13 @@ const Login = () => {
     setLoading(true);
     const result = await login(email, password, rememberMe);
     if (result && result.success) {
-      const firstName = result.user?.name ? result.user.name.trim().split(/\s+/)[0] : '';
-      if (firstName) {
-        toast.success(`Welcome back, ${firstName}!`);
-      } else {
-        toast.success('Welcome back!');
+      // When blocked (non-instructor account, paid plan pending), AuthContext
+      // already navigates to the dashboard with a ?billing=instructor_only
+      // marker that shows its own clear explanation there -- skip the
+      // "Welcome back" toast here so the two don't collide.
+      if (!result.blockedInstructorOnly) {
+        const firstName = result.user?.name ? result.user.name.trim().split(/\s+/)[0] : '';
+        toast.success(firstName ? `Welcome back, ${firstName}!` : 'Welcome back!');
       }
     } else {
       toast.error((result && result.error) || 'Login failed. Please check your credentials.');

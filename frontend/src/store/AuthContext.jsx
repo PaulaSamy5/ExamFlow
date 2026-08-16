@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../lib/api';
 import { authStorage } from '../lib/authStorage';
-import { getPendingPlan, clearPendingPlan } from '../lib/pendingPlan';
+import { getPendingPlan, clearPendingPlan, flagInstructorOnlyBlock } from '../lib/pendingPlan';
 
 const AuthContext = createContext();
 
@@ -32,12 +32,39 @@ export const AuthProvider = ({ children }) => {
   // ─── Post-auth redirect: continue to Stripe Checkout if the user selected
   // a paid plan on the Landing Page before logging in/registering, otherwise
   // fall back to the normal role-based dashboard redirect. Called from every
-  // point a user becomes authenticated (login, instant-register, OTP verify).
+  // point a user becomes authenticated (login, instant-register, OTP verify,
+  // and the end of the registration wizard -- see Register.jsx).
+  //
+  // Subscriptions are instructor-only. A STUDENT (or any non-instructor) with
+  // a pending plan gets sent to their normal dashboard, where Dashboard.jsx
+  // shows a clear explanatory message -- NOT kept on the login page, because
+  // App.jsx's own /login route guard (!user ? <Login/> : <Navigate/>)
+  // redirects away the instant `user` is set, before any in-page "stay here"
+  // state would ever render; fighting that guard isn't worth it when the
+  // dashboard can carry the same message.
+  //
+  // That guard redirect and this function's own navigate() both fire off the
+  // same `user` update, in a race that has no guaranteed winner -- so the
+  // "show the instructor-only message" instruction is passed via a one-shot
+  // sessionStorage flag (see pendingPlan.js) rather than a ?billing= query
+  // param, since a query param attached by the loser of that race gets
+  // silently dropped when the winner's bare-path navigation lands after it.
+  //
+  // The plan itself is NOT cleared, so it survives in case the same browser
+  // later logs in with the correct instructor account. This is a UX nicety
+  // only; the real enforcement is server-side (instructorOnly middleware on
+  // the billing routes) since the frontend can never be trusted to gate this
+  // on its own.
   const redirectAfterAuth = async (role) => {
     const plan = getPendingPlan();
     if (!plan) {
       navigate(getRedirectPath(role));
-      return;
+      return { blockedInstructorOnly: false };
+    }
+    if (role !== 'INSTRUCTOR') {
+      flagInstructorOnlyBlock();
+      navigate(getRedirectPath(role));
+      return { blockedInstructorOnly: true };
     }
     clearPendingPlan();
     try {
@@ -47,6 +74,7 @@ export const AuthProvider = ({ children }) => {
       toast.error(err.response?.data?.error || 'Could not start checkout for the selected plan. You can try again from the Pricing page.');
       navigate(getRedirectPath(role));
     }
+    return { blockedInstructorOnly: false };
   };
 
   const login = async (email, password, remember = true) => {
@@ -57,8 +85,8 @@ export const AuthProvider = ({ children }) => {
       }
       setUser(data.user);
       authStorage.setSession(data.user, data.token, remember);
-      await redirectAfterAuth(data.user.role);
-      return { success: true, user: data.user };
+      const redirectResult = await redirectAfterAuth(data.user.role);
+      return { success: true, user: data.user, ...redirectResult };
     } catch (err) {
       const errorMessage = err.response?.data?.error || (err.request ? 'Unable to reach the server. Please try again later.' : 'Login failed: ' + err.message);
       return { success: false, error: errorMessage, verificationRequired: err.response?.data?.requiresVerification, email: err.response?.data?.email };
@@ -73,8 +101,8 @@ export const AuthProvider = ({ children }) => {
       }
       setUser(data.user);
       authStorage.setSession(data.user, data.token, true);
-      await redirectAfterAuth(data.user.role);
-      return { success: true };
+      const redirectResult = await redirectAfterAuth(data.user.role);
+      return { success: true, ...redirectResult };
     } catch (err) {
       const errorMessage = err.response?.data?.error || (err.request ? 'Unable to reach the server. Please try again later.' : 'Registration failed: ' + err.message);
       return { success: false, error: errorMessage };
@@ -117,7 +145,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, onboardingInProgress, setOnboardingInProgress, login, register, updateProfile, verifyOTP, logout }}>
+    <AuthContext.Provider value={{ user, loading, onboardingInProgress, setOnboardingInProgress, login, register, updateProfile, verifyOTP, logout, redirectAfterAuth }}>
       {!loading && children}
     </AuthContext.Provider>
   );

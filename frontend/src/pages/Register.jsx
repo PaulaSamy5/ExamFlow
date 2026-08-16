@@ -3,17 +3,24 @@ import { useAuth } from '../store/AuthContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Loader2, ArrowRight, GraduationCap, ShieldCheck, ArrowLeft,
-  Mail, User, Lock, Eye, EyeOff, Check, Camera, ImagePlus, KeyRound, Trash2
+  Mail, User, Lock, Eye, EyeOff, Check, Camera, ImagePlus, KeyRound, Trash2, Info
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { FieldError, inputStateClass } from '../components/FieldError';
+import { getPendingPlan } from '../lib/pendingPlan';
 
 const DRAFT_KEY = 'reg_draft';
 
 const Register = () => {
-  const { register, verifyOTP, updateProfile, setOnboardingInProgress } = useAuth();
+  const { register, verifyOTP, updateProfile, setOnboardingInProgress, redirectAfterAuth } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Arriving here with a paid plan already selected (Landing Page -> Login ->
+  // Create Account) means this signup is unambiguously for an instructor
+  // subscription -- frozen at mount so it can't flip mid-flow if the plan
+  // gets cleared elsewhere.
+  const [isSubscriptionSignup] = useState(() => !!getPendingPlan());
 
   // ── Restore draft from sessionStorage on first mount ──────────────────────
   const savedDraft = (() => {
@@ -35,7 +42,10 @@ const Register = () => {
   // Form Data
   const [firstName, setFirstName] = useState(savedDraft?.firstName || '');
   const [lastName, setLastName] = useState(savedDraft?.lastName || '');
-  const [role, setRole] = useState(savedDraft?.role || null);
+  // Subscription signups are always for an instructor account -- forced
+  // regardless of any restored draft, and the role picker below is hidden
+  // entirely in this mode so there's nothing for the user to get wrong.
+  const [role, setRole] = useState(() => (isSubscriptionSignup ? 'INSTRUCTOR' : (savedDraft?.role || null)));
   const [email, setEmail] = useState(savedDraft?.email || location.state?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -258,11 +268,21 @@ const Register = () => {
       profileImage || null,
       null
     );
-    setLoading(false);
     clearDraft(); // Registration complete — wipe the saved draft
     setOnboardingInProgress(false);
     toast.success('Setup Complete! Welcome aboard. ✨');
-    navigate('/dashboard');
+    // Continues straight to Stripe Checkout if a plan was pending from the
+    // Landing Page (role is always INSTRUCTOR in that case -- see
+    // isSubscriptionSignup above), otherwise this is just the normal
+    // role-based dashboard redirect, unchanged from before.
+    const result = await redirectAfterAuth(role);
+    setLoading(false);
+    if (result?.blockedInstructorOnly) {
+      // Not reachable in practice (subscription signups always force
+      // role=INSTRUCTOR), but fall back safely rather than leaving the user
+      // stuck on this screen if it ever is.
+      navigate('/dashboard');
+    }
   };
 
   const animationClass = direction === 1 ? 'animate-in fade-in slide-in-from-right-8' : 'animate-in fade-in slide-in-from-left-8';
@@ -292,38 +312,47 @@ const Register = () => {
           {/* STEP 1: Basic Info */}
           {step === 1 && (
             <div className={`space-y-6 ${animationClass} duration-500`}>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">I am a</label>
-                <div className={`grid grid-cols-2 gap-3 ${errors.role ? 'ring-2 ring-rose-500/30 rounded-2xl p-1' : ''}`}>
-                  <button
-                    type="button"
-                    onClick={() => { setRole('STUDENT'); setErrors(p => ({ ...p, role: '' })); }}
-                    className={`relative p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-300 ${
-                      role === 'STUDENT'
-                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 shadow-md transform scale-[1.02]'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 hover:bg-white dark:hover:bg-slate-800/50 text-slate-500 scale-100'
-                    }`}
-                  >
-                    <GraduationCap className={`w-8 h-8 transition-colors ${role === 'STUDENT' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
-                    <span className="font-bold text-sm">Student</span>
-                    {role === 'STUDENT' && <CheckCircleIcon />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setRole('INSTRUCTOR'); setErrors(p => ({ ...p, role: '' })); }}
-                    className={`relative p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-300 ${
-                      role === 'INSTRUCTOR'
-                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 shadow-md transform scale-[1.02]'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 hover:bg-white dark:hover:bg-slate-800/50 text-slate-500 scale-100'
-                    }`}
-                  >
-                    <ShieldCheck className={`w-8 h-8 transition-colors ${role === 'INSTRUCTOR' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
-                    <span className="font-bold text-sm">Instructor</span>
-                    {role === 'INSTRUCTOR' && <CheckCircleIcon />}
-                  </button>
+              {isSubscriptionSignup ? (
+                <div className="flex items-start gap-2.5 px-4 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20">
+                  <Info className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-indigo-800 dark:text-indigo-300 leading-relaxed">
+                    Instructor plans are available for instructors only. You're creating an instructor account to continue your subscription.
+                  </p>
                 </div>
-                <FieldError message={errors.role} />
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">I am a</label>
+                  <div className={`grid grid-cols-2 gap-3 ${errors.role ? 'ring-2 ring-rose-500/30 rounded-2xl p-1' : ''}`}>
+                    <button
+                      type="button"
+                      onClick={() => { setRole('STUDENT'); setErrors(p => ({ ...p, role: '' })); }}
+                      className={`relative p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-300 ${
+                        role === 'STUDENT'
+                          ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 shadow-md transform scale-[1.02]'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 hover:bg-white dark:hover:bg-slate-800/50 text-slate-500 scale-100'
+                      }`}
+                    >
+                      <GraduationCap className={`w-8 h-8 transition-colors ${role === 'STUDENT' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+                      <span className="font-bold text-sm">Student</span>
+                      {role === 'STUDENT' && <CheckCircleIcon />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setRole('INSTRUCTOR'); setErrors(p => ({ ...p, role: '' })); }}
+                      className={`relative p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-300 ${
+                        role === 'INSTRUCTOR'
+                          ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 shadow-md transform scale-[1.02]'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 hover:bg-white dark:hover:bg-slate-800/50 text-slate-500 scale-100'
+                      }`}
+                    >
+                      <ShieldCheck className={`w-8 h-8 transition-colors ${role === 'INSTRUCTOR' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+                      <span className="font-bold text-sm">Instructor</span>
+                      {role === 'INSTRUCTOR' && <CheckCircleIcon />}
+                    </button>
+                  </div>
+                  <FieldError message={errors.role} />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
