@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/api';
-import { Plus, BookOpen, Clock, Award, Calendar, Trash2, TrendingUp, Users, Search, ChevronRight, QrCode, Copy, X, Eye, EyeOff, Edit, Download, Check, Printer, Globe, FileText } from 'lucide-react';
+import { Plus, BookOpen, Clock, Award, Calendar, Trash2, TrendingUp, Users, Search, ChevronRight, QrCode, Copy, X, Eye, EyeOff, Edit, Download, Check, Printer, Globe, FileText, AlertCircle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 
@@ -173,24 +173,32 @@ const DeleteModal = ({ exam, onConfirm, onClose, isDeleting }) => {
 const InstructorDashboard = () => {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'online', 'printable'
   const [selectedExamForQR, setSelectedExamForQR] = useState(null);
   const [examToDelete, setExamToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Create Exam stays disabled until this resolves successfully at least
+  // once -- clicking through before the instructor's existing exams have
+  // loaded risks them not noticing a duplicate they already have.
+  const fetchExams = async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const { data } = await api.get('/exams');
+      setExams(data || []);
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || err.message || 'Unknown network error';
+      toast.error(`Failed to load exams: ${errorMsg}`);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchExams = async () => {
-      try {
-        const { data } = await api.get('/exams');
-        setExams(data || []);
-      } catch (err) {
-        const errorMsg = err.response?.data?.error || err.message || 'Unknown network error';
-        toast.error(`Failed to load exams: ${errorMsg}`);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchExams();
   }, []);
 
@@ -255,27 +263,47 @@ const InstructorDashboard = () => {
               </div>
               <div className="text-left">
                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Exams</p>
-                <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">{exams.length}</p>
+                {loading ? (
+                  <span className="block h-3.5 w-6 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
+                ) : (
+                  <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">{loadError ? '—' : exams.length}</p>
+                )}
               </div>
             </div>
-            
+
             <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
-            
+
             <div className="flex items-center gap-3 px-3 py-1">
               <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                 <TrendingUp className="h-4 w-4 text-emerald-400" />
               </div>
               <div className="text-left">
                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Questions</p>
-                <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">{totalQuestions}</p>
+                {loading ? (
+                  <span className="block h-3.5 w-6 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
+                ) : (
+                  <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">{loadError ? '—' : totalQuestions}</p>
+                )}
               </div>
             </div>
           </div>
 
-          <Link to="/exams/new" className="tour-create-exam-btn h-12 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 w-full sm:w-auto shrink-0 btn-lift">
-            <Plus className="h-5 w-5" />
-            Create Exam
-          </Link>
+          {loading || loadError ? (
+            <button
+              type="button"
+              disabled
+              title={loading ? 'Loading your exams…' : 'Retry loading your exams before creating a new one'}
+              className="tour-create-exam-btn h-12 px-6 rounded-2xl bg-indigo-600/40 text-white/70 text-sm font-semibold flex items-center justify-center gap-2 w-full sm:w-auto shrink-0 cursor-not-allowed"
+            >
+              <Plus className="h-5 w-5" />
+              Create Exam
+            </button>
+          ) : (
+            <Link to="/exams/new" className="tour-create-exam-btn h-12 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 w-full sm:w-auto shrink-0 btn-lift">
+              <Plus className="h-5 w-5" />
+              Create Exam
+            </Link>
+          )}
         </div>
       </section>
 
@@ -299,12 +327,12 @@ const InstructorDashboard = () => {
               }`}
             >
               {tab.label}
-              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${
+              <span className={`min-w-[18px] px-2 py-0.5 rounded-lg text-[10px] font-black ${
                 activeTab === tab.id
                   ? 'bg-indigo-50 dark:bg-slate-700/60 text-indigo-600 dark:text-slate-300'
                   : 'bg-slate-200/60 dark:bg-slate-800/40 text-slate-500 dark:text-slate-500'
               }`}>
-                {tab.count}
+                {loading ? <span className="inline-block h-2 w-2 rounded-full bg-current opacity-40 animate-pulse" /> : (loadError ? '—' : tab.count)}
               </span>
             </button>
           ))}
@@ -336,10 +364,38 @@ const InstructorDashboard = () => {
 
       {/* ─── Exam Cards ─── */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-48 bg-slate-50 dark:bg-slate-900/40 rounded-xl animate-pulse" />
+        <div className="space-y-10">
+          {[0, 1].map((section) => (
+            <div key={section}>
+              <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-3 mb-5">
+                <div className="h-5 w-5 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                <div className="h-4 w-32 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[1, 2].map(i => (
+                  <div key={i} className="h-48 bg-slate-50 dark:bg-slate-900/40 rounded-xl animate-pulse" />
+                ))}
+              </div>
+            </div>
           ))}
+        </div>
+      ) : loadError ? (
+        <div className="flex flex-col items-center justify-center gap-4 bg-white dark:bg-slate-900/30 border border-dashed border-rose-200 dark:border-rose-500/20 rounded-2xl px-6 py-16 text-center shadow-sm dark:shadow-none">
+          <div className="h-12 w-12 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center">
+            <AlertCircle className="h-6 w-6 text-rose-500" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Couldn&rsquo;t load your exams</p>
+            <p className="text-xs text-slate-500 mt-1">Check your connection and try again.</p>
+          </div>
+          <button
+            type="button"
+            onClick={fetchExams}
+            className="flex items-center gap-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl transition-all active:scale-95"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry
+          </button>
         </div>
       ) : (() => {
         const onlineExams = filteredExams.filter(e => e.examType !== 'PRINTABLE_ONLY');
