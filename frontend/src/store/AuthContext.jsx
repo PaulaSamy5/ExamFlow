@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import api from '../lib/api';
 import { authStorage } from '../lib/authStorage';
 import { getPendingPlan, clearPendingPlan, flagInstructorOnlyBlock } from '../lib/pendingPlan';
+import { BILLING_ENABLED } from '../lib/featureFlags';
 
 const AuthContext = createContext();
 
@@ -56,7 +57,11 @@ export const AuthProvider = ({ children }) => {
   // the billing routes) since the frontend can never be trusted to gate this
   // on its own.
   const redirectAfterAuth = async (role) => {
-    const plan = getPendingPlan();
+    // Paid rollout is temporarily paused (see featureFlags.js) -- the
+    // Landing Page can no longer create a new pending plan, but this guards
+    // against any value already saved from before the pause, so no stale
+    // localStorage entry can silently trigger a checkout while disabled.
+    const plan = BILLING_ENABLED ? getPendingPlan() : null;
     if (!plan) {
       navigate(getRedirectPath(role));
       return { blockedInstructorOnly: false };

@@ -3,6 +3,7 @@ import { motion, useInView } from 'framer-motion';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { savePendingPlan } from '../lib/pendingPlan';
+import { BILLING_ENABLED } from '../lib/featureFlags';
 import {
   Sparkles, Brain, FileEdit, SpellCheck, ShieldCheck,
   ArrowRight, Check, Crown, Zap, Rocket, ChevronDown,
@@ -523,6 +524,9 @@ function PricingSection() {
       navigate('/register');
       return;
     }
+    // Paid rollout is temporarily paused (see featureFlags.js) -- the button
+    // itself is disabled below, this is just a safety net.
+    if (!BILLING_ENABLED) return;
     savePendingPlan(planKey);
     navigate('/login');
   };
@@ -586,13 +590,16 @@ function PricingSection() {
 
                   <button
                     onClick={() => handleSelectPlan(plan.key)}
+                    disabled={plan.key !== 'FREE' && !BILLING_ENABLED}
                     className={`w-full py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-300 active:scale-[0.98] border ${
-                      plan.popular
-                        ? 'bg-white text-indigo-600 border-white hover:bg-indigo-50'
-                        : 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 border-transparent hover:bg-slate-800 dark:hover:bg-slate-100'
+                      plan.key !== 'FREE' && !BILLING_ENABLED
+                        ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-transparent cursor-not-allowed'
+                        : plan.popular
+                          ? 'bg-white text-indigo-600 border-white hover:bg-indigo-50'
+                          : 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 border-transparent hover:bg-slate-800 dark:hover:bg-slate-100'
                     }`}
                   >
-                    {plan.key === 'FREE' ? 'Get Started Free' : 'Select Plan'}
+                    {plan.key === 'FREE' ? 'Get Started Free' : (BILLING_ENABLED ? 'Select Plan' : 'Coming Soon')}
                   </button>
               </div>
             ))}

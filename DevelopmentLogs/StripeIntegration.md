@@ -469,6 +469,86 @@ Frontend's `VITE_STRIPE_PUBLISHABLE_KEY` is still pending — not yet provided b
 - `frontend/src/pages/Register.jsx`: remove `isSubscriptionSignup` and revert Step 1 to always show the role picker; revert `handleComplete()` to `navigate('/dashboard')` if the direct-to-checkout continuation is no longer wanted (not recommended — that was a pre-existing bug fix, independent of the rest of this milestone).
 - No database rollback needed — nothing in this step altered the schema.
 
-**Milestone 9 status: ✅ implemented and verified locally (frontend flow, backend security enforcement, and per-plan Stripe price mapping all confirmed via Playwright + direct API calls). Deployment and production verification tracked separately below once pushed.**
+**Milestone 9 status: ✅ implemented and verified locally (frontend flow, backend security enforcement, and per-plan Stripe price mapping all confirmed via Playwright + direct API calls), deployed, and confirmed working in production (Railway needed a full disconnect/reconnect of its GitHub source plus an empty trigger commit before it picked up the new commits — the reconnect-only fix from Steps 02/05/07 was insufficient this time; Vercel built and aliased correctly on the first push but its edge CDN served a stale cached copy at `X-Vercel-Cache: HIT` for an extended period afterward before resolving on its own — not a deploy failure, just slow cache invalidation, confirmed via the deployment's own "Ready"/"Production Current" status in the Vercel dashboard while the edge was still stale). Manual production verification (Tests A–C of the plan below) confirmed working by the account owner directly.**
+
+---
+
+# Step 10
+
+**Date:** 2026-08-17
+
+**Goal:** Pause the user-facing paid-subscription rollout (Landing Page paid plans return to "Coming Soon") while keeping every piece of the billing implementation built in Steps 01–09 fully intact, so it can be switched back on later with a one-line config change instead of re-implementing anything. Triggered by two things the account owner surfaced after manually testing Step 09's flow end-to-end: (1) all testing so far has used Stripe **test mode** — no real money has ever moved, and a real cardholder's payment would only work once the app is switched to Stripe **live** API keys, which involves account/business verification the owner hasn't completed yet; (2) Egypt is not currently a Stripe-supported country for a Stripe Payments account, so the actual live-mode payment provider is still an open decision — not something to implement today.
+
+**Files Modified:**
+- `frontend/src/pages/HomePage.jsx` — Reason: `PricingSection`'s paid-plan buttons (Starter/Professional/Business) now render disabled with the label "Coming Soon" instead of "Select Plan" whenever billing is off, using the exact same button element/classes/sizing as before (only the color/label/disabled state change) so the card design, spacing, and copy are pixel-identical to Step 09 — nothing about the pricing cards themselves (features lists, prices, the Professional "Most Popular" styling) was touched. `handleSelectPlan` also short-circuits before `savePendingPlan`/`navigate('/login')` for paid plans when billing is off, as a second layer behind the disabled button (defense in depth, not strictly required since a disabled button can't fire `onClick`, but cheap insurance against any future change to the button that accidentally drops the `disabled` prop). Free plan behavior (`Get Started Free` → `/register`) is completely unchanged.
+- `frontend/src/store/AuthContext.jsx` — Reason: `redirectAfterAuth` now reads `getPendingPlan()` only when billing is on; when it's off, it behaves as if no plan were ever pending, falling straight through to the normal role-based dashboard redirect. This is the safety net for anyone who saved a plan to `localStorage` *before* this change shipped (e.g. mid-testing) and logs in *after* — without this, Step 09's Login→Checkout logic would still fire for that one stale value even though the Landing Page can no longer create new ones. Nothing else in the function changed; when billing is re-enabled this line reads the same as it did in Step 09.
+- `frontend/.env` / `frontend/.env.production` — Reason: added `VITE_BILLING_ENABLED=false` to both, with an inline comment pointing back to this log for reactivation. No other variables touched — `VITE_STRIPE_PUBLISHABLE_KEY` and `VITE_API_URL` are untouched and still test-mode/production values respectively.
+
+**New Files:**
+- `frontend/src/lib/featureFlags.js` — a single exported constant, `BILLING_ENABLED = import.meta.env.VITE_BILLING_ENABLED === 'true'`. Defaults to **disabled** if the env var is ever missing (fails closed, not open) — deliberate, since the cost of accidentally leaving paid checkout reachable is much higher than the cost of accidentally hiding it. This is the only feature-flag mechanism introduced; no config/admin-panel/database-flag system was built since the project doesn't already have one and the request was explicit about not adding unnecessary complexity.
+
+**Deleted Files:** None. **No billing code, route, service, database table/column, or Stripe configuration was removed or altered.**
+
+**Database Changes:** None.
+
+**Environment Variables Added:** `VITE_BILLING_ENABLED` (frontend-only; see above). No backend environment variables changed — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and every Stripe Price ID stay exactly as configured, still pointing at Stripe **test mode**.
+
+**Routes Added/Removed:** None. Every `/api/billing/*` route (`GET /status`, `POST /checkout`, `POST /change-plan`, `POST /cancel`, `POST /resume`, `GET /invoices`, `POST /webhook`) is untouched and still fully functional — this pause is a frontend-only gate. An authenticated Instructor calling these directly (e.g. via the Billing page in Profile Settings, or a raw API call) can still open a test-mode Checkout session exactly as before; the only thing removed is the Landing Page's ability to *start* that journey for a new visitor. This was a deliberate scope decision — the request's own goal statement was specifically "Landing Page → Paid Plans → Coming Soon," and the existing Billing/Profile page falls under "existing users should continue using ExamFlow normally" rather than the paused flow.
+
+**Components Added:** None.
+
+**Services Added:** None.
+
+**Bug Fixes:** None.
+
+**Preserved Billing Infrastructure (confirmed untouched):**
+Stripe SDK integration (`StripeService.js`), all billing API routes and controller logic, Checkout session creation, subscription change/cancel/resume logic, webhook signature verification and handling, the `Subscriptions`/`Invoices` database tables and their `COLUMN_MAP` entries, plan-to-Stripe-Price-ID configuration, the `GET /billing/status` and `GET /billing/invoices` endpoints, `instructorOnly` middleware enforcement on all billing-mutation routes (Step 09), the full selected-plan-survives-login/register flow in `AuthContext.redirectAfterAuth` and `Register.jsx` (Step 09), and the entire environment variable structure for both test-mode and future live-mode keys.
+
+**How it works now:**
+- Landing Page: paid plan buttons show "Coming Soon," disabled, no click handler fires. Free plan works exactly as before.
+- `AuthContext.redirectAfterAuth`: ignores any pending plan while `BILLING_ENABLED` is false, so login/register always falls through to the normal dashboard redirect.
+- Login page, Register page, Instructor/Student dashboards, exam creation/grading/everything non-billing: **completely unaffected**, since none of that code path touches `featureFlags.js` at all.
+- Billing/Profile page (`BillingCard.jsx`) for an already-existing subscriber: unaffected, still fully functional (see the routes note above for why this was kept in scope).
+
+**How to test it:**
+1. Open the Landing Page logged out. The three paid plan cards show a greyed-out "Coming Soon" button; Free still shows an active "Get Started Free" button with the same styling as before.
+2. Click a paid plan's "Coming Soon" button. Expect: nothing happens — no navigation, no `localStorage` write (`examflow_pending_plan` stays unset), no console error.
+3. Click "Get Started Free." Expect: normal registration flow, unchanged from Step 09.
+4. Log in as an existing Instructor with no pending plan. Expect: normal Instructor Dashboard, exactly as before.
+5. (Optional, confirms the safety net) In DevTools, manually run `localStorage.setItem('examflow_pending_plan', 'PROFESSIONAL')`, then log in. Expect: still lands on the normal dashboard, **not** Stripe Checkout — proves `redirectAfterAuth`'s billing check is working, not just the button being disabled.
+
+**Deployment:**
+- Tested locally first (Vite dev server + local backend) via Playwright: confirmed all three paid buttons render "Coming Soon" and are truly `disabled` (not just styled to look disabled), confirmed clicking one does not write to `localStorage` or navigate, confirmed the Free plan button is unaffected and still routes to `/register`, and confirmed normal registration (role picker, etc.) renders identically to Step 09.
+- Committed and pushed to `main`.
+- Deployed to Vercel (frontend-only change — Railway/backend required no redeploy since no backend file changed) and verified live.
+
+**Rollback Instructions (to fully revert Step 10 and go back to Step 09's always-on paid flow):**
+- Set `VITE_BILLING_ENABLED=true` in `frontend/.env.production` (and `frontend/.env` for local dev) and redeploy — this alone restores Step 09's exact behavior with no code changes needed.
+- If removing the flag mechanism entirely is ever wanted instead of just flipping it: delete `frontend/src/lib/featureFlags.js`, remove its import and the `disabled`/label conditionals in `HomePage.jsx`'s `PricingSection` (revert the button to the Step 09 version), remove the `BILLING_ENABLED` check in `AuthContext.redirectAfterAuth` (revert to `const plan = getPendingPlan();`), and remove the `VITE_BILLING_ENABLED` lines from both `.env` files. Not recommended over just flipping the flag, but documented for completeness.
+
+**Billing Status: IMPLEMENTED IN TEST MODE — TEMPORARILY DISABLED FOR PRODUCTION (user-facing paid flow only; backend and infrastructure remain fully live and testable directly).**
+
+**No real money was processed at any point during the Test Mode phase (Steps 01–10).** Every Checkout session, subscription, and payment used Stripe's test-mode API keys and Stripe's standard test card (`4242 4242 4242 4242`); none of it touches a real bank account or a real customer's real card.
+
+**Where we stopped — remaining steps before going Live:**
+1. Decide on the production payment provider (see "Production Payment Provider Decision" below).
+2. If Stripe is selected, determine the legally/business-eligible Stripe account setup for the chosen provider path.
+3. Complete Stripe account/business verification (or the equivalent for whichever provider is chosen).
+4. Configure Live-mode products/prices in Stripe (or the equivalent plan/price setup for the chosen provider).
+5. Configure Live API keys (backend `STRIPE_SECRET_KEY`, frontend `VITE_STRIPE_PUBLISHABLE_KEY`) — replacing, not merging with, the current test-mode keys.
+6. Configure the production webhook endpoint and its live-mode signing secret (`STRIPE_WEBHOOK_SECRET`).
+7. Configure any other production environment variables the chosen provider requires.
+8. Set `VITE_BILLING_ENABLED=true` to re-enable the user-facing flow.
+9. Perform a complete live-mode verification pass (Tests A–F from Step 09's manual test plan, repeated against live keys with a real low-value card if possible, or at minimum a full dry run of the Checkout UI).
+10. Confirm payout/bank settlement is configured (business/individual verification + bank account linked in the payment provider's dashboard) before considering the rollout complete.
+
+**Production Payment Provider Decision:**
+- Stripe is currently implemented and working in **Test Mode** — this is the architecture we're keeping.
+- **Egypt is not currently listed by Stripe as a directly supported country** for opening a Stripe Payments account, so a direct live-mode Stripe account is not immediately available as-is.
+- **Stripe Atlas** (forming a US company, then opening Stripe through that entity) is one possible route, but it carries real legal, business-registration, and tax implications that need to be evaluated deliberately — **not implemented, purchased, or started as part of this step.**
+- **Egyptian payment providers** such as **Fawry** or **Paymob** are possible alternatives worth evaluating later for a more direct local-market fit.
+- No assumption has been made about which provider will ultimately be used — this is purely a documented open decision for a future step, and no integration work toward any specific alternative provider has been started.
+
+**Milestone 10 status: ✅ complete — paid rollout paused, all billing infrastructure preserved and confirmed still functional, deployed and verified live.**
 
 
